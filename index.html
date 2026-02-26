@@ -525,7 +525,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		<div class="stat-card" style="margin-bottom:20px;">
 			<h3>Ritkasági küszöb</h3>
 			<div class="form-row">
-				<input type="number" id="setRareLimit" onchange="rareLimit=parseInt(this.value); localStorage.setItem('slopRareLimit', rareLimit); renderSettings();"> 
+				<input type="number" id="setRareLimit" onchange="rareLimit=parseInt(this.value); window.saveToFirebase(); window.renderSettings();">
 				<span>(Ennél kevesebb albummal rendelkező műfajok számítanak ritkának)</span>
 			</div>
 		</div>
@@ -624,35 +624,56 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 	Chart.register(ChartDataLabels);
 	let sortAsc = false;
 	let albums = [];
-		async function loadFromFirebase() {
-			try {
-				const docRef = doc(db, "data", "library");
-				const docSnap = await getDoc(docRef);
-
-				if (docSnap.exists()) {
-					albums = docSnap.data().albums || [];
-					console.log("🔥 Adatok betöltve a Firebase-ből!");
-				} else {
-					console.log("ℹ️ Nincs adat a Firebase-ben, üres lista.");
-					// Opcionális: Ha első alkalommal mész fel, áthúzhatod a localstorage-ból:
-					// albums = JSON.parse(localStorage.getItem('slopLibrary')) || [];
-				}
-				runFilter(); // Lista kirajzolása
-			} catch (e) {
-				console.error("Hiba a betöltés során: ", e);
-			}
-		}
-
-	loadFromFirebase();
 	
-	let todos = JSON.parse(localStorage.getItem('slopTodo')) || [];
-	let slopG = JSON.parse(localStorage.getItem('slopSettings')) || [];
+	// Kezdeti alapértékek (majd a Firebase felülírja őket, ha van mentés)
+	let todos = [];
+	let slopG = [];
+	let rareLimit = 3;
 	let charts = {};
 	let editIdx = -1;
 	let currentPage = 1;
 	let itemsPerPage = 25;
 	let topSortAsc = false;
-	let rareLimit = parseInt(localStorage.getItem('slopRareLimit')) || 3;
+
+	async function loadFromFirebase() {
+		try {
+			const docRef = doc(db, "data", "library");
+			const docSnap = await getDoc(docRef);
+
+			if (docSnap.exists()) {
+				const data = docSnap.data(); // Kimentjük a teljes felhős csomagot
+				
+				// Betöltjük a felhős adatokat a változókba
+				albums = data.albums || [];
+				todos = data.todos || [];
+				
+				if (data.slopG !== undefined) slopG = data.slopG;
+				if (data.rareLimit !== undefined) rareLimit = data.rareLimit;
+
+				console.log("🔥 Adatok és beállítások betöltve a Firebase-ből!");
+			} else {
+				console.log("ℹ️ Nincs adat a Firebase-ben. (Első indítás vagy üres adatbázis)");
+				// Vészhelyzeti / Első indítási beolvasás a régi localStorage-ból:
+				todos = JSON.parse(localStorage.getItem('slopTodo')) || [];
+				slopG = JSON.parse(localStorage.getItem('slopSettings')) || [];
+				rareLimit = parseInt(localStorage.getItem('slopRareLimit')) || 8;
+			}
+			
+			// Miután minden adat lejött a felhőből, frissítjük a képernyőt:
+			runFilter(); 
+			
+			// Ha van To-Do rajzoló függvényed, azt is meghívjuk:
+			if (typeof updateTodoUI === 'function') updateTodoUI(); 
+			
+			// És a legfontosabb: frissítjük a Beállítások oldalt is, hogy jó helyen legyenek a pipák!
+			if (typeof renderSettings === 'function') renderSettings(); 
+
+		} catch (e) {
+			console.error("Hiba a betöltés során: ", e);
+		}
+	}
+
+	loadFromFirebase();
 
 
 	const recommenders = {
@@ -1033,8 +1054,13 @@ window.renderPagination = function(totalPages, totalItems) {
 			</div>`).join('');
 	}
 
-	window.tSlop = function(g) { slopG.includes(g) ? slopG=slopG.filter(x=>x!==g) : slopG.push(g); localStorage.setItem('slopSettings', JSON.stringify(slopG)); renderSettings(); }
-
+	window.tSlop = function(g) { 
+		slopG.includes(g) ? slopG = slopG.filter(x => x !== g) : slopG.push(g); 
+		
+		// Helyi mentés helyett azonnal küldjük a felhőbe!
+		window.saveToFirebase(); 
+		window.renderSettings(); 
+	}
 	window.openLB = function(src) { if(src) { document.getElementById('lb-img').src=src; document.getElementById('lightbox').style.display='flex'; } }
 	
 	window.resetFilters = function() { 
@@ -1654,7 +1680,9 @@ async function saveToFirebase() {
         // Elmentjük az egészet egy "data" nevű kollekció "current" dokumentumába
         await setDoc(doc(db, "data", "library"), {
             albums: albums,
-			todos: todos
+			todos: todos,
+			rareLimit: rareLimit,
+			slopG: slopG
         });
         console.log("Sikeres mentés a felhőbe!");
     } catch (e) {
