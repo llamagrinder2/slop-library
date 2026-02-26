@@ -896,31 +896,45 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		}
 	};
 
-	window.renderPagination = function(totalPages, totalItems) {
-		const container = document.getElementById('listContainer');
-		let html = `
-			<div class="pagination-container">
-				<div style="display:flex; align-items:center; gap:10px;">
-					<span>Bontás:</span>
-					<select onchange="itemsPerPage=parseInt(this.value); currentPage=1; runFilter();" style="width:80px; padding:5px;">
-						<option value="10" ${itemsPerPage==10?'selected':''}>10</option>
-						<option value="25" ${itemsPerPage==25?'selected':''}>25</option>
-						<option value="50" ${itemsPerPage==50?'selected':''}>50</option>
-						<option value="100" ${itemsPerPage==100?'selected':''}>100</option>
-					</select>
-					<small style="color:#888;">(Találatok: ${totalItems})</small>
-				</div>
-				<div class="page-btns">
-					<button class="page-btn" onclick="currentPage=1; runFilter();" ${currentPage==1?'disabled':''}>«</button>
-					${Array.from({length: totalPages}, (_, i) => i + 1).map(p => {
-						if (totalPages > 10 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) return p === 2 || p === totalPages - 1 ? '...' : '';
-						return `<button class="page-btn ${p===currentPage?'active':''}" onclick="currentPage=${p}; runFilter();">${p}</button>`;
-					}).join('').replace(/\.\.\.\.\.\./g, '...')}
-					<button class="page-btn" onclick="currentPage=${totalPages}; runFilter();" ${currentPage==totalPages?'disabled':''}>»</button>
-				</div>
-			</div>`;
-		container.innerHTML += html;
-	}
+// 1. Két segédfüggvény a lapozáshoz és a bontás beállításához
+window.changePage = function(pageNumber) {
+    currentPage = pageNumber;
+    window.runFilter(); // Vagy simán runFilter(), ha a modulon belül hívod
+    window.scrollTo(0, 0); // Opcionális extra: lapozáskor felugrik az oldal tetejére
+};
+
+window.changeItemsPerPage = function(amount) {
+    itemsPerPage = parseInt(amount);
+    currentPage = 1;
+    window.runFilter();
+};
+
+// 2. A módosított renderPagination
+window.renderPagination = function(totalPages, totalItems) {
+	const container = document.getElementById('listContainer');
+	let html = `
+		<div class="pagination-container">
+			<div style="display:flex; align-items:center; gap:10px;">
+				<span>Bontás:</span>
+				<select onchange="window.changeItemsPerPage(this.value);" style="width:80px; padding:5px;">
+					<option value="10" ${itemsPerPage==10?'selected':''}>10</option>
+					<option value="25" ${itemsPerPage==25?'selected':''}>25</option>
+					<option value="50" ${itemsPerPage==50?'selected':''}>50</option>
+					<option value="100" ${itemsPerPage==100?'selected':''}>100</option>
+				</select>
+				<small style="color:#888;">(Találatok: ${totalItems})</small>
+			</div>
+			<div class="page-btns">
+				<button class="page-btn" onclick="window.changePage(1);" ${currentPage==1?'disabled':''}>«</button>
+				${Array.from({length: totalPages}, (_, i) => i + 1).map(p => {
+					if (totalPages > 10 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) return p === 2 || p === totalPages - 1 ? '...' : '';
+					return `<button class="page-btn ${p===currentPage?'active':''}" onclick="window.changePage(${p});">${p}</button>`;
+				}).join('').replace(/\.\.\.\.\.\./g, '...')}
+				<button class="page-btn" onclick="window.changePage(${totalPages});" ${currentPage==totalPages?'disabled':''}>»</button>
+			</div>
+		</div>`;
+	container.innerHTML += html;
+}
 
 	window.renderTodo = function() {
 		const container = document.getElementById('todoContainer');
@@ -1652,3 +1666,4 @@ window.saveToFirebase = saveToFirebase;
 </body>
 
 </html>
+
