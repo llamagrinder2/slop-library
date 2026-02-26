@@ -1,0 +1,1653 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+	<meta charset="UTF-8">
+	<title>Slop Library - Deluxe Edition</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<style>
+		:root { 
+			--bg-color: #121212; 
+			--card-bg: #1e1e1e; 
+			--text-color: #e0e0e0; 
+			--accent: #ffcc00; 
+			--danger: #ff4444; 
+			--success: #44ff44;
+		}
+		body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding-bottom: 50px; }
+		
+		nav { 
+			background: #252525; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; 
+			border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 1000; 
+		}
+		.nav-logo { color: var(--accent); font-size: 1.2em; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+		.nav-links { display: flex; gap: 15px; }
+		nav button { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 8px 18px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+		nav button.active { background: var(--accent); color: #000; }
+
+		.container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
+		.page { display: none; }
+		.page.active { display: block; }
+
+		.module-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #444; margin-bottom: 20px; display: none; }
+		.form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+		input, textarea, select { background: #2d2d2d; border: 1px solid #444; color: white; padding: 12px; border-radius: 6px; flex: 1; }
+		.ctrl-btn { padding: 12px; font-weight: bold; border-radius: 8px; border: 1px solid #444; background: #252525; color: white; cursor: pointer; flex: 1; transition: 0.2s; }
+		.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+		.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; }
+		.row-number { background: #333; color: #888; display: flex; align-items: center; justify-content: center; min-width: 40px; font-weight: bold; flex-shrink: 0; }
+		.album-art-container {
+			width: 180px; /* Ugyanaz a szélesség, amit a képnek adtál */
+			min-width: 180px; /* Hogy ne nyomja össze a szöveg */
+			display: flex;
+			align-items: center; /* Függőlegesen középre teszi a képet */
+			justify-content: center; /* Vízszintesen középre teszi a képet */
+			position: relative;
+			overflow: hidden; /* Ez kell majd a homályosított háttérhez */
+			background: #151515; /* Egy sötét alap, amíg tölt a kép */
+		}
+		.album-art-blur {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 120%; /* Kicsit nagyobb, hogy ne látszódjanak a szélei a homályosítás miatt */
+			height: 120%;
+			object-fit: cover;
+			transform: translate(-50%, -50%) scale(1.2); /* Középre teszi és nagyítja */
+			filter: blur(12px) brightness(0.5); /* Itt állíthatod a homályosságot és sötétséget */
+			z-index: 1; /* Alulra kerül */
+			pointer-events: none; /* Ne lehessen rákattintani */
+		}
+		.album-art {
+			width: 160px; /* Kicsit kisebb, mint a konténer, hogy legyen körülötte tér */
+			height: 160px;
+			object-fit: cover;
+			border-radius: 4px;
+			cursor: pointer;
+			z-index: 2;
+			position: relative;
+			box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Egy kis árnyék, hogy elváljon a majdani háttértől */
+		}
+		.album-info { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+		.artist-name { color: var(--accent); font-size: 1.2em; font-weight: bold; margin: 0; transition: 0.2s; cursor: pointer; display: inline-block; }
+		.artist-name:hover { text-decoration: underline; color: #fff; }
+		.score-badge { position: absolute; top: 15px; right: 15px; padding: 8px 12px; border-radius: 6px; font-weight: bold; color: white; }
+		
+		.review-text { font-size: 0.9em; font-style: italic; color: #bbb; margin-top: 10px; border-left: 2px solid var(--accent); padding-left: 10px; }
+		.song-container { margin-top: 10px; font-size: 0.8em; }
+		.song-label { color: #888; margin-right: 5px; }
+		.fav-song-link { color: var(--accent); font-style: italic; text-decoration: underline; display: inline-block; }
+
+		.btn-del { position: absolute; bottom: 10px; right: 10px; background: none; border: none; color: var(--accent); font-size: 1em; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+		.btn-del:hover { color: var(--danger); opacity: 1; transform: scale(1.1); }
+		.btn-check { background: none; border: 2px solid var(--success); color: var(--success); font-size: 1.5em; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-top: 10px; }
+
+		.pagination-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+		.page-btns { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+		.page-btn { padding: 8px 14px; background: #252525; border: 1px solid #444; color: #fff; border-radius: 5px; cursor: pointer; font-weight: bold; }
+		.page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+		.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+		.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252525; border-radius: 6px; margin-bottom: 5px; }
+
+		.stats-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr; /* Két oszlop */
+			gap: 20px;
+			width: 100%; /* Ez biztosítja, hogy a rács kitöltse a képernyőt */
+			box-sizing: border-box;
+			padding: 10px;
+		}
+		.full-width {
+			grid-column: span 2; /* Az 1. oszloptól indul és 2 oszlopot fog át */
+			width: 100%;
+		}
+		.stat-card { 
+			background: var(--card-bg); 
+			padding: 20px; 
+			border-radius: 12px; 
+			border: 1px solid #444; 
+			min-width: 0;
+			overflow:hidden;			
+		}
+		.clickable-list { list-style: none; padding: 0; }
+		.clickable-list li { background: #252525; margin-bottom: 6px; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+		.stat-score-pill { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.9em; min-width: 35px; text-align: center; }
+
+/* Mobilos nézet: minden kártya legyen teljes szélességű */
+	@media (max-width: 800px) {
+			.stats-grid {
+				grid-template-columns: 1fr;
+			}
+			.full-width, .stat-card {
+				grid-column: 1 / span 1;
+			}
+	}
+
+		#lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+		#lightbox img { max-width: 90%; max-height: 90%; border: 3px solid var(--accent); }
+	#listRecStats li {
+		display: flex;
+			justify-content: space-between;
+		align-items: center;
+			padding: 10px 15px;
+	}
+
+	/* Ajánló névtábla stílusa */
+.recommender-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin: 0 15px; /* Távolság a szövegtől és a pontszámtól */
+	min-width: fit-content;
+}
+
+.rec-label {
+	font-size: 0.6rem;
+	color: var(--accent);
+	text-transform: uppercase;
+	font-weight: bold;
+	margin-bottom: 2px;
+}
+
+.recommender-tag {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 10px;
+	border-radius: 6px;
+	border: 1.5px solid;
+	line-height: 1.1;
+	text-align: center;
+	background: rgba(0,0,0,0.3);
+}
+.rec-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
+.rec-subtitle { font-size: 0.55rem; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+.album-card-right { display: flex; align-items: center; justify-content: flex-end; }
+
+.traits-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+	padding: 10px;
+	background: rgba(0,0,0,0.2);
+	border-radius: 8px;
+	align-items: center;
+}
+.traits-title {
+	font-size: 12px;
+	font-weight: bold;
+	color: var(--accent);
+	margin-right: 5px;
+	text-transform: uppercase;
+}
+.trait-pill {
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 4px;
+	background: #333;
+	border: 1px solid #444;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 50px;
+	line-weight: 1.2;
+}
+.trait-name { opacity: 0.7; font-size: 10px; margin-bottom: 1px; }
+/* Színkódok a válaszokhoz */
+.t-igen { color: #44ff44; text-shadow: 0 0 5px rgba(68,255,68,0.3); }
+.t-nem { color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3); }
+.t-meh { color: #888888; }
+.t-volt { color: #bb88ff; text-shadow: 0 0 5px rgba(187,136,255,0.3); }
+.t-peak { color: #ffcc00; text-shadow: 0 0 8px rgba(255,204,0,0.6); font-weight: bold; }
+.t-poop { color: #8b4513; text-shadow: 0 0 5px rgba(139,69,19,0.3); }
+
+.btn-snap {
+	position: absolute;
+	top: 75px; /* Az X gomb alatt/felett */
+	right: 23px;
+	background: rgba(0,0,0,0.6);
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	transition: all 0.2s;
+	z-index: 10;
+}
+.btn-snap:hover {
+	background: var(--accent);
+	color: #000;
+	}
+/* --- ADMIN LOGIKA FIX --- */
+/* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
+#nav-settings, 
+button[onclick="toggleMod('add')"], 
+button[onclick^="editAlbum"], 
+button[onclick^="window.editAlbum"], 
+button[onclick^="deleteAlbum"], 
+button[onclick^="window.deleteAlbum"] {
+    display: none !important;
+}
+
+/* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
+body.is-admin #nav-settings, 
+body.is-admin button[onclick="toggleMod('add')"], 
+body.is-admin button[onclick^="editAlbum"], 
+body.is-admin button[onclick^="window.editAlbum"],
+body.is-admin button[onclick^="deleteAlbum"],
+body.is-admin button[onclick^="window.deleteAlbum"] {
+    display: inline-block !important;
+}
+
+	</style>
+</head>
+<body>
+
+<div id="lightbox" onclick="this.style.display='none'"><img id="lb-img" src=""></div>
+
+<nav>
+	<div class="nav-logo" onclick="handleTitleClick()" style="cursor: pointer; user-select: none;">Slop Library</div>
+	<div class="nav-links">
+		<button onclick="showPage('library')" id="nav-library" class="active">KÖNYVTÁR</button>
+		<button onclick="showPage('todo')" id="nav-todo">TO-DO</button>
+		<button onclick="showPage('stats')" id="nav-stats">STATISZTIKÁK</button>
+		<button onclick="showPage('settings')" id="nav-settings" class="admin-only">BEÁLLÍTÁSOK</button>
+	</div>
+</nav>
+
+<div class="container">
+	<div id="library" class="page active">
+		<div class="form-row">
+			<button onclick="toggleMod('add')" class="ctrl-btn admin-only">+ ÚJ BEJEGYZÉS</button>
+			<button onclick="toggleMod('search')" class="ctrl-btn">SZŰRÉS</button>
+			<button onclick="resetFilters()" class="ctrl-btn" style="border-color: #666; color: #aaa;">ALAPHELYZET</button>
+		</div>
+		
+		<div id="mod-add" class="module-box">
+			<div class="form-row">
+				<input type="text" id="inArtist" placeholder="Előadó">
+				<input type="text" id="inAlbum" placeholder="Album">
+				<input type="text" id="inCover" placeholder="Borító URL">
+			</div>
+			<div id="ratingFields">
+				<div class="form-row">
+					<input type="number" id="inYear" placeholder="Év">
+					<input type="text" id="inGenre" placeholder="Műfajok">
+			<label style="display:block; margin-top:10px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
+				<select id="inRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
+					<option value="">-- Saját felfedezés --</option>
+					<option value="baal">The Almighty Baal</option>
+					<option value="goatlord">Goatlord</option>
+					<option value="caller">Caller of Slam Riffs</option>
+					<option value="bacchus">Bacchus the Second</option>
+					<option value="mammvth">The Mammvth Hvnter</option>
+					<option value="gaben">X14Gaben88X</option>
+				</select>
+					<input type="number" id="inScore" placeholder="Pont" step="0.1">
+				</div>
+				<div class="form-row">
+					<input type="text" id="inFavSong" placeholder="Kiemelt dal címe">
+					<input type="text" id="inSongUrl" placeholder="Link a dalhoz">
+			<label>Hozzáadás dátuma (vagy Ősidőkben, ha üres):</label>
+			<input type="date" id="inDate" style="width:100%; padding:10px; margin-bottom:10px; background:#111; border:1px solid #444; color:white; border-radius:5px;">
+				</div>
+				<textarea id="inReview" placeholder="Vélemény..."></textarea>
+				
+				<div style="margin-top:15px; border-top:1px solid #444; padding-top:10px;">
+					<h4 style="margin:0 0 10px 0; color:var(--accent); font-size:14px;">Teccet-e? (Traits)</h4>
+					<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;" id="traitInputs">
+					<div>
+						<label style="font-size:11px; display:block;">Riffek</label>
+						<select id="t_riff" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Vox</label>
+						<select id="t_vox" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Dobok</label>
+						<select id="t_dob" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Mix</label>
+						<select id="t_mix" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Szöveg</label>
+						<select id="t_szoveg" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Vibe</label>
+						<select id="t_vibe" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh">Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+				</div>
+			</div>
+				
+			</div>
+			<div class="form-row">
+				<select id="inTarget">
+					<option value="library">Értékelés (Könyvtár)</option>
+					<option value="todo">Később (To-Do)</option>
+				</select>
+				<button onclick="saveAlbum()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:2;">MENTÉS</button>
+			</div>
+		</div>
+
+		<div id="mod-search" class="module-box" style="display:block;">
+	<div class="form-row">
+		<input type="text" id="gSearch" placeholder="Keresés..." oninput="currentPage=1; runFilter()">
+		<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
+		<select id="fYear" onchange="currentPage=1; runFilter()"><option value="">Összes év</option></select>
+		<select id="fGenre" onchange="currentPage=1; runFilter()"><option value="">Minden műfaj</option></select>
+	</div>
+	<div class="form-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
+		<span style="font-size: 0.8em; color: var(--accent); font-weight: bold;">RENDEZÉS:</span>
+		<select id="sortField" onchange="currentPage=1; runFilter()" style="flex: 2;">
+			<option value="id">Hozzáadás sorrendje (Alapértelmezett)</option>
+			<option value="artist">Előadó név</option>
+			<option value="album">Album cím</option>
+			<option value="year">Évszám</option>
+			<option value="genre">Műfaj</option>
+			<option value="score">Pontszám</option>
+		</select>
+		<button onclick="toggleSortOrder()" class="ctrl-btn" style="max-width: 50px;" title="Irány megfordítása">
+			<span id="sortDirIcon">▼</span>
+		</button>
+	</div>
+</div>
+		<div id="listContainer"></div>
+	</div>
+
+	<div id="todo" class="page">
+		<h2 style="color:var(--accent)">Meghallgatásra vár</h2>
+		<div id="todoContainer"></div>
+	</div>
+
+	<div id="stats" class="page">
+		<div class="stats-grid">
+
+
+			<div class="stat-card full-width">
+				<h3>Idővonal</h3>
+				<div style="height:220px">
+					<canvas id="cYear"></canvas>
+				</div>
+			</div>
+
+		   
+			<div class="stat-card full-width" style="display: flex; justify-content: space-around; text-align: center; padding: 20px 0; background: #252525; border: 1px solid #333;">
+				<div>
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Albumok</small>
+					<div id="stat-total-albums" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div>
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Előadók</small>
+					<div id="stat-total-artists" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div>
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Műfajok</small>
+					<div id="stat-total-genres" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div>
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz Átl.</small>
+					<div id="stat-avg-score" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div>
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz yap</small>
+					<div id="stat-total-yap" style="font-size: 1.6em; font-weight: bold; color: #fff;">0 szó</div>
+				</div>
+			</div>
+
+
+			<div class="stat-card">
+				<h3>Műfajok eloszlása</h3>
+				<div style="height:400px">
+					<canvas id="cGenre"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card">
+				<h3>Slop-O-Meter</h3>
+				<div style="height:350px; width:120px; margin:auto;">
+					<canvas id="cSlop"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card full-width">
+				<h3>Értékelések eloszlása</h3>
+				<div style="height: 220px; width: 97%;">
+					<canvas id="cScoreDist"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+				<h3 id="topTitle" style="margin: 0;">Top 10</h3>
+					<button onclick="toggleTopSort()" class="ctrl-btn" style="max-width: 40px; padding: 5px; margin: 0; display: flex; align-items: center; justify-content: center;" title="Sorrend megfordítása">
+					<span id="sortIcon">⇅</span>
+					</button>
+				</div>
+				<div style="display:grid; grid-template-columns: 1fr 1fr; gap:25px;">
+					<div>
+						<h4 style="color:var(--accent); border-bottom: 1px solid #333; padding-bottom: 5px;">Műfajok</h4>
+						<ul id="topG" class="clickable-list"></ul>
+					</div>
+					<div>
+						<h4 style="color:var(--accent); border-bottom: 1px solid #333; padding-bottom: 5px;">Évek</h4>
+						<ul id="topY" class="clickable-list"></ul>
+					</div>
+				</div>
+			</div>
+
+
+		<div class="stat-card">
+			   <h3>Ajánlások adatai</h3>
+				<ul id="listRecStats" class="clickable-list" style="display: flex; flex-direction: column; gap: 10px;">
+					  </ul>
+		</div>
+
+		<div class="stat-card full-width">
+			<h3>Teccett-e?</h3>
+			<div style="height: 300px; position: relative;">
+				<canvas id="chartTraits"></canvas>
+			</div>
+		</div>
+
+		<div class="stat-card full-width">
+				<h3>Ritkaságok</h3>
+				<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
+		</div>
+			
+	<div style="text-align: center; margin-top: 30px;">
+		<button onclick="captureStats()" class="ctrl-btn" style="background: var(--accent); color: #000; max-width: 300px;">
+			 STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
+		</button>
+		<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
+	</div>
+</div>
+		</div>
+	</div>
+
+	<div id="settings" class="page">
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Ritkasági küszöb</h3>
+			<div class="form-row">
+				<input type="number" id="setRareLimit" onchange="rareLimit=parseInt(this.value); localStorage.setItem('slopRareLimit', rareLimit); renderSettings();"> 
+				<span>(Ennél kevesebb albummal rendelkező műfajok számítanak ritkának)</span>
+			</div>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Slop műfajok beállítása</h3>
+			<div id="setG" style="max-height:300px; overflow-y:auto; padding-right:10px;"></div>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>CSV Import</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">artist;album;year;genre;score;cover;review;favorite;link</p>
+			<input type="file" id="csvFileInput" accept=".csv" style="margin-bottom: 10px;">
+			<button onclick="handleCSV()" class="ctrl-btn" style="background:var(--accent); color:#000;">IMPORTÁLÁS</button>
+		</div>
+		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
+	</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+	// https://firebase.google.com/docs/web/setup#available-libraries
+
+	const firebaseConfig = {
+	apiKey: "AIzaSyB8vcEb3IvLNqT2R6xS_ax_cm0WFV1fRC8",
+	authDomain: "slop-library.firebaseapp.com",
+	projectId: "slop-library",
+	storageBucket: "slop-library.firebasestorage.app",
+	messagingSenderId: "730801831303",
+	appId: "1:730801831303:web:be74d9cb6d8b21de7f2722"
+	};
+
+	const app = initializeApp(firebaseConfig);
+	const db = getFirestore(app);
+	const auth = getAuth(app); // Auth inicializálása
+	const provider = new GoogleAuthProvider();
+	
+	let currentUser = null; // Itt tároljuk, be vagyunk-e jelentkezve
+
+	// Kattintás számláló a címre
+	let titleClickCount = 0;
+	window.handleTitleClick = function() {
+		titleClickCount++;
+		if (titleClickCount === 3) {
+			titleClickCount = 0;
+			if (!currentUser) {
+				login();
+			} else {
+				if(confirm("Ki akarsz jelentkezni?")) logout();
+			}
+		}
+		// 2 másodperc után alaphelyzetbe áll a számláló, ha nem jött meg a 3 kattintás
+		setTimeout(() => { titleClickCount = 0; }, 2000);
+	};
+
+	// Bejelentkezés
+	async function login() {
+		try {
+			await signInWithPopup(auth, provider);
+		} catch (error) {
+			console.error("Bejelentkezési hiba:", error);
+		}
+	}
+
+	// Kijelentkezés
+	async function logout() {
+		await signOut(auth);
+		location.reload(); // Tisztasági újratöltés
+	}
+
+	// FIGYELŐ: Ez fut le minden változásnál (be/kijelentkezés)
+	onAuthStateChanged(auth, (user) => {
+		currentUser = user;
+		const adminUI = document.querySelectorAll('.admin-only'); // CSS osztály az elemekre
+		const settingsMenu = document.querySelector('button[onclick*="settings"]');
+		
+		if (user) {
+			console.log("Bejelentkezve:", user.email);
+			// Ha be van jelentkezve: minden látszik
+			document.body.classList.add('is-admin');
+			if(settingsMenu) settingsMenu.style.display = 'inline-block';
+		} else {
+			console.log("Vendég mód");
+			// Ha nincs bejelentkezve: korlátozások
+			document.body.classList.remove('is-admin');
+			if(settingsMenu) settingsMenu.style.display = 'none';
+			window.showPage('library'); // Ne maradjon a beállításokon, ha kijelentkezik
+		}
+		runFilter(); // Kártyák újrarajzolása a szerkesztés gomb miatt
+	});
+
+
+	//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+	Chart.defaults.devicePixelRatio = 3;
+	Chart.register(ChartDataLabels);
+	let sortAsc = false;
+	let albums = [];
+		async function loadFromFirebase() {
+			try {
+				const docRef = doc(db, "data", "library");
+				const docSnap = await getDoc(docRef);
+
+				if (docSnap.exists()) {
+					albums = docSnap.data().albums || [];
+					console.log("🔥 Adatok betöltve a Firebase-ből!");
+				} else {
+					console.log("ℹ️ Nincs adat a Firebase-ben, üres lista.");
+					// Opcionális: Ha első alkalommal mész fel, áthúzhatod a localstorage-ból:
+					// albums = JSON.parse(localStorage.getItem('slopLibrary')) || [];
+				}
+				runFilter(); // Lista kirajzolása
+			} catch (e) {
+				console.error("Hiba a betöltés során: ", e);
+			}
+		}
+
+	loadFromFirebase();
+	
+	let todos = JSON.parse(localStorage.getItem('slopTodo')) || [];
+	let slopG = JSON.parse(localStorage.getItem('slopSettings')) || [];
+	let charts = {};
+	let editIdx = -1;
+	let currentPage = 1;
+	let itemsPerPage = 25;
+	let topSortAsc = false;
+	let rareLimit = parseInt(localStorage.getItem('slopRareLimit')) || 3;
+
+
+	const recommenders = {
+		"baal": { name1: "The Almighty Baal", name2: "Menace of Bikini Bottom", color: "#FFEB3B" },
+		"goatlord": { name1: "Goatlord", name2: "Heir to the Black/Speed Throne", color: "#606060", textColor: "#bbb" },
+		"caller": { name1: "Caller of Slam Riffs", name2: "Desecrator of Snare Drums", color: "#1E88E5" },
+		"bacchus": { name1: "Bacchus the Second", name2: "the Sodomizer, the Bluntripper", color: "#4CAF50" },
+		"mammvth": { name1: "The Mammvth Hvnter", name2: "He Who Preys on Dissodeath", color: "#8D6E63" },
+		"gaben": { name1: "X14Gaben88X", name2: "Straightest of all Edges", color: "#AB47BC" }
+	};
+
+	window.toggleSortOrder = function() {
+		sortAsc = !sortAsc;
+		document.getElementById('sortDirIcon').innerText = sortAsc ? "▲" : "▼";
+		currentPage = 1;
+		runFilter();
+	}
+
+	window.getRecommenderHTML = function(recKey) {
+		if (!recKey || !recommenders[recKey]) return "";
+		const data = recommenders[recKey];
+		const displayTextColor = data.textColor || data.color;
+		return `
+			<div class="recommender-container">
+				<span class="rec-label">Ajánlotta:</span>
+				<div class="recommender-tag" style="border-color: ${data.color}; color: ${displayTextColor};">
+					<span class="rec-title">${data.name1}</span>
+					<span class="rec-subtitle">${data.name2}</span>
+				</div>
+			</div>`;
+	}
+
+	window.toggleTopSort = function() {
+		topSortAsc = !topSortAsc;
+		document.getElementById('sortIcon').innerText = topSortAsc ? '⇵' : '⇅';
+		renderStats();
+	}
+
+	window.showPage = function(id) {
+		document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+		document.querySelectorAll('.nav-links button').forEach(b => b.classList.remove('active'));
+		const target = document.getElementById(id);
+		if(target) target.classList.add('active');
+		const btn = document.getElementById('nav-' + id);
+		if(btn) btn.classList.add('active');
+		
+		if(id === 'stats') renderStats();
+		if(id === 'library') { initFilters(); runFilter(); }
+		if(id === 'settings') renderSettings();
+		if(id === 'todo') renderTodo();
+	}
+
+	window.toggleMod = function(m) {
+		const a = document.getElementById('mod-add'), s = document.getElementById('mod-search');
+		if(m === 'add') { a.style.display = (a.style.display==='block'?'none':'block'); s.style.display='none'; }
+		else { s.style.display = (s.style.display==='block'?'none':'block'); a.style.display='none'; }
+	}
+
+	window.saveAlbum = async function() {
+		const target = document.getElementById('inTarget').value;
+		const dateEl = document.getElementById('inDate');
+		const dateInput = dateEl ? dateEl.value : '';
+		const traits = {
+			riff: document.getElementById('t_riff').value,
+			vox: document.getElementById('t_vox').value,
+			dob: document.getElementById('t_dob').value,
+			mix: document.getElementById('t_mix').value,
+			szoveg: document.getElementById('t_szoveg').value,
+			vibe: document.getElementById('t_vibe').value
+		};
+
+		const a = {
+			artist: document.getElementById('inArtist').value.trim(),
+			album: document.getElementById('inAlbum').value.trim(),
+			coverUrl: document.getElementById('inCover').value.trim(),
+			year: document.getElementById('inYear').value,
+			genre: document.getElementById('inGenre').value.trim(),
+			recommender: document.getElementById('inRec').value,
+			myScore: parseFloat(document.getElementById('inScore').value) || 0,
+			review: document.getElementById('inReview').value.trim(),
+			favSong: document.getElementById('inFavSong').value.trim(),
+			songUrl: document.getElementById('inSongUrl').value.trim(),
+			traits: traits,
+			addedDate: dateInput || 'Ősidőkben'
+		};
+
+		if(target === 'todo') {
+			todos.push({ artist: a.artist, album: a.album, coverUrl: a.coverUrl, recommender: a.recommender });
+			localStorage.setItem('slopTodo', JSON.stringify(todos));
+		} else {
+			if(editIdx > -1) { 
+				albums[editIdx] = a; 
+				editIdx = -1; 
+			} else {
+				albums.push(a);
+			}
+			await saveToFirebase(); 
+		}
+		location.reload();
+	}
+
+	window.renderList = function(data) {
+		const container = document.getElementById('listContainer');
+		if(!container) return;
+		container.innerHTML = '';
+		const totalItems = data.length;
+		const totalPages = Math.ceil(totalItems / itemsPerPage);
+		if (currentPage > totalPages) currentPage = totalPages || 1;
+		const start = (currentPage - 1) * itemsPerPage;
+		const end = start + itemsPerPage;
+		const paginatedData = data.slice(start, end);
+
+		paginatedData.forEach(a => {
+			const idx = albums.indexOf(a);
+			const songLabel = a.myScore > 4.5 ? "Kiemelkedő dal:" : "Legkevésbé rossz dal:";
+			const getTClass = (val) => {
+				if(val === 'Peak') return 't-peak';
+				if(val === 'Igen') return 't-igen';
+				if(val === 'Nem') return 't-nem';
+				if(val === 'Volt??') return 't-volt';
+				if(val === 'Poop') return 't-poop';
+				return 't-meh';
+			};
+
+			const t = a.traits || { riff:'Meh', vox:'Meh', dob:'Meh', mix:'Meh', szoveg:'Meh', vibe:'Meh' };
+
+			const traitsHtml = `
+				<div class="traits-container">
+					<div class="traits-title">Teccet-e?</div>
+					<div class="trait-pill"><span class="trait-name">RIFFEK</span><span class="${getTClass(t.riff)}">${t.riff}</span></div>
+					<div class="trait-pill"><span class="trait-name">VOX</span><span class="${getTClass(t.vox)}">${t.vox}</span></div>
+					<div class="trait-pill"><span class="trait-name">DOBOK</span><span class="${getTClass(t.dob)}">${t.dob}</span></div>
+					<div class="trait-pill"><span class="trait-name">MIX</span><span class="${getTClass(t.mix)}">${t.mix}</span></div>
+					<div class="trait-pill"><span class="trait-name">SZÖVEG</span><span class="${getTClass(t.szoveg)}">${t.szoveg}</span></div>
+					<div class="trait-pill"><span class="trait-name">VIBE</span><span class="${getTClass(t.vibe)}">${t.vibe}</span></div>
+				</div>
+			`;
+			container.innerHTML += `
+				<div class="album-card" id="card-${idx}">
+					<div class="row-number">${idx+1}</div>
+					<div class="album-art-container">
+						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art-blur">
+						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art" onclick="openLB('${a.coverUrl}')">
+					</div>
+					<div class="album-info">
+						<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+							<div>
+								<h3 class="artist-name" onclick="qFilter('a', '${a.artist.replace(/'/g, "\\'")}')">${a.artist}</h3>
+								<p><strong>${a.album}</strong> (${a.year||'?'})</p>
+							</div>
+							<div style="display: flex; align-items: center; gap: 10px;">
+								${getRecommenderHTML(a.recommender)}
+								<div class="score-badge" style="background:hsl(${(a.myScore-1)*13},70%,40%); position: static;">${parseFloat(a.myScore).toFixed(1)}</div>
+							</div>
+						</div>
+						<small>${a.genre}</small>
+						${a.review ? `<p class="review-text">${a.review}</p>` : ''}
+						
+						${traitsHtml}
+						
+						${a.favSong ? `<div class="song-container"><span class="song-label">${songLabel}</span><a href="${a.songUrl}" target="_blank" class="fav-song-link">${a.favSong}</a></div>` : ''}
+						
+						<div style="margin-top: auto; padding-top: 15px; display: flex; align-items: center; gap: 10px; font-size: 0.8em;">
+							<span style="color: #666;">hozzáadva: <strong style="color: #888;">${a.addedDate || 'Ősidőkben'}</strong></span>
+							
+<button data-html2canvas-ignore class="edit-btn" onclick="editAlbum(${idx})" style="background:none; border:none; color:var(--accent); cursor:pointer; font-weight:bold; padding:0; text-decoration: underline;">✎ SZERKESZTÉS</button>						</div>
+					</div>
+					
+					<button data-html2canvas-ignore class="btn-snap" onclick="captureCard(this.parentElement, '${a.album.replace(/'/g, "\\'")}')" title="Kép mentése">📷</button>
+					
+					<button data-html2canvas-ignore class="btn-del" onclick="deleteAlbum(${idx}, 'lib')">✖</button>
+				</div>`;
+		});
+		if (totalItems > 0) renderPagination(totalPages, totalItems);
+	}
+
+	window.captureCard = async function(cardElement, albumName) {
+		const img = cardElement.querySelector('.album-art');
+		const originalSrc = img.src;
+
+		if (!img.src.includes('data:image')) {
+			img.crossOrigin = "anonymous";
+			img.src = `https://images.weserv.nl/?url=${encodeURIComponent(originalSrc)}`;
+		}
+		await new Promise(r => setTimeout(r, 1000));
+
+		html2canvas(cardElement, {
+			useCORS: true,
+			allowTaint: false,
+			backgroundColor: "#1a1a1a", // A kártya háttérszíne a képen
+			scale: 2,
+			logging: false
+		}).then(canvas => {
+			const link = document.createElement('a');
+			link.download = `${albumName}_review.png`;
+			link.href = canvas.toDataURL("image/png");
+			link.click();
+			
+			// Visszaállítjuk az eredeti linket a weboldalon
+			img.src = originalSrc;
+		}).catch(err => {
+			console.error("Hiba:", err);
+			img.src = originalSrc;
+		});
+	}
+
+	window.statsToLibrary = function(recId) {
+		// 1. Átváltunk a könyvtár oldalra
+		showPage('library');
+	
+		const searchInput = document.getElementById('gSearch');
+		if (searchInput) {
+			// Beírjuk az id-t (pl. baal)
+			searchInput.value = recId;
+		
+			if (typeof runFilter === "function") {
+				currentPage = 1;
+				runFilter();
+			}
+		}
+	};
+
+	window.filterByScore = function(score) {
+		// 1. Átváltunk a könyvtárba
+		showPage('library');
+		
+		// 2. Beállítjuk a keresőt
+		const searchInput = document.getElementById('gSearch');
+		if (searchInput) {
+			// Beírjuk a pontszámot (pl. "8.5")
+			searchInput.value = score;
+			
+			// 3. Frissítjük a listát
+			if (typeof runFilter === "function") {
+				currentPage = 1;
+				runFilter();
+			}
+			
+			// Gördülés a tetejére
+			window.scrollTo(0, 0);
+		}
+	};
+
+	window.renderPagination = function(totalPages, totalItems) {
+		const container = document.getElementById('listContainer');
+		let html = `
+			<div class="pagination-container">
+				<div style="display:flex; align-items:center; gap:10px;">
+					<span>Bontás:</span>
+					<select onchange="itemsPerPage=parseInt(this.value); currentPage=1; runFilter();" style="width:80px; padding:5px;">
+						<option value="10" ${itemsPerPage==10?'selected':''}>10</option>
+						<option value="25" ${itemsPerPage==25?'selected':''}>25</option>
+						<option value="50" ${itemsPerPage==50?'selected':''}>50</option>
+						<option value="100" ${itemsPerPage==100?'selected':''}>100</option>
+					</select>
+					<small style="color:#888;">(Találatok: ${totalItems})</small>
+				</div>
+				<div class="page-btns">
+					<button class="page-btn" onclick="currentPage=1; runFilter();" ${currentPage==1?'disabled':''}>«</button>
+					${Array.from({length: totalPages}, (_, i) => i + 1).map(p => {
+						if (totalPages > 10 && Math.abs(p - currentPage) > 2 && p !== 1 && p !== totalPages) return p === 2 || p === totalPages - 1 ? '...' : '';
+						return `<button class="page-btn ${p===currentPage?'active':''}" onclick="currentPage=${p}; runFilter();">${p}</button>`;
+					}).join('').replace(/\.\.\.\.\.\./g, '...')}
+					<button class="page-btn" onclick="currentPage=${totalPages}; runFilter();" ${currentPage==totalPages?'disabled':''}>»</button>
+				</div>
+			</div>`;
+		container.innerHTML += html;
+	}
+
+	window.renderTodo = function() {
+		const container = document.getElementById('todoContainer');
+		if(!container) return;
+		container.innerHTML = '';
+		todos.forEach((t, i) => {
+			container.innerHTML += `
+				<div class="album-card">
+					<div class="row-number">${i+1}</div>
+					<img src="${t.coverUrl || 'https://via.placeholder.com/120'}" class="album-art">
+					<div class="album-info">
+						<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+							<div>
+								<h3 class="artist-name">${t.artist}</h3>
+								<p><strong>${t.album}</strong></p>
+							</div>
+							${getRecommenderHTML(t.recommender)}
+						</div>
+						<div style="margin-top: 10px; display: flex; gap: 10px;">
+							<button class="btn-check" onclick="moveToRating(${i})">✓</button>
+						</div>
+						<button class="btn-del" onclick="deleteAlbum(${i}, 'todo')">✖</button>
+					</div>
+				</div>`;
+		});
+	}
+
+	window.moveToRating = function(idx) {
+		const item = todos[idx];
+		document.getElementById('inArtist').value = item.artist;
+		document.getElementById('inAlbum').value = item.album;
+		document.getElementById('inCover').value = item.coverUrl;
+		
+		// Ez biztosítja, hogy az ajánló legördülő menüje is beálljon
+		const recSelect = document.getElementById('inRec');
+		if (recSelect) {
+			recSelect.value = item.recommender || "";
+		}
+		
+		showPage('library'); 
+		toggleMod('add');
+		todos.splice(idx, 1); 
+		localStorage.setItem('slopTodo', JSON.stringify(todos));
+		renderTodo(); // Frissítjük a nézetet
+	}
+
+	window.deleteAlbum = function(i, type) {
+		if(!confirm("Törlés?")) return;
+		if(type === 'lib') albums.splice(i, 1); else todos.splice(i, 1);
+		localStorage.setItem('slopLibrary', JSON.stringify(albums));
+		localStorage.setItem('slopTodo', JSON.stringify(todos));
+		location.reload();
+	}
+
+	window.editAlbum = function(i) {
+		editIdx = i; 
+		const a = albums[i];
+		document.getElementById('inArtist').value = a.artist;
+		document.getElementById('inAlbum').value = a.album;
+		document.getElementById('inCover').value = a.coverUrl;
+		document.getElementById('inYear').value = a.year;
+		document.getElementById('inGenre').value = a.genre;
+		document.getElementById('inScore').value = a.myScore;
+		document.getElementById('inReview').value = a.review || "";
+		document.getElementById('inFavSong').value = a.favSong || "";
+		document.getElementById('inSongUrl').value = a.songUrl || "";
+		document.getElementById('inDate').value = '';
+		document.getElementById('inRec').value = a.recommender || "";
+		const t = a.traits || { riff:'Meh', vox:'Meh', dob:'Meh', mix:'Meh', szoveg:'Meh', vibe:'Meh' };
+
+		document.getElementById('t_riff').value = t.riff;
+		document.getElementById('t_vox').value = t.vox;
+		document.getElementById('t_dob').value = t.dob;
+		document.getElementById('t_mix').value = t.mix;
+		document.getElementById('t_szoveg').value = t.szoveg;
+		document.getElementById('t_vibe').value = t.vibe;
+
+		toggleMod('add'); window.scrollTo(0,0);
+		document.getElementById('inDate').value = (a.addedDate && a.addedDate !== 'Ősidőkben') ? a.addedDate : '';
+		showModal('album');
+	}
+
+	window.renderSettings = function() {
+		document.getElementById('setRareLimit').value = rareLimit;
+		const gs = new Set(); albums.forEach(a=>a.genre.split(',').forEach(g=>gs.add(g.trim())));
+		const container = document.getElementById('setG');
+		if(!container) return;
+		container.innerHTML = [...gs].sort().map(g => `
+			<div class="settings-row">
+				<span>${g}</span>
+				<button onclick="tSlop('${g.toLowerCase()}')" style="background:${slopG.includes(g.toLowerCase())?'var(--accent)':'#444'}; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; color:${slopG.includes(g.toLowerCase())?'#000':'#fff'}; font-weight:bold;">
+					${slopG.includes(g.toLowerCase())?'SLOP':'RENDES'}
+				</button>
+			</div>`).join('');
+	}
+
+	window.tSlop = function(g) { slopG.includes(g) ? slopG=slopG.filter(x=>x!==g) : slopG.push(g); localStorage.setItem('slopSettings', JSON.stringify(slopG)); renderSettings(); }
+
+	window.openLB = function(src) { if(src) { document.getElementById('lb-img').src=src; document.getElementById('lightbox').style.display='flex'; } }
+	
+	window.resetFilters = function() { 
+		document.querySelectorAll('#mod-search select, #mod-search input').forEach(i=>i.value=''); 
+		albums.sort((a, b) => {
+			let indexA = albums.indexOf(a);
+			let indexB = albums.indexOf(b);
+			return indexB - indexA; 
+		});
+		currentPage=1; 
+		runFilter(); }
+
+	window.qFilter = function(type, val) { 
+		showPage('library'); 
+		document.getElementById('mod-search').style.display='block'; 
+		resetFilters(); 
+		if(type==='g') document.getElementById('fGenre').value=val; 
+		if(type==='y') document.getElementById('fYear').value=val; 
+		if(type==='a') document.getElementById('fArtist').value=val; 
+		currentPage = 1; runFilter(); 
+	}
+
+window.handleCSV = function() {
+    const file = document.getElementById('csvFileInput').files[0];
+    if(!file) return alert("Nincs fájl!");
+    
+    const r = new FileReader();
+    r.onload = async function(e) { // Async-re váltunk a Firebase miatt
+        const lines = e.target.result.split('\n');
+        const h = lines[0].toLowerCase().trim().split(';');
+        const nA = [];
+        
+        for(let i=1; i<lines.length; i++) {
+            if(!lines[i].trim()) continue;
+            const c = lines[i].split(';'); 
+            const o = {};
+            
+            h.forEach((name, idx) => {
+                let v = c[idx] ? c[idx].trim() : "";
+                if(name.includes('artist')||name.includes('előadó')) o.artist = v;
+                if(name.includes('album')) o.album = v;
+                if(name.includes('year')||name.includes('év')) o.year = v;
+                if(name.includes('genre')||name.includes('műfaj')) o.genre = v;
+                if(name.includes('score')||name.includes('pont')) o.myScore = parseFloat(v.replace(',','.'))||0;
+                if(name.includes('cover')) o.coverUrl = v;
+                if(name.includes('review')||name.includes('vélemény')) o.review = v;
+                if(name === 'favorite') o.favSong = v;
+                if(name === 'link') o.songUrl = v;
+                // Ha vannak traits (riff, vox stb.) oszlopaidd is a CSV-ben, azokat is itt adhatod hozzá
+            });
+            if(o.artist && o.album) nA.push(o);
+        }
+
+        if(nA.length) { 
+            // 1. Frissítjük a helyi listát
+            albums = [...albums, ...nA]; 
+            
+            // 2. Mentés a Firebase-be (és opcionálisan localStorage-ba biztonság kedvéért)
+            try {
+                await window.saveToFirebase(); 
+                localStorage.setItem('slopLibrary', JSON.stringify(albums));
+                
+                alert(nA.length + " album hozzáadva és felhőbe mentve!");
+                location.reload(); 
+            } catch (err) {
+                console.error("Hiba az importálás közben:", err);
+                alert("Hiba történt a felhőbe mentéskor!");
+            }
+        }
+    };
+    r.readAsText(file, "UTF-8");
+}
+
+	window.initFilters = function() {
+		const fill = (id, data, label) => { 
+			const el = document.getElementById(id);
+			if(el) el.innerHTML = `<option value="">${label}</option>` + [...new Set(data)].sort().map(d=>`<option value="${d}">${d}</option>`).join(''); 
+		};
+		fill('fArtist', albums.map(a=>a.artist), "Összes előadó");
+		fill('fYear', albums.map(a=>a.year).filter(y=>y), "Összes év");
+		const gs = new Set(); albums.forEach(a=>a.genre.split(',').forEach(g=>gs.add(g.trim())));
+		fill('fGenre', [...gs], "Minden műfaj");
+	}
+
+	window.runFilter = function() {
+		const q = document.getElementById('gSearch').value.trim();
+		const fA = document.getElementById('fArtist').value;
+		const fY = document.getElementById('fYear').value;
+		const fG = document.getElementById('fGenre').value;
+		const sField = document.getElementById('sortField').value;
+
+		// 1. Szűrés
+		let res = albums.filter(a => {
+			// Keresés az előadóban, albumban vagy az ajánló nevében
+			const searchTerm = q.toLowerCase();
+			
+			// Megnézzük az ajánló nevét is az adatbázisodból (recommenders objektum)
+			const recInfo = recommenders[a.recommender] || {};
+			const recName = (recInfo.name1 || "").toLowerCase();
+			
+			// okos pontszám keresés 
+			const searchAsNumber = parseFloat(searchTerm);
+			const isNumeric = !isNaN(searchAsNumber);
+			
+			// Csak akkor egyezzen a pontszám, ha a számérték PONTOSAN ugyanaz
+			const scoreMatch = isNumeric && parseFloat(a.myScore) === searchAsNumber;
+
+			let traitMatch = false;
+			if (a.traits) {
+				traitMatch = Object.values(a.traits).some(val => 
+					val && val.toLowerCase().includes(searchTerm)
+				);
+			}
+
+			const mQ = !q || 
+					   a.artist.toLowerCase().includes(searchTerm) || 
+					   a.album.toLowerCase().includes(searchTerm) ||
+					   recName.includes(searchTerm) || 
+					   scoreMatch ||
+					   traitMatch;
+
+			const mA = !fA || a.artist === fA;
+			const mY = !fY || String(a.year) === fY;
+			const mG = !fG || a.genre.split(',').map(g=>g.trim().toLowerCase()).includes(fG.toLowerCase());
+			
+			return mQ && mA && mY && mG;
+		});
+
+		// 2. Rendezés
+		res.sort((a, b) => {
+			let valA, valB;
+
+			if (sField === 'id') {
+				// Az eredeti index alapján (Hozzáadás sorrendje)
+				valA = albums.indexOf(a);
+				valB = albums.indexOf(b);
+			} else if (sField === 'score') {
+				valA = parseFloat(a.myScore) || 0;
+				valB = parseFloat(b.myScore) || 0;
+			} else {
+				// Szöveges vagy numerikus mezők (artist, album, year, genre)
+				valA = (a[sField] || "").toString().toLowerCase();
+				valB = (b[sField] || "").toString().toLowerCase();
+			}
+
+			if (valA < valB) return sortAsc ? -1 : 1;
+			if (valA > valB) return sortAsc ? 1 : -1;
+			return 0;
+		});
+
+		renderList(res);
+	}
+
+	window.renderStats = function() {
+		if(!albums.length) return;
+		
+		const years = {}, genres = {}, gScores = {}, yScores = {};
+		let sCount = 0;
+		let totalScore = 0;
+		let totalWords = 0;
+		const uniqueArtists = new Set();
+		const uniqueGenres = new Set();
+
+		let validAlbumCount = 0;
+		albums.forEach(a => {
+			const s = parseFloat(a.myScore) || 0;
+
+			// Csak ha van érvényes pontszám (nagyobb, mint 0)
+			if (s > 0) {
+				totalScore += s;
+				validAlbumCount++;
+			}
+
+			uniqueArtists.add(a.artist);
+			if(a.review) totalWords += a.review.trim().split(/\s+/).filter(w => w.length > 0).length;
+
+			if(a.year) { 
+				years[a.year] = (years[a.year] || 0) + 1; 
+				if(!yScores[a.year]) yScores[a.year] = []; 
+				// Csak az érvényes pontokat gyűjtjük a statisztikához
+				if (s > 0) yScores[a.year].push(s); 
+			}
+
+			const tags = String(a.genre).split(',').map(t => t.trim());
+			let isS = false;
+			tags.forEach(t => { 
+				if(t) { 
+					uniqueGenres.add(t);
+					genres[t] = (genres[t] || 0) + 1; 
+					if(!gScores[t]) gScores[t] = []; 
+					// Csak az érvényes pontokat gyűjtjük a statisztikához
+					if (s > 0) gScores[t].push(s); 
+					if(slopG.includes(t.toLowerCase())) isS = true; 
+				}
+			});
+			if(isS) sCount++;
+		});
+
+		document.getElementById('stat-total-albums').innerText = albums.length;
+		document.getElementById('stat-total-artists').innerText = uniqueArtists.size;
+		document.getElementById('stat-total-genres').innerText = uniqueGenres.size;
+		document.getElementById('stat-avg-score').innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
+		document.getElementById('stat-total-yap').innerText = totalWords + " szó";
+
+		const getMedian = (obj) => {
+			const vals = Object.values(obj).sort((a, b) => a - b);
+			if (vals.length === 0) return 1;
+			const mid = Math.floor(vals.length / 2);
+			const m = vals.length % 2 !== 0 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+			return Math.max(1, Math.floor(m));
+		};
+
+		const gMedian = getMedian(genres);
+		const yMedian = getMedian(years);
+
+		document.getElementById('topTitle').innerHTML = `Top 10 <span style="font-size:0.6em; color:#888; font-weight:normal; margin-left:10px;">(min.${gMedian}/műfaj, min.${yMedian}/év)</span>`;
+
+		// --- TOP LISTÁK GENERÁLÁSA ---
+		const drawTopList = (scoreObj, countObj, type, threshold) => {
+		return Object.entries(scoreObj)
+			.filter(([name, scores]) => scores.length >= threshold) // Scores már csak a >0-kat tartalmazza
+			.map(([name, scores]) => ({
+				name, 
+				avg: scores.reduce((p, c) => p + c, 0) / scores.length,
+				count: scores.length
+			}))
+			.sort((a, b) => topSortAsc ? a.avg - b.avg : b.avg - a.avg)
+			.slice(0, 10)
+			.map(i => `
+				<li onclick="qFilter('${type}','${i.name}')">
+					<div style="display:flex; flex-direction:column;">
+						<span>${i.name}</span>
+						<small style="color:#888; font-size:0.7em;">${i.count} db</small>
+					</div>
+					<span class="stat-score-pill" style="background:hsl(${(i.avg-1)*13},70%,40%)">${i.avg.toFixed(2)}</span>
+				</li>`).join('');
+		};
+
+	// A cím frissítése is figyeljen az irányra
+	const topLabel = topSortAsc ? "Bottom 10" : "Top 10";
+	document.getElementById('topTitle').innerHTML = `${topLabel} <span style="font-size:0.6em; color:#888; font-weight:normal; margin-left:10px;">(min.${gMedian}/műfaj, min.${yMedian}/év)</span>`;
+
+
+		document.getElementById('topG').innerHTML = drawTopList(gScores, genres, 'g', gMedian);
+		document.getElementById('topY').innerHTML = drawTopList(yScores, years, 'y', yMedian);
+
+		const genreEntries = Object.entries(genres);
+		const mainGenresSorted = genreEntries.filter(e => e[1] >= rareLimit).sort((a, b) => b[1] - a[1]);
+		const rareSum = genreEntries.filter(e => e[1] < rareLimit).reduce((acc, curr) => acc + curr[1], 0);
+
+		let chartLabels = mainGenresSorted.map(e => e[0]);
+		let chartData = mainGenresSorted.map(e => e[1]);
+		if(rareSum > 0) { chartLabels.push("Egyéb (ritka)"); chartData.push(rareSum); }
+
+	if(charts.traits) charts.traits.destroy();
+	// --- TECCET-E STATISZTIKA ---
+    const traitKeys = ['riff', 'vox', 'dob', 'mix', 'szoveg', 'vibe'];
+    const traitLabels = ['RIFFEK', 'VOX', 'DOBOK', 'MIX', 'SZÖVEG', 'VIBE'];
+    const ratings = ['Peak', 'Igen', 'Meh', 'Nem', 'Poop', 'Volt??'];
+    const rColors = { 
+        'Peak': '#ffcc00', 
+        'Igen': '#44ff44', 
+        'Meh': '#888888', 
+        'Nem': '#ff4444', 
+        'Poop': '#8b4513', 
+        'Volt??': '#bb88ff' 
+    };
+
+    // Adatok előkészítése (számlálás)
+    let traitCounts = {};
+    ratings.forEach(r => { traitCounts[r] = [0,0,0,0,0,0]; });
+
+    albums.forEach(a => {
+        const t = a.traits || { riff:'Meh', vox:'Meh', dob:'Meh', mix:'Meh', szoveg:'Meh', vibe:'Meh' };
+        traitKeys.forEach((key, i) => {
+            const val = t[key] || 'Meh';
+            if (traitCounts[val]) traitCounts[val][i]++;
+        });
+    });
+
+    // Diagram létrehozása
+    const totalAlbums = albums.length;
+    charts.traits = new Chart(document.getElementById('chartTraits'), {
+        type: 'bar',
+        data: {
+            labels: traitLabels,
+            datasets: ratings.map(r => ({
+                label: r,
+                data: traitCounts[r].map(c => totalAlbums ? Math.round((c / totalAlbums) * 100) : 0),
+                backgroundColor: rColors[r]
+            }))
+        },
+        options: {
+            indexAxis: 'y', // Ettől lesz vízszintes a sáv
+			
+            maintainAspectRatio: false,
+            scales: {
+                x: { stacked: true, max: 100, display: false },
+                y: { stacked: true, ticks: { color: '#eee', font: { weight: 'bold' } } }
+            },
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#ccc', boxWidth: 12 } },
+                datalabels: {
+                    color: '#000',
+                    font: { weight: 'bold', size: 10 },
+                    formatter: (v) => v > 5 ? v + '%' : '' // Csak akkor írja ki, ha van hely
+                }
+            }
+        }
+    });
+
+	if(charts.g) charts.g.destroy();
+		charts.g = new Chart(document.getElementById('cGenre'), { 
+			type: 'pie', 
+			data: { 
+				labels: chartLabels, 
+				datasets: [{ 
+					data: chartData, 
+					backgroundColor: chartLabels.map((l, i) => l === "Egyéb (ritka)" ? "#444" : `hsl(48, 100%, ${Math.max(15, 65 - i * 4)}%)`), 
+					borderWidth: 1, 
+					borderColor: '#1e1e1e' 
+				}] 
+			}, 
+			options: { 
+			devicePixelRatio: 2,
+				onClick: (e, el) => { 
+					if(el[0]) { 
+						const label = chartLabels[el[0].index]; 
+						if(label !== "Egyéb (ritka)") {
+							qFilter('g', label); 
+						} else {
+							// Legördít a ritkaságok listájához
+							document.getElementById('listRare').scrollIntoView({ behavior: 'smooth' });
+						}
+					} 
+				},
+				onHover: (event, chartElement) => {
+					// Mutatóujjas kurzor, ha szelet fölé érsz
+					event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+				},
+				maintainAspectRatio: false, 
+				layout: { 
+					padding: {
+						top: 10,
+						bottom: 10,
+						left: 60,
+						right: 60
+					} 
+				}, 
+				plugins: { 
+					title: { display: false }, 
+					legend: { display: false }, 
+					datalabels: { 
+						anchor: 'end', 
+						align: 'end', 
+						color: '#ccc', 
+						offset: 8, 
+						formatter: (v, ctx) => ctx.chart.data.labels[ctx.dataIndex] 
+					} 
+				} 
+			}
+		});
+
+		if(charts.y) charts.y.destroy();
+		const ySorted = Object.keys(years).sort();
+		charts.y = new Chart(document.getElementById('cYear'), { 
+			type:'bar', data:{labels:ySorted, datasets:[{data:ySorted.map(k=>years[k]), backgroundColor:'#ffcc00'}]}, 
+			options:{ 
+				devicePixelRatio: 2,
+				onClick:(e, el)=>{if(el[0]) qFilter('y', ySorted[el[0].index]);}, 
+				maintainAspectRatio:false, layout: { padding: { top: 25 } },
+				plugins:{ legend:{display:false}, datalabels:{ display: true, anchor: 'end', align: 'top', color: '#ffcc00', font: { weight: 'bold', size: 11 }, formatter: v => v }},
+				scales: { y: { beginAtZero: true, grid: { color: '#333' }, ticks: { display: false } }, x: { grid: { display: false }, ticks: { color: '#ccc', autoSkip: false, maxRotation: 90, minRotation: 90 } } }
+			}
+		});
+
+		if(charts.s) charts.s.destroy();
+		const p = albums.length > 0 ? (sCount/albums.length*100).toFixed(1) : 0;
+		charts.s = new Chart(document.getElementById('cSlop'), { 
+			type:'bar', data:{labels:[''], datasets:[{data:[p], backgroundColor:'#ffcc00'}, {data:[100-p], backgroundColor:'#333'}]}, 
+			options:{
+				devicePixelRatio: 2,
+				maintainAspectRatio:false, 
+				scales:{x:{stacked:true, display:false}, y:{stacked:true, max:100, display:false}}, 
+				plugins:{datalabels:{color:'#fff', formatter:v=>v+'%'}, 
+				legend:{display:false}}}});
+
+		document.getElementById('listRare').innerHTML = genreEntries.filter(e => e[1] < rareLimit).sort((a,b)=>b[1]-a[1]).map(r=>`<li onclick="qFilter('g','${r[0]}')">${r[0]} <span>${r[1]} db</span></li>`).join('');
+
+		// 1. Adatok kiszámítása
+		const recStats = Object.keys(recommenders).map(key => {
+			const rData = recommenders[key];
+			// Csak azokat az albumokat nézzük, amiknél az ajánló egyezik ÉS a pontszám > 0
+			const rAlbums = albums.filter(a => a.recommender === key && (parseFloat(a.myScore) || 0) > 0);
+			const count = rAlbums.length;
+			const avg = count > 0 ? rAlbums.reduce((sum, a) => sum + (parseFloat(a.myScore) || 0), 0) / count : 0;
+			return { key, ...rData, count, avg };
+		});
+
+		// 2. A kirajzoló belső függvény
+		const drawRecStats = (data) => {
+			const container = document.getElementById('listRecStats');
+			if(!container) return;
+
+			let html = `
+				<li style="background:none; border:none; cursor:default; font-weight:bold; color:var(--accent); font-size:14px; padding:0 10px; min-height:auto; margin-bottom:5px;">
+					<div style="flex:1;">NÉV</div>
+					<div style="width:100px; text-align:center; cursor:pointer;" onclick="sortRecStats('count')">DARAB ⇅</div>
+					<div style="width:100px; text-align:right; cursor:pointer;" onclick="sortRecStats('avg')">ÁTLAG ⇅</div>
+				</li>
+			`;
+
+			data.forEach(r => {
+						html += `
+							<li onclick="window.statsToLibrary('${r.name1}')" style="cursor:pointer; padding: 12px 10px; border-bottom: 1px solid #333;" class="rec-stat-row">
+								<div style="flex:1; display:flex; align-items:center;">
+									<div class="recommender-tag" style="border-color: ${r.color}; color: ${r.textColor || r.color}; margin:0; padding: 6px 12px; min-width: 140px;">
+										<span class="rec-title" style="font-size: 14px; display: block; line-height: 1.2;">${r.name1}</span>
+										<span class="rec-subtitle" style="font-size: 10px; display: block; opacity: 0.8;">${r.name2}</span>
+									</div>
+								</div>
+								<div style="width:100px; text-align:center; font-weight:bold; font-size:18px;">${r.count}</div>
+								<div class="stat-score-pill" style="background:hsl(${(r.avg-1)*13},70%,40%); min-width:65px; font-size:16px; padding: 6px;">${r.avg.toFixed(2)}</div>
+							</li>
+						`;
+			});
+			container.innerHTML = html;
+		};
+
+		// 3. Kezdeti megjelenítés (alap sorrend szerint)
+		drawRecStats(recStats);
+
+		// 4. A globális rendező függvény (hogy a gombok működjenek)
+		window.sortRecStats = function(field) {
+			if (!window.recSortConfig) window.recSortConfig = { field: null, asc: false };
+			
+			if (window.recSortConfig.field === field) {
+				window.recSortConfig.asc = !window.recSortConfig.asc;
+			} else {
+				window.recSortConfig.field = field;
+				window.recSortConfig.asc = false;
+			}
+
+			const sorted = [...recStats].sort((a, b) => {
+				return window.recSortConfig.asc ? a[field] - b[field] : b[field] - a[field];
+			});
+			drawRecStats(sorted);
+		};
+		const statsToLibrary = (recId) => {
+		
+		
+			// 1. Átváltunk a könyvtár oldalra
+			showPage('library');
+			
+			// 2. Beállítjuk a keresőt
+			const searchInput = document.getElementById('gSearch');
+			if (searchInput) {
+				searchInput.value = recId; // A 'baal', 'goatlord' stb. azonosítót használjuk
+				currentPage = 1;
+				runFilter();
+			}
+		};
+
+	const scoreLabels = [];
+	for (let s = 1.0; s <= 10.0; s += 0.5) {
+		scoreLabels.push(s.toFixed(1)); 
+	}
+
+// 2. Adatok összesítése
+	const scoreCounts = new Array(scoreLabels.length).fill(0);
+	albums.forEach(a => {
+		const val = parseFloat(a.myScore);
+		if (!isNaN(val) && val >= 1 && val <= 10) {
+			// Kerekítés a legközelebbi 0.5-re
+			const rounded = Math.round(val * 2) / 2;
+			const index = Math.round((rounded - 1) * 2);
+			if (index >= 0 && index < scoreCounts.length) {
+				scoreCounts[index]++;
+			}
+		}
+	});
+
+// 3. Grafikon létrehozása Pontok eloszlásához
+const ctxScore = document.getElementById('cScoreDist').getContext('2d');
+new Chart(ctxScore, {
+	type: 'bar',
+	data: {
+		labels: scoreLabels,
+		datasets: [{
+			label: 'Albumok száma',
+			data: scoreCounts,
+			backgroundColor: '#ffcc00', // Teljesen sárga, nem átlátszó
+			borderColor: '#ffcc00',
+			borderWidth: 1,
+			borderRadius: 4
+		}]
+	},
+	options: {
+			devicePixelRatio: 3,
+			responsive: true,
+			maintainAspectRatio: false,
+			onClick: (event, elements) => {
+				if (elements.length > 0) {
+					const index = elements[0].index;
+					const scoreValue = scoreLabels[index]; // Megkapjuk pl. "8.5"
+					
+					// Meghívjuk a szűrést (azt a függvényt használjuk, amit korábban írtunk)
+					// De mivel ez pontszám, egy kicsit módosítjuk a logikát
+					filterByScore(scoreValue);
+				}
+			},
+			// Adjunk egy kis helyet a grafikon tetején, hogy a számok elférjenek
+			layout: {
+				padding: {
+					top: 25 
+				}
+			},
+			plugins: {
+				legend: { display: false },
+				// EZ AZ ÚJ RÉSZ: A számok megjelenítése az oszlopok felett
+				datalabels: {
+					anchor: 'end', // Az oszlop végéhez rögzíti
+					align: 'top',  // Az oszlop fölé teszi
+					color: '#ffcc00', // Sárga szín
+					font: {
+						weight: 'bold',
+						size: 14
+					},
+					// Csak akkor mutassa a számot, ha nagyobb, mint 0
+					formatter: function(value) {
+						return value > 0 ? value : '';
+					}
+				}
+			},
+			scales: {
+				y: {
+					beginAtZero: true,
+					grid: { display: false }, // A vízszintes rácsvonalakat is kivehetjük a tisztább képért
+					ticks: { display: false },
+					border: { display: false } // A tengely vonalát is elrejti
+				},
+				x: {
+					grid: { display: false },
+					ticks: { 
+						color: '#e0e0e0',
+						font: { size: 14, weight: 'bold' }
+					}
+				}
+			}
+		},
+		// Fontos: Engedélyezni kell a bővítményt a grafikonnál
+		plugins: [ChartDataLabels]
+});
+
+	} 
+
+window.captureStats = async function() {
+	const msg = document.getElementById('snapshotMsg');
+	const statsPage = document.getElementById('stats');
+	const btnContainer = event.target.parentElement; // A gombot tartalmazó div
+
+	// Vizuális visszajelzés a gombon
+	const originalBtnText = event.target.innerText;
+	event.target.innerText = "⌛ GENERÁLÁS...";
+	event.target.disabled = true;
+
+	// 1. ELREJTJÜK a gombot a képről
+	btnContainer.style.display = 'none';
+
+	try {
+		const canvas = await html2canvas(statsPage, {
+			backgroundColor: '#121212',
+			scale: 3,
+			logging: false,
+			useCORS: true,
+			scrollX: 0,
+			scrollY: -window.scrollY,
+			windowWidth: statsPage.scrollWidth,
+			windowHeight: statsPage.scrollHeight
+		});
+
+		// 2. Visszahozzuk a gombot, amint megvan a "felvétel"
+		btnContainer.style.display = 'block';
+
+		canvas.toBlob(async (blob) => {
+				try {
+				const data = [new ClipboardItem({ [blob.type]: blob })];
+				await navigator.clipboard.write(data);
+				msg.innerText = "Kép a vágólapra másolva!";
+				msg.style.display = 'block';
+			} catch (err) {
+				const link = document.createElement('a');
+				link.download = 'slop_library_statisztika.png';
+				link.href = canvas.toDataURL("image/png");
+				link.click();
+				msg.innerText = "Vágólap hiba - Kép letöltve!";
+				msg.style.display = 'block';
+			}
+		});
+
+	} catch (err) {
+		console.error("Hiba:", err);
+		btnContainer.style.display = 'block'; // Hiba esetén is hozzuk vissza a gombot
+		alert("Hiba történt a generálás közben.");
+	} finally {
+		event.target.innerText = originalBtnText;
+		event.target.disabled = false;
+	setTimeout(() => msg.style.display = 'none', 4000);
+	}
+}
+
+async function saveToFirebase() {
+    try {
+        // Elmentjük az egészet egy "data" nevű kollekció "current" dokumentumába
+        await setDoc(doc(db, "data", "library"), {
+            albums: albums,
+			todos: todos
+        });
+        console.log("Sikeres mentés a felhőbe!");
+    } catch (e) {
+        console.error("Hiba a mentés során: ", e);
+    }
+}
+// Tegyük elérhetővé a localStorage mentés helyett is
+window.saveToFirebase = saveToFirebase;
+
+	// Inicializálás
+	initFilters();
+	runFilter();
+</script>
+</body>
+</html>
