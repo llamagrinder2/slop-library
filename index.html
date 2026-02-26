@@ -723,8 +723,10 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 			szoveg: document.getElementById('t_szoveg').value,
 			vibe: document.getElementById('t_vibe').value
 		};
-
+		const maxId = albums.length > 0 ? Math.max(...albums.map(a => a.id || 0)) : 0;
+		
 		const a = {
+			id: editIndex > -1 ? albums[editIndex].id : (maxId + 1),
 			artist: document.getElementById('inArtist').value.trim(),
 			album: document.getElementById('inAlbum').value.trim(),
 			coverUrl: document.getElementById('inCover').value.trim(),
@@ -792,7 +794,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 			`;
 			container.innerHTML += `
 				<div class="album-card" id="card-${idx}">
-					<div class="row-number">${idx+1}</div>
+					<div class="row-number">#${a.id || '?'}</div>
 					<div class="album-art-container">
 						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art-blur">
 						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art" onclick="openLB('${a.coverUrl}')">
@@ -1081,6 +1083,9 @@ window.handleCSV = function() {
                 if(name.includes('review')||name.includes('vélemény')) o.review = v;
                 if(name === 'favorite') o.favSong = v;
                 if(name === 'link') o.songUrl = v;
+				if(name === 'id' || name.includes('sorszám') || name.includes('sorszam')) {
+					o.id = parseInt(v);
+				}
                 // Ha vannak traits (riff, vox stb.) oszlopaidd is a CSV-ben, azokat is itt adhatod hozzá
             });
             if(o.artist && o.album) nA.push(o);
@@ -1126,14 +1131,14 @@ window.handleCSV = function() {
 
 		// 1. Szűrés
 		let res = albums.filter(a => {
-			// Keresés az előadóban, albumban vagy az ajánló nevében
+			// előadó, albumb vagy ajánló
 			const searchTerm = q.toLowerCase();
 			
-			// Megnézzük az ajánló nevét is az adatbázisodból (recommenders objektum)
+			// ajánló 
 			const recInfo = recommenders[a.recommender] || {};
 			const recName = (recInfo.name1 || "").toLowerCase();
 			
-			// okos pontszám keresés 
+			//pontszám 
 			const searchAsNumber = parseFloat(searchTerm);
 			const isNumeric = !isNaN(searchAsNumber);
 			
@@ -1166,9 +1171,9 @@ window.handleCSV = function() {
 			let valA, valB;
 
 			if (sField === 'id') {
-				// Az eredeti index alapján (Hozzáadás sorrendje)
-				valA = albums.indexOf(a);
-				valB = albums.indexOf(b);
+				// A fix ID alapján (ha még nincs ID-ja, mert régi mentés, akkor marad az index mint "B-terv")
+				valA = a.id !== undefined ? parseInt(a.id) : albums.indexOf(a);
+				valB = b.id !== undefined ? parseInt(b.id) : albums.indexOf(b);
 			} else if (sField === 'score') {
 				valA = parseFloat(a.myScore) || 0;
 				valB = parseFloat(b.myScore) || 0;
@@ -1664,6 +1669,4 @@ window.saveToFirebase = saveToFirebase;
 	runFilter();
 </script>
 </body>
-
 </html>
-
