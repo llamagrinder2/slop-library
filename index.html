@@ -2,6 +2,7 @@
 <html lang="hu">
 <head>
 	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 	<title>Slop Library</title>
 	<link rel="icon" type="image/svg+xml" href="favicon.svg">
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -324,6 +325,186 @@ body.is-admin button[onclick^="deleteAlbum"],
 body.is-admin button[onclick^="window.deleteAlbum"] {
     display: inline-block !important;
 }
+
+
+/* ========================================= */
+/* --- MOBIL NÉZET (768px szélesség alatt) --- */
+/* ========================================= */
+@media (max-width: 768px) {
+    /* 1. Navigáció: Egymás alá és sortöréssel */
+    nav {
+        flex-direction: column;
+        padding: 15px 10px;
+        gap: 15px;
+    }
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    .nav-links button {
+        flex: 1 1 auto;
+        font-size: 0.9em;
+        padding: 10px;
+        text-align: center;
+    }
+
+    /* 2. Űrlapok: Oszlopba rendezzük */
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .form-row input, .form-row select, .form-row button {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 1.1em; /* Kényelmesebb gépelés mobilon */
+        padding: 15px;
+    }
+
+    /* 3. Teccett-e grid űrlapnál: 2 oszlopos */
+    #traitInputs {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* ==========================================
+       4. ALBUM KÁRTYÁK MOBILON (Banner stílus) 
+       ========================================== */
+    .album-card {
+        flex-direction: column;
+        position: relative;
+    }
+    
+    /* Sorszám a banner bal felső sarkában */
+    .row-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 35px;
+        width: 45px;
+        font-size: 1.1em;
+        border-bottom-right-radius: 10px;
+        z-index: 10;
+        background: rgba(0,0,0,0.8);
+        color: var(--accent);
+    }
+
+    /* Fejléc-szerű borító: teljes szélesség, fix 140px magasság (kb 1/3) */
+    .album-art-container {
+        width: 100%;
+        min-width: 100%;
+        height: 350px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Elmosott háttér, ami kitölti a bannert */
+    .album-art-blur {
+        position: absolute;
+        width: 110%;
+        height: 110%;
+        object-fit: cover;
+        filter: blur(10px) brightness(0.4); /* Kicsit sötétebb, hogy a borító jobban kiugorjon */
+        z-index: 1;
+    }
+    
+    /* Éles borítókép középen */
+    .album-art {
+        width: 280px;
+        height: 280px;
+        object-fit: cover;
+        z-index: 2;
+        border-radius: 6px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.8); /* Erősebb árnyék */
+    }
+
+    /* --- Nagyobb betűk és elrendezés az adatoknál --- */
+    .album-info {
+        padding: 20px 15px;
+        position: relative; /* Ehhez igazodnak majd a jelvények */
+    }
+    
+    .artist-name {
+        font-size: 1.6em; /* Jó nagy, jól olvasható */
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .album-info p {
+        font-size: 1.25em; /* Album cím mérete */
+        margin: 0 0 10px 0;
+    }
+    
+    /* Pontszám lejjebb húzva, a szöveges részbe */
+    .score-badge {
+        position: absolute;
+        top: 20px;
+        right: 15px;
+        font-size: 1.2em;
+        padding: 10px 15px;
+    }
+    
+    .btn-snap {
+        position: absolute;
+        top: 75px;
+        right: 25px;
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+    }
+
+    .review-text {
+        font-size: 1.15em;
+        margin-top: 15px;
+        line-height: 1.5;
+    }
+    
+    .traits-title {
+        font-size: 1.1em;
+    }
+    
+    .trait-pill {
+        font-size: 1.1em;
+        min-width: 65px;
+        padding: 8px 10px;
+    }
+    
+    .trait-name {
+        font-size: 0.8em;
+    }
+
+    .song-container {
+        font-size: 1.1em;
+        margin-top: 15px;
+    }
+
+    /* Ajánló doboz felnagyítása mobilon */
+    .recommender-container {
+        margin-top: 20px;
+        align-items: flex-start;
+    }
+    .rec-label { font-size: 0.85rem; }
+    .rec-title { font-size: 1.05rem; }
+    .rec-subtitle { font-size: 0.85rem; }
+
+    /* Törlés gomb (kártya alján egy nagy, kényelmes sáv) */
+    .btn-del {
+        position: relative;
+        bottom: 0;
+        right: 0;
+        display: block;
+        width: 100%;
+        text-align: center;
+        margin-top: 20px;
+        background: rgba(255, 68, 68, 0.1);
+        padding: 15px;
+        font-size: 1.3em;
+        border-radius: 6px;
+    }
+}
+
 
 	</style>
 </head>
