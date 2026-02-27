@@ -679,7 +679,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		
 		<hr style="border: 0; border-top: 1px solid #444; margin: 30px 0;">
 
-		<p style="font-size: 0.85em; color: #888; text-transform: uppercase; letter-spacing: 1px;">
+		<p style="font-size: 1.2em; color: #888; text-transform: uppercase; letter-spacing: 1px;">
 			Ez az oldal részben AI segítségével készült!
 		</p>
 
@@ -688,15 +688,15 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px;">
 			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
 				<span style="display: block; color: var(--accent); font-weight: bold; font-size: 1.2em;">~0.6 kWh</span>
-				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Elpazarolt Áram</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Elpazarolt Áram</span>
 			</div>
 			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
 				<span style="display: block; color: #44aaff; font-weight: bold; font-size: 1.2em;">~1 dl</span>
-				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Szerverhűtő Víz</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Szerverhűtő Víz</span>
 			</div>
 			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
 				<span style="display: block; color: var(--success); font-weight: bold; font-size: 1.2em;">~351h</span>
-				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Erre pazarolt munkaóra</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Erre pazarolt munkaóra</span>
 			</div>
 		</div>
 
@@ -1268,13 +1268,25 @@ window.renderPagination = function(totalPages, totalItems) {
 		}
 	}
 
-	window.deleteAlbum = function(i, type) {
-		if(!confirm("Törlés?")) return;
-		if(type === 'lib') albums.splice(i, 1); else todos.splice(i, 1);
-		localStorage.setItem('slopLibrary', JSON.stringify(albums));
-		localStorage.setItem('slopTodo', JSON.stringify(todos));
-		location.reload();
-	}
+window.deleteAlbum = async function(i, type) {
+    if(!confirm("Kukába a moslékkal?")) return;
+    
+    // Kezeljük mindkét megnevezést (lib vagy library)
+    if(type === 'lib' || type === 'library') {
+        albums.splice(i, 1);
+    } else {
+        todos.splice(i, 1);
+    }
+
+    // A localStorage már nem kell, mentsünk a Firebase-be!
+    try {
+        await saveToFirebase();
+        location.reload();
+    } catch (err) {
+        console.error("Firebase törlési hiba:", err);
+        alert("Hiba történt a felhőben való törléskor!");
+    }
+}
 
 	window.editAlbum = function(i) {
 		editIdx = i; 
