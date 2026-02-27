@@ -747,7 +747,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		const maxId = albums.length > 0 ? Math.max(...albums.map(a => a.id || 0)) : 0;
 		
 		const a = {
-			id: editIndex > -1 ? albums[editIndex].id : (maxId + 1),
+			id: editIdx > -1 ? albums[editIdx].id : (maxId + 1),
 			artist: document.getElementById('inArtist').value.trim(),
 			album: document.getElementById('inAlbum').value.trim(),
 			coverUrl: document.getElementById('inCover').value.trim(),
@@ -1698,3 +1698,4 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
