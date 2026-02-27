@@ -279,10 +279,10 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 <div id="lightbox" onclick="this.style.display='none'"><img id="lb-img" src=""></div>
 
 <nav>
-	<div class="nav-logo" onclick="handleTitleClick()" style="cursor: pointer; user-select: none; display: flex; align-items: center; gap: 12px;">
-        <img src="favicon.svg" alt="Logo" style="width: 40px; height: 40px;">
+	<div class="nav-logo" onclick="handleTitleClick()" style="display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none;">
+        <img src="favicon.svg" alt="Slop Library Logo" style="width: 40px; height: 40px;">
         <span>Slop Library</span>
-    </div>
+	</div>
 	<div class="nav-links">
 		<button onclick="showPage('library')" id="nav-library" class="active">KÖNYVTÁR</button>
 		<button onclick="showPage('todo')" id="nav-todo">TO-DO</button>
@@ -1817,6 +1817,7 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
 
 
 
