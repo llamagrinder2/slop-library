@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slop Library - Megosztás</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Alap stílusok átvétele a fő fájlból a konzisztencia miatt */
+        :root { 
+            --bg-color: #121212; 
+            --card-bg: #1e1e1e; 
+            --text-color: #e0e0e0; 
+            --accent: #ffcc00; 
+        }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: var(--bg-color); 
+            color: var(--text-color); 
+            margin: 0; 
+            display: flex; 
+            justify-content: center; 
+            padding: 20px;
+        }
+        #share-container { width: 100%; max-width: 800px; }
+        .loading { text-align: center; margin-top: 50px; color: var(--accent); font-weight: bold; }
+
+        /* Ide másold be a fő fájlod .album-card, .trait-pill, stb. stílusait, 
+           hogy a kártya pontosan ugyanúgy nézzen ki! */
+        /* (A tömörség kedvéért itt most csak a legfontosabbakat emelem ki) */
+        .album-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+        /* ... ide jöhetnek a korábban kidolgozott mobil/asztali stílusok ... */
+    </style>
+</head>
+<body>
+
+<div id="share-container">
+    <div id="content" class="loading">Adatok betöltése a Moslékból...</div>
+</div>
+
+<script type="module">
+    // --- FIREBASE KONFIGURÁCIÓ (Másold át a fő fájlod elejéről!) ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        // IDE MÁSOLD A SAJÁT CONFIGODAT!
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- LOGIKA ---
+    async function loadShared() {
+        const params = new URLSearchParams(window.location.search);
+        const type = params.get('type');
+        const id = params.get('id');
+        const contentDiv = document.getElementById('content');
+
+        try {
+            // Lekérjük a teljes adatbázist (mert a statisztikához kell, 
+            // és az album ID-kat is a tömbből keressük ki)
+            const docSnap = await getDoc(doc(db, "data", "current"));
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                
+                if (type === 'album' && id) {
+                    const album = data.albums.find(a => a.id == id);
+                    if (album) {
+                        renderSingleCard(album);
+                    } else {
+                        contentDiv.innerHTML = "Hiba: Az album nem található.";
+                    }
+                } else if (type === 'stats') {
+                    renderStats(data.albums);
+                }
+            } else {
+                contentDiv.innerHTML = "Hiba: Nincs adat a Firebase-ben.";
+            }
+        } catch (err) {
+            console.error(err);
+            contentDiv.innerHTML = "Hiba történt a betöltés során.";
+        }
+    }
+
+    function renderSingleCard(a) {
+        const contentDiv = document.getElementById('content');
+        contentDiv.className = ""; // Loading törlése
+        // Itt használd a korábban megírt HTML generáló kódodat (banner, adatok, traits)
+        contentDiv.innerHTML = `
+            <div class="album-card">
+                <div class="album-art-container" style="height: 200px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    <img src="${a.coverUrl}" style="position: absolute; width: 110%; filter: blur(20px) brightness(0.5); z-index: 1;">
+                    <img src="${a.coverUrl}" style="width: 150px; height: 150px; z-index: 2; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                </div>
+                <div style="padding: 20px;">
+                    <h2 style="color: var(--accent); margin: 0;">${a.artist}</h2>
+                    <h3 style="margin: 5px 0;">${a.album} (${a.year})</h3>
+                    <p>${a.review}</p>
+                    </div>
+            </div>
+            <p style="text-align: center; margin-top: 20px;">
+                <a href="index.html" style="color: var(--accent); text-decoration: none;">← Vissza a teljes Könyvtárhoz</a>
+            </p>
+        `;
+    }
+
+    function renderStats(albums) {
+        const contentDiv = document.getElementById('content');
+        contentDiv.className = "";
+        contentDiv.innerHTML = "<h2>Rendszer Statisztikák</h2><canvas id='myChart'></canvas>";
+        // Ide jöhet a Chart.js logikád...
+    }
+
+    loadShared();
+</script>
+</body>
+</html>
