@@ -246,9 +246,21 @@
 .t-nem { color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3); }
 .t-meh { color: #888888; }
 .t-volt { color: #bb88ff; text-shadow: 0 0 5px rgba(187,136,255,0.3); }
-.t-peak { color: #ffcc00; text-shadow: 0 0 8px rgba(255,204,0,0.6); font-weight: bold; }
-.t-poop { color: #8b4513; text-shadow: 0 0 5px rgba(139,69,19,0.3); }
-
+.t-peak { 
+    color: #ffcc00; 
+    font-weight: 900; 
+    border: none !important; /*1px solid #ffcc00 !important; */
+    background: none !important; /* rgba(255, 204, 0, 0.1) !important; */
+    animation: peak-pulsing 2s infinite ease-in-out;
+    transition: all 0.3s;
+}
+.t-poop { 
+    color: #8b4513; /* Barna szín */
+    font-weight: 900; 
+    text-shadow: 0 0 5px rgba(139,69,19,0.3);
+    display: inline-block; /* Fontos, hogy a transform (remegés) működjön rajta */
+    animation: poop-shake 0.3s infinite linear;
+}
 .btn-snap {
 	position: absolute;
 	top: 75px; /* Az X gomb alatt/felett */
@@ -422,22 +434,33 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 
     /* --- Nagyobb betűk és elrendezés az adatoknál --- */
     .album-info {
-        padding: 20px 15px;
-        position: relative; /* Ehhez igazodnak majd a jelvények */
+        padding: 15px 12px;
+        position: relative; /
     }
     
     .artist-name {
-        font-size: 1.6em; /* Jó nagy, jól olvasható */
+        font-size: 1.45em; 
         display: block;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
+        word-wrap: break-word; 
+        max-width: 90%;
     }
     
     .album-info p {
-        font-size: 1.25em; /* Album cím mérete */
+        font-size: 1.15em; 
         margin: 0 0 10px 0;
     }
     
-    /* Pontszám lejjebb húzva, a szöveges részbe */
+	.album-info small {
+        display: block; 
+        font-size: 0.95em;
+        color: #aaa;
+        margin-top: 10px;
+        margin-bottom: 15px; 
+        padding-bottom: 12px; 
+        border-bottom: 1px dashed #444; 
+    }
+
     .score-badge {
         position: absolute;
         top: 20px;
@@ -456,13 +479,13 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
     }
 
     .review-text {
-        font-size: 1.15em;
-        margin-top: 15px;
+        font-size: 1.05em;
+        margin-top: 0px;
         line-height: 1.5;
     }
     
     .traits-title {
-        font-size: 1.1em;
+        font-size: 1.0em;
     }
     
     .trait-pill {
@@ -505,6 +528,28 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
     }
 }
 
+@keyframes peak-pulsing {
+  0% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+	transform: scale(1);
+  }
+  50% { 
+    text-shadow: 0 0 12px rgba(255, 204, 0, 1), 0 0 25px rgba(255, 204, 0, 0.4);
+    transform: scale(1.02); /* Egy picit meg is nő a lüktetésnél */
+  }
+  100% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+ 	transform: scale(1);
+  }
+}
+
+@keyframes poop-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(1px, 1px) rotate(1deg); }
+  50% { transform: translate(-1px, -1px) rotate(-1deg); }
+  75% { transform: translate(1px, -1px) rotate(1.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
 
 	</style>
 </head>
@@ -964,6 +1009,15 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		runFilter(); // Kártyák újrarajzolása a szerkesztés gomb miatt
 	});
 
+window.copyShareLink = function(id) {
+    // Kiszámoljuk a share.html elérési útját
+    const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
+    const shareUrl = `${window.location.protocol}//${window.location.host}${path}/share.html?type=album&id=${id}`;
+
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        alert("A megosztási link a vágólapra került!");
+    });
+}
 
 	//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 	Chart.defaults.devicePixelRatio = 3;
@@ -1264,7 +1318,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 					</div>
 					
 					<button data-html2canvas-ignore class="btn-snap" onclick="captureCard(this.parentElement, '${a.album.replace(/'/g, "\\'")}')" title="Kép mentése">📷</button>
-					
+					<button onclick="copyShareLink(${a.id})" class="share-btn" title="Megosztás">🔗</button>
 					<button data-html2canvas-ignore class="btn-del" onclick="deleteAlbum(${idx}, 'lib')">✖</button>
 				</div>`;
 		});
