@@ -4,39 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slop Library - Megosztás</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Alap stílusok átvétele a fő fájlból a konzisztencia miatt */
-        :root { 
-            --bg-color: #121212; 
-            --card-bg: #1e1e1e; 
-            --text-color: #e0e0e0; 
-            --accent: #ffcc00; 
-        }
-        body { 
-            font-family: 'Segoe UI', sans-serif; 
-            background: var(--bg-color); 
-            color: var(--text-color); 
-            margin: 0; 
-            display: flex; 
-            justify-content: center; 
-            padding: 20px;
-        }
-        #share-container { width: 100%; max-width: 800px; }
-        .loading { text-align: center; margin-top: 50px; color: var(--accent); font-weight: bold; }
-
-        /* Ide másold be a fő fájlod .album-card, .trait-pill, stb. stílusait, 
-           hogy a kártya pontosan ugyanúgy nézzen ki! */
-        /* (A tömörség kedvéért itt most csak a legfontosabbakat emelem ki) */
-        .album-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 1px solid #333;
-            display: flex;
-            flex-direction: column;
-        }
-        /* ... ide jöhetnek a korábban kidolgozott mobil/asztali stílusok ... */
+        /* --- MÁSOLD BE IDE A FŐ FÁJLOD TELJES <style> RÉSZÉT --- */
+        /* Különösen a :root, .album-card, .trait-pill, .t-peak stílusokat és a @media mobil részt! */
+        :root { --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --accent: #ffcc00; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
+        #share-container { width: 100%; max-width: 500px; }
+        .loading { text-align: center; margin-top: 50px; color: var(--accent); }
+        
+        /* Ideiglenes stílusok, amíg nem másolod be a nagyot */
+        .album-card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid #333; position: relative; display: flex; flex-direction: column; }
+        .album-art-container { width: 100%; height: 200px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .album-art-blur { position: absolute; width: 110%; height: 110%; object-fit: cover; filter: blur(20px) brightness(0.5); z-index: 1; }
+        .album-art { width: 150px; height: 150px; object-fit: cover; z-index: 2; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .trait-pill { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; background: #333; margin: 2px; text-align: center; min-width: 50px; }
+        .trait-name { display: block; font-size: 0.7em; color: #888; text-transform: uppercase; }
+        .score-badge { position: absolute; top: 10px; right: 10px; padding: 5px 10px; border-radius: 6px; font-weight: bold; color: white; z-index: 10; }
+        
+        /* Peak animáció */
+        @keyframes peak-pulsing { 0%, 100% { text-shadow: 0 0 8px rgba(255,204,0,0.6); transform: scale(1); } 50% { text-shadow: 0 0 18px rgba(255,204,0,1); transform: scale(1.1); } }
+        .t-peak { color: #ffcc00; font-weight: 900; animation: peak-pulsing 2s infinite ease-in-out; border:none !important; background:none !important; }
     </style>
 </head>
 <body>
@@ -46,18 +33,26 @@
 </div>
 
 <script type="module">
-    // --- FIREBASE KONFIGURÁCIÓ (Másold át a fő fájlod elejéről!) ---
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
-        // IDE MÁSOLD A SAJÁT CONFIGODAT!
+        // --- IDE MÁSOLD BE A FŐ FÁJLODBÓL A SAJÁT CONFIGODAT! ---
     };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- LOGIKA ---
+    // Segédfüggvény a Trait pillékhez (hogy ugyanúgy nézzen ki)
+    function generateTraitPills(traits) {
+        if(!traits) return '';
+        const labels = { riff: 'Riff', vox: 'Vox', dob: 'Dob', mix: 'Mix', szoveg: 'Szöveg', vibe: 'Vibe' };
+        return Object.entries(traits).map(([key, val]) => {
+            let cName = 't-' + val.toLowerCase();
+            return `<div class="trait-pill"><span class="trait-name">${labels[key]}</span><span class="${cName}">${val}</span></div>`;
+        }).join('');
+    }
+
     async function loadShared() {
         const params = new URLSearchParams(window.location.search);
         const type = params.get('type');
@@ -65,59 +60,46 @@
         const contentDiv = document.getElementById('content');
 
         try {
-            // Lekérjük a teljes adatbázist (mert a statisztikához kell, 
-            // és az album ID-kat is a tömbből keressük ki)
             const docSnap = await getDoc(doc(db, "data", "current"));
-            
             if (docSnap.exists()) {
-                const data = docSnap.data();
-                
+                const allData = docSnap.data();
                 if (type === 'album' && id) {
-                    const album = data.albums.find(a => a.id == id);
+                    const a = allData.albums.find(item => item.id == id);
                     if (album) {
-                        renderSingleCard(album);
+                        contentDiv.innerHTML = renderCard(a);
                     } else {
                         contentDiv.innerHTML = "Hiba: Az album nem található.";
                     }
-                } else if (type === 'stats') {
-                    renderStats(data.albums);
                 }
             } else {
-                contentDiv.innerHTML = "Hiba: Nincs adat a Firebase-ben.";
+                contentDiv.innerHTML = "Hiba: Nincs adat.";
             }
         } catch (err) {
             console.error(err);
-            contentDiv.innerHTML = "Hiba történt a betöltés során.";
+            contentDiv.innerHTML = "Hiba történt a betöltéskor.";
         }
     }
 
-    function renderSingleCard(a) {
-        const contentDiv = document.getElementById('content');
-        contentDiv.className = ""; // Loading törlése
-        // Itt használd a korábban megírt HTML generáló kódodat (banner, adatok, traits)
-        contentDiv.innerHTML = `
+    function renderCard(a) {
+        return `
             <div class="album-card">
-                <div class="album-art-container" style="height: 200px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-                    <img src="${a.coverUrl}" style="position: absolute; width: 110%; filter: blur(20px) brightness(0.5); z-index: 1;">
-                    <img src="${a.coverUrl}" style="width: 150px; height: 150px; z-index: 2; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+                <div class="score-badge" style="background:hsl(${(a.myScore-1)*13},70%,40%)">${parseFloat(a.myScore).toFixed(1)}</div>
+                <div class="album-art-container">
+                    <img src="${a.coverUrl}" class="album-art-blur">
+                    <img src="${a.coverUrl}" class="album-art">
                 </div>
                 <div style="padding: 20px;">
                     <h2 style="color: var(--accent); margin: 0;">${a.artist}</h2>
-                    <h3 style="margin: 5px 0;">${a.album} (${a.year})</h3>
-                    <p>${a.review}</p>
+                    <p style="font-size: 1.2em; margin: 5px 0;"><strong>${a.album}</strong> (${a.year || '?'})</p>
+                    <small style="color: #888; display: block; margin-bottom: 15px; border-bottom: 1px dashed #444; padding-bottom: 5px;">${a.genre}</small>
+                    <p style="line-height: 1.5;">${a.review || ''}</p>
+                    <div style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 5px;">
+                        ${generateTraitPills(a.traits)}
                     </div>
+                </div>
             </div>
-            <p style="text-align: center; margin-top: 20px;">
-                <a href="index.html" style="color: var(--accent); text-decoration: none;">← Vissza a teljes Könyvtárhoz</a>
-            </p>
+            <p style="text-align: center; margin-top: 20px;"><a href="index.html" style="color: var(--accent); text-decoration: none;">← Vissza a Könyvtárhoz</a></p>
         `;
-    }
-
-    function renderStats(albums) {
-        const contentDiv = document.getElementById('content');
-        contentDiv.className = "";
-        contentDiv.innerHTML = "<h2>Rendszer Statisztikák</h2><canvas id='myChart'></canvas>";
-        // Ide jöhet a Chart.js logikád...
     }
 
     loadShared();
