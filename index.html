@@ -660,7 +660,12 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 			}
 			
 			// Miután minden adat lejött a felhőből, frissítjük a képernyőt:
-			runFilter(); 
+			//runFilter(); 
+			if (typeof window.showPage === 'function') {
+                window.showPage('library');
+            } else if (typeof showPage === 'function') {
+                showPage('library');
+            }
 			
 			// Ha van To-Do rajzoló függvényed, azt is meghívjuk:
 			if (typeof updateTodoUI === 'function') updateTodoUI(); 
@@ -1698,4 +1703,5 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
 
