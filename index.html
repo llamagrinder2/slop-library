@@ -270,6 +270,38 @@
 	background: var(--accent);
 	color: #000;
 	}
+/* --- ÚJ: Info gomb és Info oldal stílusai --- */
+.info-btn {
+    border-radius: 50% !important; /* Hogy szép kerek legyen */
+    width: 25px;
+    height: 25px;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif; /* Egy klasszikus talpas betűtípus az "i" betűnek */
+    font-style: italic;
+    font-size: 0.9em;
+    margin-left: 10px; /* Egy kis távolság a többi gombtól */
+}
+
+.info-content {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid #444;
+    line-height: 1.6;
+    font-size: 1.1em;
+    max-width: 800px;
+    margin: 0 auto; /* Középre igazítja a dobozt */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.info-content p {
+    margin-bottom: 15px;
+}	
+
+	
 /* --- ADMIN LOGIKA FIX --- */
 /* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
 #nav-settings, 
@@ -309,6 +341,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		<button onclick="showPage('todo')" id="nav-todo">TO-DO</button>
 		<button onclick="showPage('stats')" id="nav-stats">STATISZTIKÁK</button>
 		<button onclick="showPage('settings')" id="nav-settings" class="admin-only">BEÁLLÍTÁSOK</button>
+		<button onclick="showPage('info')" id="nav-info" class="info-btn" title="Infó a Könyvtárról">i</button>
 	</div>
 </nav>
 
@@ -603,6 +636,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 	</div>
 
 	<div id="settings" class="page">
+
 		<div class="stat-card" style="margin-bottom:20px;">
 			<h3>Ritkasági küszöb</h3>
 			<div class="form-row">
@@ -622,6 +656,56 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		</div>
 		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
 	</div>
+	<div id="info" class="page">
+    <div class="info-content">
+        <h2 style="color: var(--accent); margin-top: 0; text-transform: uppercase;">A Moslék Könyvtárról</h2>
+        
+        <p>Kedves látogató,</p>
+        
+        <p>Először is, ha nem kerekasztal tag vagy: hogyan a faszba kerültél ide? xddd</p>
+        
+        <p>Másodszor is: Velkám ürdüngök és ürdünginák! 🤘</p>
+        
+        <p>Ez a Slop Library, avagy a Moslék Könyvtáram weboldala, webappja (fogalmam sincsen mi a megfelelő megnevezés), ahol a RYM-el párhuzamosan gyűjtöm és naplózom az általam hallgatott muzsikákat.</p>
+        
+        <p>Minek gyűjtöm? Mert adatok. <strong>ADATOK!!</strong><br>
+        MIért nem elég a RYM? Mert alig ad valami statisztikát az általam értékelt zenékről, valamint egy nyilvános komment vagy hozzászólás nélkül nem lehet kifejteni benne a pontosabb véleményem az adott anyagról.</p>
+        
+        <p>Itt pár szóban - az utókor és önmagam kedvéért - ki tudom fejteni mit gondolok, valamint a hat "Teccett-e" trait-ek osztályozásával gyorsan és érthetően keretbe tudom foglalni az adott zenebona főbb karakterisztikáiról alkotott véleményem. Mindezt egy hosszasan kifejtett kritika írása nélkül, egyszerű vizuális visszajelzésekkel.</p>
+        
+        <p>Mindemellett drága kis társaságom számára könnyebben és stílusosabban meg tudom osztani a véleményem egy vitatott lemezről, enélkül, hogy a RYM oldalán kellene navigálni.</p>
+        
+		<p style="color: var(--accent); font-weight: bold; font-size: 1.2em; margin-top: 30px;">Tisztelet és Fém!</p>
+		
+		<hr style="border: 0; border-top: 1px solid #444; margin: 30px 0;">
+
+		<p style="font-size: 0.85em; color: #888; text-transform: uppercase; letter-spacing: 1px;">
+			Ez az oldal részben AI segítségével készült!
+		</p>
+
+
+
+		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px;">
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: var(--accent); font-weight: bold; font-size: 1.2em;">~0.6 kWh</span>
+				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Elpazarolt Áram</span>
+			</div>
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: #44aaff; font-weight: bold; font-size: 1.2em;">~1 dl</span>
+				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Szerverhűtő Víz</span>
+			</div>
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: var(--success); font-weight: bold; font-size: 1.2em;">~351h</span>
+				<span style="font-size: 0.7rem; color: #888; text-transform: uppercase;">Erre pazarolt munkaóra</span>
+			</div>
+		</div>
+
+		<p style="font-size: 0.8em; font-style: italic; color: #666; margin-top: 15px;">
+			*A becslés 200 komplex fejlesztői prompt és a szerverközpontok átlagos fogyasztása alapján készült.
+		</p>
+		
+    </div>
+</div>
 </div>
 
 <script type="module">
