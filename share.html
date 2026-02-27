@@ -4,27 +4,550 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Slop Library - Megosztás</title>
-    <style>
-        /* --- MÁSOLD BE IDE A FŐ FÁJLOD TELJES <style> RÉSZÉT --- */
-        /* Különösen a :root, .album-card, .trait-pill, .t-peak stílusokat és a @media mobil részt! */
-        :root { --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --accent: #ffcc00; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; display: flex; justify-content: center; }
-        #share-container { width: 100%; max-width: 500px; }
-        .loading { text-align: center; margin-top: 50px; color: var(--accent); }
-        
-        /* Ideiglenes stílusok, amíg nem másolod be a nagyot */
-        .album-card { background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid #333; position: relative; display: flex; flex-direction: column; }
-        .album-art-container { width: 100%; height: 200px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        .album-art-blur { position: absolute; width: 110%; height: 110%; object-fit: cover; filter: blur(20px) brightness(0.5); z-index: 1; }
-        .album-art { width: 150px; height: 150px; object-fit: cover; z-index: 2; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .trait-pill { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; background: #333; margin: 2px; text-align: center; min-width: 50px; }
-        .trait-name { display: block; font-size: 0.7em; color: #888; text-transform: uppercase; }
-        .score-badge { position: absolute; top: 10px; right: 10px; padding: 5px 10px; border-radius: 6px; font-weight: bold; color: white; z-index: 10; }
-        
-        /* Peak animáció */
-        @keyframes peak-pulsing { 0%, 100% { text-shadow: 0 0 8px rgba(255,204,0,0.6); transform: scale(1); } 50% { text-shadow: 0 0 18px rgba(255,204,0,1); transform: scale(1.1); } }
-        .t-peak { color: #ffcc00; font-weight: 900; animation: peak-pulsing 2s infinite ease-in-out; border:none !important; background:none !important; }
-    </style>
+   <style>
+		:root { 
+			--bg-color: #121212; 
+			--card-bg: #1e1e1e; 
+			--text-color: #e0e0e0; 
+			--accent: #ffcc00; 
+			--danger: #ff4444; 
+			--success: #44ff44;
+		}
+		body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding-bottom: 50px; }
+		
+		nav { 
+			background: #252525; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; 
+			border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 1000; 
+		}
+		.nav-logo { 
+		    color: var(--accent); 
+		    font-size: 1.2em; 
+		    font-weight: 900; 
+		    letter-spacing: 1px; 
+		    text-transform: uppercase;
+		    /* Új szabályok a kép és a szöveg egymás mellé rendezéséhez: */
+		    display: flex;
+		    align-items: center;
+		    gap: 12px;
+		    cursor: pointer;
+		    user-select: none;
+		}
+		
+		.nav-logo img {
+		    height: 40px;        /* Ez a magasság illik a szövegedhez */
+		    width: auto;         /* EZ A KULCS: ettől nem lesz összenyomva a kazetta! */
+		    object-fit: contain; /* Biztosítja, hogy az egész logó látszódjon */
+		    display: block;
+		}
+		.nav-links { display: flex; gap: 15px; }
+		nav button { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 8px 18px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+		nav button.active { background: var(--accent); color: #000; }
+
+		.container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
+		.page { display: none; }
+		.page.active { display: block; }
+
+		.module-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #444; margin-bottom: 20px; display: none; }
+		.form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+		input, textarea, select { background: #2d2d2d; border: 1px solid #444; color: white; padding: 12px; border-radius: 6px; flex: 1; }
+		.ctrl-btn { padding: 12px; font-weight: bold; border-radius: 8px; border: 1px solid #444; background: #252525; color: white; cursor: pointer; flex: 1; transition: 0.2s; }
+		.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+		.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; }
+		.row-number { background: #333; color: #888; display: flex; align-items: center; justify-content: center; min-width: 40px; font-weight: bold; flex-shrink: 0; }
+		.album-art-container {
+			width: 180px; /* Ugyanaz a szélesség, amit a képnek adtál */
+			min-width: 180px; /* Hogy ne nyomja össze a szöveg */
+			display: flex;
+			align-items: center; /* Függőlegesen középre teszi a képet */
+			justify-content: center; /* Vízszintesen középre teszi a képet */
+			position: relative;
+			overflow: hidden; /* Ez kell majd a homályosított háttérhez */
+			background: #151515; /* Egy sötét alap, amíg tölt a kép */
+		}
+		.album-art-blur {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 120%; /* Kicsit nagyobb, hogy ne látszódjanak a szélei a homályosítás miatt */
+			height: 120%;
+			object-fit: cover;
+			transform: translate(-50%, -50%) scale(1.2); /* Középre teszi és nagyítja */
+			filter: blur(12px) brightness(0.5); /* Itt állíthatod a homályosságot és sötétséget */
+			z-index: 1; /* Alulra kerül */
+			pointer-events: none; /* Ne lehessen rákattintani */
+		}
+		.album-art {
+			width: 160px; /* Kicsit kisebb, mint a konténer, hogy legyen körülötte tér */
+			height: 160px;
+			object-fit: cover;
+			border-radius: 4px;
+			cursor: pointer;
+			z-index: 2;
+			position: relative;
+			box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Egy kis árnyék, hogy elváljon a majdani háttértől */
+		}
+		.album-info { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+		.artist-name { color: var(--accent); font-size: 1.2em; font-weight: bold; margin: 0; transition: 0.2s; cursor: pointer; display: inline-block; }
+		.artist-name:hover { text-decoration: underline; color: #fff; }
+		.score-badge { position: absolute; top: 15px; right: 15px; padding: 8px 12px; border-radius: 6px; font-weight: bold; color: white; }
+		
+		.review-text { font-size: 0.9em; font-style: italic; color: #bbb; margin-top: 10px; border-left: 2px solid var(--accent); padding-left: 10px; }
+		.song-container { margin-top: 10px; font-size: 0.8em; }
+		.song-label { color: #888; margin-right: 5px; }
+		.fav-song-link { color: var(--accent); font-style: italic; text-decoration: underline; display: inline-block; }
+
+		.btn-del { position: absolute; bottom: 10px; right: 10px; background: none; border: none; color: var(--accent); font-size: 1em; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+		.btn-del:hover { color: var(--danger); opacity: 1; transform: scale(1.1); }
+		.btn-check { background: none; border: 2px solid var(--success); color: var(--success); font-size: 1.5em; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-top: 10px; }
+
+		.pagination-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+		.page-btns { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+		.page-btn { padding: 8px 14px; background: #252525; border: 1px solid #444; color: #fff; border-radius: 5px; cursor: pointer; font-weight: bold; }
+		.page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+		.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+		.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252525; border-radius: 6px; margin-bottom: 5px; }
+
+		.stats-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr; /* Két oszlop */
+			gap: 20px;
+			width: 100%; /* Ez biztosítja, hogy a rács kitöltse a képernyőt */
+			box-sizing: border-box;
+			padding: 10px;
+		}
+		.full-width {
+			grid-column: span 2; /* Az 1. oszloptól indul és 2 oszlopot fog át */
+			width: 100%;
+		}
+		.stat-card { 
+			background: var(--card-bg); 
+			padding: 20px; 
+			border-radius: 12px; 
+			border: 1px solid #444; 
+			min-width: 0;
+			overflow:hidden;			
+		}
+		.clickable-list { list-style: none; padding: 0; }
+		.clickable-list li { background: #252525; margin-bottom: 6px; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+		.stat-score-pill { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.9em; min-width: 35px; text-align: center; }
+
+/* Mobilos nézet: minden kártya legyen teljes szélességű */
+	@media (max-width: 800px) {
+			.stats-grid {
+				grid-template-columns: 1fr;
+			}
+			.full-width, .stat-card {
+				grid-column: 1 / span 1;
+			}
+	}
+
+		#lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+		#lightbox img { max-width: 90%; max-height: 90%; border: 3px solid var(--accent); }
+	#listRecStats li {
+		display: flex;
+			justify-content: space-between;
+		align-items: center;
+			padding: 10px 15px;
+	}
+
+	/* Ajánló névtábla stílusa */
+.recommender-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin: 0 15px; /* Távolság a szövegtől és a pontszámtól */
+	min-width: fit-content;
+}
+
+.rec-label {
+	font-size: 0.6rem;
+	color: var(--accent);
+	text-transform: uppercase;
+	font-weight: bold;
+	margin-bottom: 2px;
+}
+
+.recommender-tag {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 10px;
+	border-radius: 6px;
+	border: 1.5px solid;
+	line-height: 1.1;
+	text-align: center;
+	background: rgba(0,0,0,0.3);
+}
+.rec-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
+.rec-subtitle { font-size: 0.65rem; font-weight: 400; opacity: 0.9; margin-top: 2px; letter-spacing: -0.3px; display: block; }
+.album-card-right { display: flex; align-items: center; justify-content: flex-end; }
+
+/* --- HIÁNYOS KÁRTYÁK STÍLUSAI --- */
+.album-card.incomplete-card {
+    background: #1e1e1e;
+    border-color: #662222;
+} 
+.row-number.incomplete-row {
+    background: #333;
+    color: #888;
+}
+.incomplete-badge {
+    color: #aaaaaa;
+    font-weight: 900;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #444;
+}
+
+.traits-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+	padding: 10px;
+	background: rgba(0,0,0,0.2);
+	border-radius: 8px;
+	align-items: center;
+}
+.traits-title {
+	font-size: 12px;
+	font-weight: bold;
+	color: var(--accent);
+	margin-right: 5px;
+	text-transform: uppercase;
+}
+.trait-pill {
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 4px;
+	background: #333;
+	border: 1px solid #444;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 50px;
+	line-weight: 1.2;
+}
+.trait-name { opacity: 0.7; font-size: 10px; margin-bottom: 1px; }
+/* Színkódok a válaszokhoz */
+.t-igen { color: #44ff44; text-shadow: 0 0 5px rgba(68,255,68,0.3); }
+.t-nem { color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3); }
+.t-meh { color: #888888; }
+.t-volt { color: #bb88ff; text-shadow: 0 0 5px rgba(187,136,255,0.3); }
+.t-peak { 
+    color: #ffcc00; 
+    font-weight: 900; 
+    border: none !important; /*1px solid #ffcc00 !important; */
+    background: none !important; /* rgba(255, 204, 0, 0.1) !important; */
+    animation: peak-pulsing 2s infinite ease-in-out;
+    transition: all 0.3s;
+}
+.t-poop { 
+    color: #8b4513; /* Barna szín */
+    font-weight: 900; 
+    text-shadow: 0 0 5px rgba(139,69,19,0.3);
+    display: inline-block; /* Fontos, hogy a transform (remegés) működjön rajta */
+    animation: poop-shake 0.3s infinite linear;
+}
+.btn-snap {
+	position: absolute;
+	top: 75px; /* Az X gomb alatt/felett */
+	right: 23px;
+	background: rgba(0,0,0,0.6);
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	transition: all 0.2s;
+	z-index: 10;
+}
+.btn-snap:hover {
+	background: var(--accent);
+	color: #000;
+	}
+/* --- ÚJ: Info gomb és Info oldal stílusai --- */
+.info-btn {
+    border-radius: 50% !important; /* Hogy szép kerek legyen */
+    width: 25px;
+    height: 25px;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif; /* Egy klasszikus talpas betűtípus az "i" betűnek */
+    font-style: italic;
+    font-size: 0.9em;
+    margin-left: 10px; /* Egy kis távolság a többi gombtól */
+}
+
+.info-content {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid #444;
+    line-height: 1.6;
+    font-size: 1.1em;
+    max-width: 800px;
+    margin: 0 auto; /* Középre igazítja a dobozt */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.info-content p {
+    margin-bottom: 15px;
+}	
+
+	
+/* --- ADMIN LOGIKA FIX --- */
+/* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
+#nav-settings, 
+button[onclick="toggleMod('add')"], 
+button[onclick="toggleMod('addTodo')"],
+button[onclick^="editAlbum"], 
+button[onclick^="window.editAlbum"], 
+button[onclick^="deleteAlbum"], 
+button[onclick^="window.deleteAlbum"] {
+    display: none !important;
+}
+
+/* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
+body.is-admin #nav-settings, 
+body.is-admin button[onclick="toggleMod('add')"],
+body.is-admin button[onclick="toggleMod('addTodo')"], 
+body.is-admin button[onclick^="editAlbum"], 
+body.is-admin button[onclick^="window.editAlbum"],
+body.is-admin button[onclick^="deleteAlbum"],
+body.is-admin button[onclick^="window.deleteAlbum"] {
+    display: inline-block !important;
+}
+
+
+/* ========================================= */
+/* --- MOBIL NÉZET (768px szélesség alatt) --- */
+/* ========================================= */
+@media (max-width: 768px) {
+    /* 1. Navigáció: Egymás alá és sortöréssel */
+    nav {
+        flex-direction: column;
+        padding: 15px 10px;
+        gap: 15px;
+    }
+    .nav-links {
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+    .nav-links button {
+        flex: 1 1 auto;
+        font-size: 0.9em;
+        padding: 10px;
+        text-align: center;
+    }
+
+    /* 2. Űrlapok: Oszlopba rendezzük */
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .form-row input, .form-row select, .form-row button {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 1.1em; /* Kényelmesebb gépelés mobilon */
+        padding: 15px;
+    }
+
+    /* 3. Teccett-e grid űrlapnál: 2 oszlopos */
+    #traitInputs {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* ==========================================
+       4. ALBUM KÁRTYÁK MOBILON (Banner stílus) 
+       ========================================== */
+    .album-card {
+        flex-direction: column;
+        position: relative;
+    }
+    
+    /* Sorszám a banner bal felső sarkában */
+    .row-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 35px;
+        width: 45px;
+        font-size: 1.1em;
+        border-bottom-right-radius: 10px;
+        z-index: 10;
+        background: rgba(0,0,0,0.8);
+        color: var(--accent);
+    }
+
+    /* Fejléc-szerű borító: teljes szélesség, fix 140px magasság (kb 1/3) */
+    .album-art-container {
+        width: 100%;
+        min-width: 100%;
+        height: 350px; 
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Elmosott háttér, ami kitölti a bannert */
+    .album-art-blur {
+        position: absolute;
+        width: 110%;
+        height: 110%;
+        object-fit: cover;
+        filter: blur(10px) brightness(0.4); /* Kicsit sötétebb, hogy a borító jobban kiugorjon */
+        z-index: 1;
+    }
+    
+    /* Éles borítókép középen */
+    .album-art {
+        width: 280px;
+        height: 280px;
+        object-fit: cover;
+        z-index: 2;
+        border-radius: 6px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.8); /* Erősebb árnyék */
+    }
+
+    /* --- Nagyobb betűk és elrendezés az adatoknál --- */
+    .album-info {
+        padding: 15px 12px;
+        position: relative; /
+    }
+    
+    .artist-name {
+        font-size: 1.45em; 
+        display: block;
+        margin-bottom: 4px;
+        word-wrap: break-word; 
+        max-width: 90%;
+    }
+    
+    .album-info p {
+        font-size: 1.15em; 
+        margin: 0 0 10px 0;
+    }
+    
+	.album-info small {
+        display: block; 
+        font-size: 0.95em;
+        color: #aaa;
+        margin-top: 10px;
+        margin-bottom: 15px; 
+        padding-bottom: 12px; 
+        border-bottom: 1px dashed #444; 
+    }
+
+    .score-badge {
+        position: absolute;
+        top: 20px;
+        right: 15px;
+        font-size: 1.2em;
+        padding: 10px 15px;
+    }
+    
+    .btn-snap {
+        position: absolute;
+        top: 75px;
+        right: 25px;
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+    }
+
+    .review-text {
+        font-size: 1.05em;
+        margin-top: 0px;
+        line-height: 1.5;
+    }
+    
+    .traits-title {
+        font-size: 1.0em;
+    }
+    
+    .trait-pill {
+        font-size: 1.1em;
+        min-width: 65px;
+        padding: 8px 10px;
+    }
+    
+    .trait-name {
+        font-size: 0.8em;
+    }
+
+    .song-container {
+        font-size: 1.1em;
+        margin-top: 15px;
+    }
+
+    /* Ajánló doboz felnagyítása mobilon */
+    .recommender-container {
+        margin-top: 20px;
+        align-items: flex-start;
+    }
+    .rec-label { font-size: 0.85rem; }
+    .rec-title { font-size: 1.05rem; }
+    .rec-subtitle { font-size: 0.85rem; }
+
+    /* Törlés gomb (kártya alján egy nagy, kényelmes sáv) */
+    .btn-del {
+        position: relative;
+        bottom: 0;
+        right: 0;
+        display: block;
+        width: 100%;
+        text-align: center;
+        margin-top: 20px;
+        background: rgba(255, 68, 68, 0.1);
+        padding: 15px;
+        font-size: 1.3em;
+        border-radius: 6px;
+    }
+}
+
+@keyframes peak-pulsing {
+  0% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+	transform: scale(1);
+  }
+  50% { 
+    text-shadow: 0 0 12px rgba(255, 204, 0, 1), 0 0 25px rgba(255, 204, 0, 0.4);
+    transform: scale(1.02); /* Egy picit meg is nő a lüktetésnél */
+  }
+  100% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+ 	transform: scale(1);
+  }
+}
+
+@keyframes poop-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(1px, 1px) rotate(1deg); }
+  50% { transform: translate(-1px, -1px) rotate(-1deg); }
+  75% { transform: translate(1px, -1px) rotate(1.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+	</style>
 </head>
 <body>
 
@@ -36,8 +559,25 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    const firebaseConfig = {
-        // --- IDE MÁSOLD BE A FŐ FÁJLODBÓL A SAJÁT CONFIGODAT! ---
+
+       import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
+	// https://firebase.google.com/docs/web/setup#available-libraries
+
+	const firebaseConfig = {
+	apiKey: "AIzaSyB8vcEb3IvLNqT2R6xS_ax_cm0WFV1fRC8",
+	authDomain: "slop-library.firebaseapp.com",
+	projectId: "slop-library",
+	storageBucket: "slop-library.firebasestorage.app",
+	messagingSenderId: "730801831303",
+	appId: "1:730801831303:web:be74d9cb6d8b21de7f2722"
+	};
+
+	const app = initializeApp(firebaseConfig);
+	const db = getFirestore(app);
+	const auth = getAuth(app); // Auth inicializálása
+	const provider = new GoogleAuthProvider();
     };
 
     const app = initializeApp(firebaseConfig);
