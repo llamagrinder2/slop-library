@@ -186,7 +186,7 @@
 	background: rgba(0,0,0,0.3);
 }
 .rec-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
-.rec-subtitle { font-size: 0.55rem; font-weight: 400; opacity: 0.8; margin-top: 2px; }
+.rec-subtitle { font-size: 0.65rem; font-weight: 400; opacity: 0.9; margin-top: 2px; letter-spacing: -0.3px; display: block; }
 .album-card-right { display: flex; align-items: center; justify-content: flex-end; }
 
 /* --- HIÁNYOS KÁRTYÁK STÍLUSAI --- */
@@ -274,6 +274,7 @@
 /* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
 #nav-settings, 
 button[onclick="toggleMod('add')"], 
+button[onclick="toggleMod('addTodo')"],
 button[onclick^="editAlbum"], 
 button[onclick^="window.editAlbum"], 
 button[onclick^="deleteAlbum"], 
@@ -283,7 +284,8 @@ button[onclick^="window.deleteAlbum"] {
 
 /* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
 body.is-admin #nav-settings, 
-body.is-admin button[onclick="toggleMod('add')"], 
+body.is-admin button[onclick="toggleMod('add')"],
+body.is-admin button[onclick="toggleMod('addTodo')"], 
 body.is-admin button[onclick^="editAlbum"], 
 body.is-admin button[onclick^="window.editAlbum"],
 body.is-admin button[onclick^="deleteAlbum"],
@@ -337,6 +339,8 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 					<option value="bacchus">Bacchus the Second</option>
 					<option value="mammvth">The Mammvth Hvnter</option>
 					<option value="gaben">X14Gaben88X</option>
+					<option value="christian">Christian Woman</option>
+					<option value="max">Max, the Mad</option>
 				</select>
 					<input type="number" id="inScore" placeholder="Pont" step="0.1">
 				</div>
@@ -357,7 +361,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -368,7 +372,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -379,7 +383,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -390,7 +394,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -401,7 +405,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -412,7 +416,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 							<option value="Volt??">Volt??</option>
 							<option value="Poop">Poop</option>
 							<option value="Nem">Nem</option>
-							<option value="Meh">Meh</option>
+							<option value="Meh" selected>Meh</option>
 							<option value="Igen">Igen</option>
 							<option value="Peak">Peak</option>
 						</select>
@@ -422,11 +426,8 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 				
 			</div>
 			<div class="form-row">
-				<select id="inTarget">
-					<option value="library">Értékelés (Könyvtár)</option>
-					<option value="todo">Később (To-Do)</option>
-				</select>
-				<button onclick="saveAlbum()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:2;">MENTÉS</button>
+				<input type="hidden" id="inTarget" value="library">
+				<button onclick="saveAlbum()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:2;">MENTÉS A KÖNYVTÁRBA</button>
 			</div>
 		</div>
 
@@ -455,8 +456,40 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		<div id="listContainer"></div>
 	</div>
 
-	<div id="todo" class="page">
-		<h2 style="color:var(--accent)">Meghallgatásra vár</h2>
+<div id="todo" class="page">
+		<div class="form-row">
+			<button onclick="toggleMod('addTodo')" class="ctrl-btn admin-only" style="margin-bottom: 15px;">+ ÚJ TO-DO</button>
+		</div>
+
+		<div id="mod-addTodo" class="module-box" style="display: none;">
+			<div class="form-row">
+				<input type="text" id="todoArtist" placeholder="Előadó">
+				<input type="text" id="todoAlbum" placeholder="Album">
+				<input type="text" id="todoCover" placeholder="Borító URL">
+			</div>
+			<div class="form-row">
+				<input type="number" id="todoYear" placeholder="Év">
+				<input type="text" id="todoGenre" placeholder="Műfajok">
+			</div>
+			<div class="form-row" style="align-items: flex-end;">
+				<div style="flex: 1;">
+					<label style="display:block; margin-top:5px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
+					<select id="todoRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
+						<option value="">-- Saját felfedezés --</option>
+						<option value="baal">The Almighty Baal</option>
+						<option value="goatlord">Goatlord</option>
+						<option value="caller">Caller of Slam Riffs</option>
+						<option value="bacchus">Bacchus the Second</option>
+						<option value="mammvth">The Mammvth Hvnter</option>
+						<option value="gaben">X14Gaben88X</option>
+						<option value="christian">Christian Woman</option>
+						<option value="max">Max, the Mad</option>
+					</select>
+				</div>
+				<button onclick="saveTodoOnly()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:1; height: 42px;">TO-DO MENTÉSE</button>
+			</div>
+		</div>
+
 		<div id="todoContainer"></div>
 	</div>
 
@@ -760,7 +793,9 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		"caller": { name1: "Caller of Slam Riffs", name2: "Desecrator of Snare Drums", color: "#1E88E5" },
 		"bacchus": { name1: "Bacchus the Second", name2: "the Sodomizer, the Bluntripper", color: "#4CAF50" },
 		"mammvth": { name1: "The Mammvth Hvnter", name2: "He Who Preys on Dissodeath", color: "#8D6E63" },
-		"gaben": { name1: "X14Gaben88X", name2: "Straightest of all Edges", color: "#AB47BC" }
+		"gaben": { name1: "X14Gaben88X", name2: "Straightest of all Edges", color: "#AB47BC" },
+		"christian": { name1: "Christian Woman", name2: "The wicked wicca", color: "#FF9800" },
+		"max": { name1: "Max, the Mad", name2: "Undercover cartel member", color: "#E8E8E8" }
 	};
 
 	window.toggleSortOrder = function() {
@@ -805,13 +840,23 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 	}
 
 	window.toggleMod = function(m) {
-		const a = document.getElementById('mod-add'), s = document.getElementById('mod-search');
-		if(m === 'add') { a.style.display = (a.style.display==='block'?'none':'block'); s.style.display='none'; }
-		else { s.style.display = (s.style.display==='block'?'none':'block'); a.style.display='none'; }
+		const panels = {
+			'add': document.getElementById('mod-add'),
+			'search': document.getElementById('mod-search'),
+			'addTodo': document.getElementById('mod-addTodo')
+		};
+		for (const key in panels) {
+			if (panels[key]) {
+				if (key === m) {
+					panels[key].style.display = (panels[key].style.display === 'block' ? 'none' : 'block');
+				} else {
+					panels[key].style.display = 'none';
+				}
+			}
+		}
 	}
 
 	window.saveAlbum = async function() {
-		const target = document.getElementById('inTarget').value;
 		const dateEl = document.getElementById('inDate');
 		const dateInput = dateEl ? dateEl.value : '';
 		const traits = {
@@ -840,21 +885,43 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 			addedDate: dateInput || 'Ősidőkben'
 		};
 
-		if(target === 'todo') {
-			todos.push({ artist: a.artist, album: a.album, coverUrl: a.coverUrl, recommender: a.recommender });
-			localStorage.setItem('slopTodo', JSON.stringify(todos));
+		if(editIdx > -1) { 
+			albums[editIdx] = a; 
+			editIdx = -1; 
 		} else {
-			if(editIdx > -1) { 
-				albums[editIdx] = a; 
-				editIdx = -1; 
-			} else {
-				albums.push(a);
-			}
-			await saveToFirebase(); 
+			albums.push(a);
 		}
+		
+		await saveToFirebase(); 
 		location.reload();
 	}
 
+	// 3. ÚJ FÜGGVÉNY: Kizárólag az új pici To-Do űrlapot menti a Firebase-be
+	window.saveTodoOnly = async function() {
+		const artist = document.getElementById('todoArtist').value.trim();
+		const album = document.getElementById('todoAlbum').value.trim();
+		
+		if(!artist || !album) {
+			alert('Előadó és Album megadása kötelező!');
+			return;
+		}
+
+		const newTodo = { 
+			artist: artist, 
+			album: album, 
+			coverUrl: document.getElementById('todoCover').value.trim(), 
+			year: document.getElementById('todoYear').value,
+			genre: document.getElementById('todoGenre').value.trim(),
+			recommender: document.getElementById('todoRec').value 
+		};
+
+		todos.push(newTodo);
+		
+		// Mivel az adatbázisod ismeri a "todos" tömböt, csak meg kell hívnunk a mentést
+		await saveToFirebase();
+		location.reload();
+	}
+	
 	window.renderList = function(data) {
 		const container = document.getElementById('listContainer');
 		if(!container) return;
@@ -1072,23 +1139,49 @@ window.renderPagination = function(totalPages, totalItems) {
 		});
 	}
 
-	window.moveToRating = function(idx) {
-		const item = todos[idx];
-		document.getElementById('inArtist').value = item.artist;
-		document.getElementById('inAlbum').value = item.album;
-		document.getElementById('inCover').value = item.coverUrl;
+	window.moveToRating = async function(idx) {
+		// EZ A SOR DEFINIÁLJA A "t" VÁLTOZÓT - Ez hiányzott!
+		const t = todos[idx]; 
 		
-		// Ez biztosítja, hogy az ajánló legördülő menüje is beálljon
-		const recSelect = document.getElementById('inRec');
-		if (recSelect) {
-			recSelect.value = item.recommender || "";
+		if (!t) return; // Biztonsági ellenőrzés, ha valamiért üres lenne
+
+		// 1. Alapadatok betöltése
+		document.getElementById('inArtist').value = t.artist || '';
+		document.getElementById('inAlbum').value = t.album || '';
+		document.getElementById('inCover').value = t.coverUrl || '';
+		document.getElementById('inRec').value = t.recommender || '';
+
+		// 2. Év és Műfaj átemelése
+		document.getElementById('inYear').value = t.year || '';
+		document.getElementById('inGenre').value = t.genre || '';
+
+		// 3. Biztonsági ürítés: Visszaállítjuk "Meh"-re a legördülőket
+		['t_riff', 't_vox', 't_dob', 't_mix', 't_szoveg', 't_vibe'].forEach(id => {
+			const el = document.getElementById(id);
+			if (el) el.value = 'Meh';
+		});
+		
+		// Egyéb mezők ürítése
+		document.getElementById('inScore').value = '';
+		document.getElementById('inReview').value = '';
+		document.getElementById('inFavSong').value = '';
+		document.getElementById('inSongUrl').value = '';
+		const dateEl = document.getElementById('inDate');
+		if (dateEl) dateEl.value = '';
+
+		// 4. Beállítjuk, hogy új elemet hozunk létre
+		editIdx = -1;
+
+		// 5. Eltávolítjuk a To-Do listából az elemet és mentjük a Firebase-be
+		todos.splice(idx, 1);
+		await saveToFirebase();
+		
+		// 6. Átlépünk a Könyvtár nézetre és lenyitjuk az űrlapot
+		showPage('library');
+		const addMod = document.getElementById('mod-add');
+		if (addMod && addMod.style.display !== 'block') {
+			toggleMod('add');
 		}
-		
-		showPage('library'); 
-		toggleMod('add');
-		todos.splice(idx, 1); 
-		localStorage.setItem('slopTodo', JSON.stringify(todos));
-		renderTodo(); // Frissítjük a nézetet
 	}
 
 	window.deleteAlbum = function(i, type) {
@@ -1836,8 +1929,3 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
-
-
-
-
-
