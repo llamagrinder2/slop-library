@@ -23,6 +23,29 @@
 			background: #252525; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; 
 			border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 1000; 
 		}
+
+		@font-face {
+		font-family: 'gooeyFont';
+		/* Itt add meg a pontos fájlnevet. Ha .ttf, akkor ttf, ha .otf, akkor otf */
+		src: url('gooey.ttf'); 
+		}
+
+		.slime-text {
+			font-family: 'gooeyFont', cursive;
+			font-size: 1.3em; /* A Gooey fontok gyakran vékonyabbak, így nagyobbra vesszük */
+			color: var(--accent);
+			letter-spacing: 1px;
+			vertical-align: middle; /* Hogy szépen illeszkedjen a LIBRARY szóhoz */
+			line-height: 1;
+		}
+
+		.nav-logo span {
+			font-family: 'Segoe UI', sans-serif;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+
 		.nav-logo { 
 		    color: var(--accent); 
 		    font-size: 1.2em; 
@@ -558,10 +581,13 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 <div id="lightbox" onclick="this.style.display='none'"><img id="lb-img" src=""></div>
 
 <nav>
-	<div class="nav-logo" onclick="handleTitleClick()">
-	    <img src="favicon.svg" alt="Logo">
-	    <span>Slop Library</span>
-	</div>
+    <div class="nav-logo" onclick="handleTitleClick()" style="cursor:pointer;">
+        <img src="favicon.svg" alt="Logo">
+        <span>
+            <span class="slime-text">Slop</span> Library
+        </span>
+    </div>
+    <div class="nav-links">
 	<div class="nav-links">
 		<button onclick="showPage('library')" id="nav-library" class="active">KÖNYVTÁR</button>
 		<button onclick="showPage('todo')" id="nav-todo">TO-DO</button>
@@ -1318,7 +1344,6 @@ window.copyShareLink = function(id) {
 					</div>
 					
 					<button data-html2canvas-ignore class="btn-snap" onclick="captureCard(this.parentElement, '${a.album.replace(/'/g, "\\'")}')" title="Kép mentése">📷</button>
-					<button onclick="copyShareLink(${a.id})" class="share-btn" title="Megosztás">🔗</button>
 					<button data-html2canvas-ignore class="btn-del" onclick="deleteAlbum(${idx}, 'lib')">✖</button>
 				</div>`;
 		});
