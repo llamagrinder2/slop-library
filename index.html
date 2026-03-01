@@ -353,6 +353,7 @@
 /* --- ADMIN LOGIKA FIX --- */
 /* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
 #nav-settings, 
+#nav-listView,
 button[onclick="toggleMod('add')"], 
 button[onclick="toggleMod('addTodo')"],
 button[onclick^="editAlbum"], 
@@ -364,6 +365,7 @@ button[onclick^="window.deleteAlbum"] {
 
 /* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
 body.is-admin #nav-settings, 
+body.is-admin #nav-listView,
 body.is-admin button[onclick="toggleMod('add')"],
 body.is-admin button[onclick="toggleMod('addTodo')"], 
 body.is-admin button[onclick^="editAlbum"], 
@@ -632,8 +634,8 @@ select.inline-edit option {
         display: block; 
         font-size: 0.95em;
         color: #aaa;
-        margin-top: 10px;
-        margin-bottom: 15px; 
+        margin-top: 2px;
+        margin-bottom: 18px; 
         padding-bottom: 12px; 
         border-bottom: 1px dashed #444; 
     }
@@ -716,7 +718,7 @@ select.inline-edit option {
 
    .recommender-container {
         position: absolute !important;
-        top: 82px !important;
+        top: 74px !important;
         right: 15px !important;
         width: auto !important;
         background: none !important;
@@ -965,7 +967,7 @@ td[contenteditable="true"]:empty::before {
 			</div>
 		</div>
 
-		<div id="mod-search" class="module-box" style="display:block;">
+		<div id="mod-search" class="module-box" style="display:none;">
 			<div class="form-row">
 				<input type="text" id="gSearch" placeholder="Keresés..." oninput="currentPage=1; runFilter()">
 				<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
