@@ -273,7 +273,14 @@
 .t-igen { color: #44ff44; text-shadow: 0 0 5px rgba(68,255,68,0.3); }
 .t-nem { color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3); }
 .t-meh { color: #888888; }
-.t-volt { color: #bb88ff; text-shadow: 0 0 5px rgba(187,136,255,0.3); }
+.t-volt {
+    color: #bb88ff;
+    text-shadow: 0 0 5px rgba(187,136,255,0.3);
+    
+    /* Ezek az új sorok: */
+    display: inline-block; /* Ez kell, hogy a transform működjön! */
+    animation: gentleFloat 2s infinite ease-in-out;
+}
 .t-peak { 
     color: #ffcc00; 
     font-weight: 900; 
@@ -366,6 +373,126 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
     display: inline-block !important;
 }
 
+/* Lista nézet */
+.excel-wrapper {
+    width: 170%;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+	
+	overflow-x: auto; /* Ez engedi a vízszintes görgetést */
+    background: #111;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin-top: 20px;
+    position: relative;
+}
+
+.excel-table {
+    width: 0; /
+    min-width: 20%;
+    table-layout: fixed !important; /* kézi átméretezéshez */
+    border-collapse: collapse;
+    font-family: sans-serif;
+    font-size: 13px;
+    color: #ccc;
+}
+/* Oszlopméretező handle  */
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: col-resize;
+    user-select: none;
+    z-index: 10;
+}
+
+.resizer:hover {
+    background: var(--accent);
+}
+
+.excel-table th {
+    position: relative; /* Ehhez rögzül a resizer */
+    background: #222;
+    color: var(--accent);
+    padding: 10px;
+    border: 1px solid #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+	min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.excel-table td {
+	min-width: 0 !important;
+	box-sizing: border-box !important;
+    padding: 8px;
+    border: 1px solid #222;
+    white-space: nowrap;
+    overflow: hidden !important;
+    text-overflow: ellipsis;
+	padding: 8px 2px !important;
+}
+.col-num { width: 40px; }
+.col-artist { width: 180px; }
+.col-album { width: 220px; }
+.col-year { width: 60px; }
+.col-genre { width: 150px; }
+.col-rec { width: 160px; }
+.col-score { width: 60px; }
+.col-review { width: 220px; }
+.col-trait { width: 70px; }
+.col-favsong { width: 200px; }
+.col-songurl { width: 80px; }
+.col-cover { width: 80px; }
+
+.excel-table th.col-review {
+    text-align: left !important;
+    padding-left: 10px !important; /* Egy kis hely, hogy ne érjen a vonalhoz */
+}
+
+.excel-table tr:nth-child(even) { background: #181818; }
+.excel-table tr:hover { background: #252525; }
+
+/* Komment oszlop korlátozása, hogy ne legyen túl széles a tábla */
+.col-review {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+td[contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: #222;
+    cursor: text;
+}
+
+/* Legördülő menük a táblázaton belül (Traits, Ajánló) */
+select.inline-edit {
+    width: 100%;
+    background: transparent;
+    color: inherit;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+select.inline-edit option {
+    background: #222;
+    color: #fff;
+}
+
+/* CSAK ASZTALI NÉZETBEN LÁTSZÓDIK */
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
 
 @media (max-width: 815px) { /* mobil */
     /* 1. Navigáció: Egymás alá és sortöréssel */
@@ -659,11 +786,12 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 
 @keyframes poop-shake {
   0% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(1px, 1px) rotate(1deg); }
-  50% { transform: translate(-1px, -1px) rotate(-1deg); }
-  75% { transform: translate(1px, -1px) rotate(1.5deg); }
+  25% { transform: translate(0.7px, 0.7px) rotate(1deg); }
+  50% { transform: translate(-0.7px, -0.7px) rotate(-1deg); }
+  75% { transform: translate(0.7px, -0.7px) rotate(1.5deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
 }
+
 
 	</style>
 </head>
@@ -681,6 +809,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
     <div class="nav-links">
 	<div class="nav-links">
 		<button onclick="showPage('library')" id="nav-library" class="active">KÖNYVTÁR</button>
+		<button onclick="showPage('listView')" id="nav-listView" class="desktop-only">LISTA NÉZET</button>
 		<button onclick="showPage('todo')" id="nav-todo">TO-DO</button>
 		<button onclick="showPage('stats')" id="nav-stats">STATISZTIKÁK</button>
 		<button onclick="showPage('settings')" id="nav-settings" class="admin-only">BEÁLLÍTÁSOK</button>
@@ -808,31 +937,59 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 		</div>
 
 		<div id="mod-search" class="module-box" style="display:block;">
-	<div class="form-row">
-		<input type="text" id="gSearch" placeholder="Keresés..." oninput="currentPage=1; runFilter()">
-		<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
-		<select id="fYear" onchange="currentPage=1; runFilter()"><option value="">Összes év</option></select>
-		<select id="fGenre" onchange="currentPage=1; runFilter()"><option value="">Minden műfaj</option></select>
-	</div>
-	<div class="form-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
-		<span style="font-size: 0.8em; color: var(--accent); font-weight: bold;">RENDEZÉS:</span>
-		<select id="sortField" onchange="currentPage=1; runFilter()" style="flex: 2;">
-			<option value="id">Hozzáadás sorrendje (Alapértelmezett)</option>
-			<option value="artist">Előadó név</option>
-			<option value="album">Album cím</option>
-			<option value="year">Évszám</option>
-			<option value="genre">Műfaj</option>
-			<option value="score">Pontszám</option>
-		</select>
-		<button onclick="toggleSortOrder()" class="ctrl-btn" style="max-width: 50px;" title="Irány megfordítása">
-			<span id="sortDirIcon">▼</span>
-		</button>
-	</div>
-</div>
+			<div class="form-row">
+				<input type="text" id="gSearch" placeholder="Keresés..." oninput="currentPage=1; runFilter()">
+				<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
+				<select id="fYear" onchange="currentPage=1; runFilter()"><option value="">Összes év</option></select>
+				<select id="fGenre" onchange="currentPage=1; runFilter()"><option value="">Minden műfaj</option></select>
+			</div>
+			<div class="form-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
+				<span style="font-size: 0.8em; color: var(--accent); font-weight: bold;">RENDEZÉS:</span>
+				<select id="sortField" onchange="currentPage=1; runFilter()" style="flex: 2;">
+					<option value="id">Hozzáadás sorrendje (Alapértelmezett)</option>
+					<option value="artist">Előadó név</option>
+					<option value="album">Album cím</option>
+					<option value="year">Évszám</option>
+					<option value="genre">Műfaj</option>
+					<option value="score">Pontszám</option>
+				</select>
+				<button onclick="toggleSortOrder()" class="ctrl-btn" style="max-width: 50px;" title="Irány megfordítása">
+					<span id="sortDirIcon">▼</span>
+				</button>
+			</div>
+		</div>
 		<div id="listContainer"></div>
 	</div>
-
-<div id="todo" class="page">
+	<div id="listView" class="page">
+		<div class="excel-wrapper">
+			<table class="excel-table">
+				<thead>
+					<tr>
+						<th class="col-num">#</th>
+						<th class="col-artist">Előadó</th>
+						<th class="col-album">Album</th>
+						<th class="col-year">Év</th>
+						<th class="col-genre">Műfajok</th>
+						<th class="col-rec">Ajánló</th>
+						<th class="col-score">Pont</th>
+						<th class="col-review">Komment</th>
+						<th class="col-trait">RIFF</th>
+						<th class="col-trait">VOX</th>
+						<th class="col-trait">DOB</th>
+						<th class="col-trait">MIX</th>
+						<th class="col-trait">SZÖV</th>
+						<th class="col-trait">VIBE</th>
+						<th class="col-favsong">Kedvenc Dal</th>
+        				<th class="col-songurl">Link</th>
+						<th class="col-cover">Borító</th>
+					</tr>
+				</thead>
+				<tbody id="excelBody">
+					</tbody>
+			</table>
+		</div>
+	</div>
+	<div id="todo" class="page">
 		<div class="form-row">
 			<button onclick="toggleMod('addTodo')" class="ctrl-btn admin-only" style="margin-bottom: 15px;">+ ÚJ TO-DO</button>
 		</div>
@@ -950,33 +1107,33 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 			</div>
 
 
-		<div class="stat-card">
-			   <h3>Ajánlások adatai</h3>
-				<ul id="listRecStats" class="clickable-list" style="display: flex; flex-direction: column; gap: 10px;">
-					  </ul>
-		</div>
+					<div class="stat-card">
+						<h3>Ajánlások adatai</h3>
+							<ul id="listRecStats" class="clickable-list" style="display: flex; flex-direction: column; gap: 10px;">
+								</ul>
+					</div>
 
-		<div class="stat-card full-width">
-			<h3>Teccett-e?</h3>
-			<div style="height: 300px; position: relative;">
-				<canvas id="chartTraits"></canvas>
-			</div>
-		</div>
+					<div class="stat-card full-width">
+						<h3>Teccett-e?</h3>
+						<div style="height: 300px; position: relative;">
+							<canvas id="chartTraits"></canvas>
+						</div>
+					</div>
 
-		<div class="stat-card full-width">
-				<h3>Ritkaságok</h3>
-				<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
+					<div class="stat-card full-width">
+							<h3>Ritkaságok</h3>
+							<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
+					</div>
+						
+				<div style="text-align: center; margin-top: 30px;">
+					<button onclick="captureStats()" class="ctrl-btn" style="background: var(--accent); color: #000; max-width: 300px;">
+						STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
+					</button>
+					<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
+				</div>
 		</div>
-			
-	<div style="text-align: center; margin-top: 30px;">
-		<button onclick="captureStats()" class="ctrl-btn" style="background: var(--accent); color: #000; max-width: 300px;">
-			 STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
-		</button>
-		<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
 	</div>
 </div>
-		</div>
-	</div>
 
 	<div id="settings" class="page">
 
@@ -1126,16 +1283,6 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		runFilter(); // Kártyák újrarajzolása a szerkesztés gomb miatt
 	});
 
-window.copyShareLink = function(id) {
-    // Kiszámoljuk a share.html elérési útját
-    const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/'));
-    const shareUrl = `${window.location.protocol}//${window.location.host}${path}/share.html?type=album&id=${id}`;
-
-    navigator.clipboard.writeText(shareUrl).then(() => {
-        alert("A megosztási link a vágólapra került!");
-    });
-}
-
 	//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 	Chart.defaults.devicePixelRatio = 3;
 	Chart.register(ChartDataLabels);
@@ -1222,6 +1369,151 @@ window.copyShareLink = function(id) {
 
 	loadFromFirebase();
 
+function renderExcelTable(data) {
+    const body = document.getElementById('excelBody');
+    if (!body) return;
+
+    // Ajánló opciók
+    const recOptions = `
+        <option value="">-- Saját --</option>
+        <option value="baal">The Almighty Baal</option>
+        <option value="goatlord">Goatlord</option>
+        <option value="caller">Caller of Slam Riffs</option>
+        <option value="bacchus">Bacchus the Second</option>
+        <option value="mammvth">The Mammvth Hvnter</option>
+        <option value="gaben">X14Gaben88X</option>
+        <option value="christian">Christian Woman</option>
+        <option value="max">Max, the Mad</option>
+    `;
+
+    // Kis segédfüggvény a Trait dropdownok gyártásához
+    const makeTraitSelect = (id, field, val) => `
+        <select class="inline-edit" onchange="updateAlbumField('${id}', 'traits.${field}', this.value)">
+            ${['Volt??', 'Poop', 'Nem', 'Meh', 'Igen', 'Peak'].map(opt => 
+                `<option value="${opt}" ${val === opt ? 'selected' : ''}>${opt}</option>`
+            ).join('')}
+        </select>
+    `;
+
+    body.innerHTML = data.map((a, i) => {
+        const t = a.traits || { riff:'-', vox:'-', dob:'-', mix:'-', szoveg:'-', vibe:'-' };
+        
+        return `
+            <tr>
+                <td>${i + 1}</td>
+                
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'artist')" style="color:white; font-weight:bold;">${a.artist}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'album')">${a.album}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'year')">${a.year || ''}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'genre')">${a.genre || ''}</td>
+                
+                <td>
+                    <select class="inline-edit" onchange="updateAlbumField('${a.id}', 'recommender', this.value)">
+                        ${recOptions.replace(`value="${a.recommender}"`, `value="${a.recommender}" selected`)}
+                    </select>
+                </td>
+                
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'myScore')" style="color:var(--accent); font-weight:bold;">${a.myScore}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'review')" class="col-review" title="${a.review || ''}">${a.review || ''}</td>
+                
+                <td>${makeTraitSelect(a.id, 'riff', t.riff)}</td>
+                <td>${makeTraitSelect(a.id, 'vox', t.vox)}</td>
+                <td>${makeTraitSelect(a.id, 'dob', t.dob)}</td>
+                <td>${makeTraitSelect(a.id, 'mix', t.mix)}</td>
+                <td>${makeTraitSelect(a.id, 'szoveg', t.szoveg)}</td>
+                <td>${makeTraitSelect(a.id, 'vibe', t.vibe)}</td>
+                
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'favSong')" title="${a.favSong || ''}">${a.favSong || ''}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'songUrl')">${a.songUrl || ''}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'cover')">${a.cover || ''}</td>
+            </tr>
+        `;
+    }).join('');
+
+    initResizers(); // Csúszkák inicializálása
+}
+
+// Ezt hívja meg a cella, amikor kikattintasz belőle (blur)
+function handleCellEdit(cell, albumId, field) {
+    const newValue = cell.innerText.trim();
+    const oldValue = cell.dataset.oldValue;
+    
+    // Csak akkor mentünk, ha tényleg átírtál benne valamit
+    if (newValue !== oldValue) {
+        updateAlbumField(albumId, field, newValue);
+        cell.dataset.oldValue = newValue; // Frissítjük a memóriát az új értékre
+        
+        // Egy kis zöld villanás, hogy lásd: elmentve!
+        cell.style.transition = "background 0.3s";
+        cell.style.backgroundColor = "rgba(139, 195, 74, 0.3)";
+        setTimeout(() => cell.style.backgroundColor = "", 500);
+    }
+}
+
+async function updateAlbumField(albumId, fieldPath, newValue) {
+    // 1. Megkeressük az albumot a helyi tömbben
+    const index = albums.findIndex(a => a.id === albumId);
+    if (index === -1) return;
+
+    // 2. Érték frissítése a memóriában
+    if (fieldPath.startsWith('traits.')) {
+        const trait = fieldPath.split('.')[1];
+        if (!albums[index].traits) albums[index].traits = {};
+        albums[index].traits[trait] = newValue;
+    } else {
+        if (fieldPath === 'myScore' || fieldPath === 'year') {
+            albums[index][fieldPath] = newValue === '' ? '' : Number(newValue);
+        } else {
+            albums[index][fieldPath] = newValue;
+        }
+    }
+
+    // 3. Felküldés a Firebase-be
+    try {
+        const docRef = doc(db, "data", "library");
+        await updateDoc(docRef, { albums: albums }); 
+        console.log(`✅ Sikeres mentés: ${fieldPath} -> ${newValue}`);
+        
+        if (typeof runFilter === 'function') runFilter(); 
+    } catch (error) {
+        console.error("❌ Hiba mentéskor:", error);
+        alert("Nem sikerült menteni a felhőbe! Nézd meg a konzolt.");
+    }
+}
+
+function initResizers() {
+    const table = document.querySelector('.excel-table');
+    const cols = table.querySelectorAll('th');
+    
+    cols.forEach(col => {
+        // Ha még nincs benne resizer, adjunk hozzá egyet
+        if (!col.querySelector('.resizer')) {
+            const resizer = document.createElement('div');
+            resizer.classList.add('resizer');
+            col.appendChild(resizer);
+
+            let startX, startWidth;
+
+            resizer.addEventListener('mousedown', e => {
+                startX = e.pageX;
+                startWidth = col.offsetWidth;
+                
+                const onMouseMove = e => {
+                    const newWidth = startWidth + (e.pageX - startX);
+                    col.style.width = newWidth + 'px';
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+        }
+    });
+}
 
 	const recommenders = {
 		"baal": { name1: "The Almighty Baal", name2: "Menace of Bikini Bottom", color: "#FFEB3B" },
@@ -1268,6 +1560,12 @@ window.copyShareLink = function(id) {
 		if(target) target.classList.add('active');
 		const btn = document.getElementById('nav-' + id);
 		if(btn) btn.classList.add('active');
+
+		if(id === 'listView') {
+        if (typeof albums !== 'undefined') {
+            renderExcelTable(albums); 
+        }
+    }
 		
 		if(id === 'stats') renderStats();
 		if(id === 'library') { initFilters(); runFilter(); }
