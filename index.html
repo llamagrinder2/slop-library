@@ -415,7 +415,7 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
 }
 
 .excel-table th {
-    position: relative; /* Ehhez rögzül a resizer */
+    position: relative;
     background: #222;
     color: var(--accent);
     padding: 10px;
@@ -425,6 +425,24 @@ body.is-admin button[onclick^="window.deleteAlbum"] {
     white-space: nowrap;
 	min-width: 0 !important;
     box-sizing: border-box !important;
+	cursor: pointer;
+    transition: background 0.2s;
+}
+
+.excel-table th:hover {
+    background: #333; 
+}
+
+.sort-asc::after {
+    content: " ▲";
+    color: var(--accent);
+    font-size: 0.9em;
+}
+
+.sort-desc::after {
+    content: " ▼";
+    color: var(--accent);
+    font-size: 0.9em;
 }
 
 .excel-table td {
@@ -792,6 +810,17 @@ select.inline-edit option {
   100% { transform: translate(0, 0) rotate(0deg); }
 }
 
+.new-entry-row {
+    border: 2px dashed var(--accent);
+    background: #1a261b !important; /* Kicsit zöldes háttér */
+}
+
+td[contenteditable="true"]:empty::before {
+    content: attr(placeholder);
+    color: #555;
+    pointer-events: none;
+    font-style: italic;
+}
 
 	</style>
 </head>
@@ -961,27 +990,32 @@ select.inline-edit option {
 		<div id="listContainer"></div>
 	</div>
 	<div id="listView" class="page">
+		<div class="form-row" style="margin-bottom: 15px;">
+			<button onclick="addNewListRow()" class="ctrl-btn admin-only" style="background: var(--accent); color: #000; border: none; max-width: 250px;">
+				+ BEJEGYZÉS
+			</button>
+		</div>
 		<div class="excel-wrapper">
 			<table class="excel-table">
 				<thead>
 					<tr>
-						<th class="col-num">#</th>
-						<th class="col-artist">Előadó</th>
-						<th class="col-album">Album</th>
-						<th class="col-year">Év</th>
-						<th class="col-genre">Műfajok</th>
-						<th class="col-rec">Ajánló</th>
-						<th class="col-score">Pont</th>
-						<th class="col-review">Komment</th>
-						<th class="col-trait">RIFF</th>
-						<th class="col-trait">VOX</th>
-						<th class="col-trait">DOB</th>
-						<th class="col-trait">MIX</th>
-						<th class="col-trait">SZÖV</th>
-						<th class="col-trait">VIBE</th>
-						<th class="col-favsong">Kedvenc Dal</th>
-        				<th class="col-songurl">Link</th>
-						<th class="col-cover">Borító</th>
+						<th class="col-num" onclick="sortExcelTable(event, 'id', this)">#</th>
+						<th class="col-artist" onclick="sortExcelTable(event, 'artist', this)">Előadó</th>
+						<th class="col-album" onclick="sortExcelTable(event, 'album', this)">Album</th>
+						<th class="col-year" onclick="sortExcelTable(event, 'year', this)">Év</th>
+						<th class="col-genre" onclick="sortExcelTable(event, 'genre', this)">Műfajok</th>
+						<th class="col-rec" onclick="sortExcelTable(event, 'recommender', this)">Ajánló</th>
+						<th class="col-score" onclick="sortExcelTable(event, 'myScore', this)">Pont</th>
+						<th class="col-review" onclick="sortExcelTable(event, 'review', this)">Komment</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.riff', this)">RIFF</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.vox', this)">VOX</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.dob', this)">DOB</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.mix', this)">MIX</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.szoveg', this)">SZÖV</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.vibe', this)">VIBE</th>
+						<th class="col-favsong" onclick="sortExcelTable(event, 'favSong', this)">Kedvenc Dal</th>
+						<th class="col-songurl" onclick="sortExcelTable(event, 'songUrl', this)">Link</th>
+						<th class="col-cover" onclick="sortExcelTable(event, 'coverUrl', this)">Borító</th>
 					</tr>
 				</thead>
 				<tbody id="excelBody">
@@ -1283,6 +1317,191 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 		runFilter(); // Kártyák újrarajzolása a szerkesztés gomb miatt
 	});
 
+// Új, üres sor beszúrása a táblázat tetejére
+window.addNewListRow = function() {
+    // Ha már van egy üres sor, ne csináljon még egyet, csak fókuszáljon rá
+    if (document.querySelector('.new-entry-row')) {
+        document.querySelector('.new-entry-row .new-val-artist').focus();
+        return;
+    }
+
+    const body = document.getElementById('excelBody');
+    const tr = document.createElement('tr');
+    tr.className = 'new-entry-row';
+
+    // Legördülők opciói
+    const recOptions = `
+        <option value="">-- Saját --</option>
+        <option value="baal">The Almighty Baal</option>
+        <option value="goatlord">Goatlord</option>
+        <option value="caller">Caller of Slam Riffs</option>
+        <option value="bacchus">Bacchus the Second</option>
+        <option value="mammvth">The Mammvth Hvnter</option>
+        <option value="gaben">X14Gaben88X</option>
+        <option value="christian">Christian Woman</option>
+        <option value="max">Max, the Mad</option>
+    `;
+
+    const makeTraitSelect = (field) => `
+        <select class="inline-edit new-val-${field}">
+            ${['Volt??', 'Poop', 'Nem', 'Meh', 'Igen', 'Peak'].map((opt, idx) => 
+                `<option value="${opt}" ${idx === 3 ? 'selected' : ''}>${opt}</option>`
+            ).join('')}
+        </select>
+    `;
+
+    // Cella szerkezet a placeholderekkel (placeholder="Előadó..." stb.)
+    tr.innerHTML = `
+        <td style="color:var(--accent); font-weight:bold;">ÚJ</td>
+        <td contenteditable="true" class="new-val-artist" placeholder="Előadó..." style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-album" placeholder="Album..." style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-year" placeholder="Év" style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-genre" placeholder="Műfaj" style="background:#222;"></td>
+        <td><select class="inline-edit new-val-rec">${recOptions}</select></td>
+        <td contenteditable="true" class="new-val-score" placeholder="Pont" style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-review" placeholder="Komment..." style="background:#222;"></td>
+        <td>${makeTraitSelect('riff')}</td>
+        <td>${makeTraitSelect('vox')}</td>
+        <td>${makeTraitSelect('dob')}</td>
+        <td>${makeTraitSelect('mix')}</td>
+        <td>${makeTraitSelect('szoveg')}</td>
+        <td>${makeTraitSelect('vibe')}</td>
+        <td contenteditable="true" class="new-val-favSong" placeholder="Kiemelt dal..." style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-songUrl" placeholder="Link..." style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-coverUrl" placeholder="Borító URL..." style="background:#222;"></td>
+    `;
+
+    // Berakjuk legfelülre
+    body.insertBefore(tr, body.firstChild);
+
+    // Rárakjuk a fókuszt az Előadó mezőre
+    tr.querySelector('.new-val-artist').focus();
+
+    // Figyeljük, ha az egeret/fókuszt kiviszik ebből a sorból
+    tr.addEventListener('focusout', function(e) {
+        // Várunk egy pillanatot, hogy a böngésző frissítse, hova kattintottál
+        setTimeout(async () => {
+            // Ha az új kattintás MÁR NINCS benne a sorban (tehát teljesen elhagytad a sort)
+            if (!tr.contains(document.activeElement)) {
+                const artist = tr.querySelector('.new-val-artist').innerText.trim();
+                const album = tr.querySelector('.new-val-album').innerText.trim();
+
+                if (!artist && !album) {
+                    // Ha nem írtál be se előadót, se albumot -> Eltüntetjük a sort
+                    tr.remove();
+                } else {
+                    // Ha van adat -> Elmentjük új bejegyzésként!
+                    await window.saveInlineNewRow(tr);
+                }
+            }
+        }, 50); // 50ms késleltetés elég a böngészőnek
+    });
+};
+
+window.saveInlineNewRow = async function(tr) {
+    tr.style.opacity = '0.5'; // Halványítjuk, amíg ment
+    
+    const maxId = albums.length > 0 ? Math.max(...albums.map(a => a.id || 0)) : 0;
+    const newId = maxId + 1;
+
+    const val = (cls) => {
+        const el = tr.querySelector('.new-val-' + cls);
+        return el ? (el.tagName === 'SELECT' ? el.value : el.innerText.trim()) : '';
+    };
+
+    const dateInput = new Date().toISOString().split('T')[0];
+
+    const newAlbum = {
+        id: newId,
+        artist: val('artist'),
+        album: val('album'),
+        year: val('year') ? Number(val('year')) : '',
+        genre: val('genre'),
+        recommender: val('rec'),
+        myScore: parseFloat(val('score')) || 0,
+        review: val('review'),
+        traits: {
+            riff: val('riff'),
+            vox: val('vox'),
+            dob: val('dob'),
+            mix: val('mix'),
+            szoveg: val('szoveg'),
+            vibe: val('vibe')
+        },
+        favSong: val('favSong'),
+        songUrl: val('songUrl'),
+        coverUrl: val('coverUrl'),
+        addedDate: dateInput
+    };
+
+    albums.push(newAlbum);
+
+    if (typeof saveToFirebase === 'function') {
+        await saveToFirebase();
+        console.log("✅ Új Excel-sor elmentve!");
+    }
+
+    renderExcelTable(albums);
+    if (typeof runFilter === 'function') runFilter();
+}
+
+// Globális változók a rendezés állapotának megjegyzéséhez
+let currentSortField = '';
+let currentSortAsc = true;
+
+window.sortExcelTable = function(event, field, thElement) {
+    // Ha a csúszkát (resizer) húzod, NE rendezze sorba az adatokat!
+    if (event.target.classList.contains('resizer')) return;
+
+    // Ha ugyanarra az oszlopra kattintunk, megfordítjuk az irányt (A-Z -> Z-A)
+    if (currentSortField === field) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortField = field;
+        currentSortAsc = true;
+    }
+
+    albums.sort((a, b) => {
+        let valA = a[field] || '';
+        let valB = b[field] || '';
+
+        if (field.startsWith('traits.')) {
+            const trait = field.split('.')[1];
+            valA = (a.traits && a.traits[trait]) ? a.traits[trait] : '';
+            valB = (b.traits && b.traits[trait]) ? b.traits[trait] : '';
+            
+            const traitOrder = {'Peak': 5, 'Igen': 4, 'Meh': 3, 'Nem': 2, 'Poop': 1, 'Volt??': 0};
+            valA = traitOrder[valA] ?? -1;
+            valB = traitOrder[valB] ?? -1;
+            
+            return currentSortAsc ? valA - valB : valB - valA;
+        }
+
+        if (field === 'myScore' || field === 'year' || field === 'id') {
+            valA = Number(valA) || 0;
+            valB = Number(valB) || 0;
+            return currentSortAsc ? valA - valB : valB - valA;
+        }
+
+        valA = valA.toString().toLowerCase();
+        valB = valB.toString().toLowerCase();
+
+        if (valA < valB) return currentSortAsc ? -1 : 1;
+        if (valA > valB) return currentSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    document.querySelectorAll('.excel-table th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
+
+    if (thElement) {
+        thElement.classList.add(currentSortAsc ? 'sort-asc' : 'sort-desc');
+    }
+
+    renderExcelTable(albums);
+};
+
 	//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 	Chart.defaults.devicePixelRatio = 3;
 	Chart.register(ChartDataLabels);
@@ -1386,9 +1605,8 @@ function renderExcelTable(data) {
         <option value="max">Max, the Mad</option>
     `;
 
-    // Kis segédfüggvény a Trait dropdownok gyártásához
     const makeTraitSelect = (id, field, val) => `
-        <select class="inline-edit" onchange="updateAlbumField('${id}', 'traits.${field}', this.value)">
+        <select class="inline-edit" onchange="window.updateAlbumField('${id}', 'traits.${field}', this.value)">
             ${['Volt??', 'Poop', 'Nem', 'Meh', 'Igen', 'Peak'].map(opt => 
                 `<option value="${opt}" ${val === opt ? 'selected' : ''}>${opt}</option>`
             ).join('')}
@@ -1400,7 +1618,7 @@ function renderExcelTable(data) {
         
         return `
             <tr>
-                <td>${i + 1}</td>
+                <td>${a.id}</td>
                 
                 <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'artist')" style="color:white; font-weight:bold;">${a.artist}</td>
                 <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'album')">${a.album}</td>
@@ -1425,7 +1643,7 @@ function renderExcelTable(data) {
                 
                 <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'favSong')" title="${a.favSong || ''}">${a.favSong || ''}</td>
                 <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'songUrl')">${a.songUrl || ''}</td>
-                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'cover')">${a.cover || ''}</td>
+                <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'coverUrl')">${a.coverUrl || ''}</td>
             </tr>
         `;
     }).join('');
@@ -1433,53 +1651,52 @@ function renderExcelTable(data) {
     initResizers(); // Csúszkák inicializálása
 }
 
-// Ezt hívja meg a cella, amikor kikattintasz belőle (blur)
-function handleCellEdit(cell, albumId, field) {
+window.handleCellEdit = function(cell, albumId, field) {
     const newValue = cell.innerText.trim();
-    const oldValue = cell.dataset.oldValue;
+    const oldValue = (cell.dataset.oldValue || "").trim(); // Ezt is trimmeljük a biztonság kedvéért
     
-    // Csak akkor mentünk, ha tényleg átírtál benne valamit
     if (newValue !== oldValue) {
-        updateAlbumField(albumId, field, newValue);
-        cell.dataset.oldValue = newValue; // Frissítjük a memóriát az új értékre
+        window.updateAlbumField(albumId, field, newValue);
+        cell.dataset.oldValue = newValue; // Frissítjük az új értékre
         
-        // Egy kis zöld villanás, hogy lásd: elmentve!
+        // A zöld villanás
         cell.style.transition = "background 0.3s";
-        cell.style.backgroundColor = "rgba(139, 195, 74, 0.3)";
-        setTimeout(() => cell.style.backgroundColor = "", 500);
+        cell.style.backgroundColor = "rgba(139, 195, 74, 0.5)";
+        setTimeout(() => cell.style.backgroundColor = "transparent", 500);
     }
-}
+};
 
-async function updateAlbumField(albumId, fieldPath, newValue) {
-    // 1. Megkeressük az albumot a helyi tömbben
-    const index = albums.findIndex(a => a.id === albumId);
-    if (index === -1) return;
+window.updateAlbumField = async function(albumId, fieldPath, newValue) {
+    const index = albums.findIndex(a => a.id == albumId);
+    if (index === -1) {
+        console.error("Nem találom az albumot ezzel az ID-val:", albumId);
+        return;
+    }
 
-    // 2. Érték frissítése a memóriában
     if (fieldPath.startsWith('traits.')) {
         const trait = fieldPath.split('.')[1];
         if (!albums[index].traits) albums[index].traits = {};
         albums[index].traits[trait] = newValue;
     } else {
-        if (fieldPath === 'myScore' || fieldPath === 'year') {
-            albums[index][fieldPath] = newValue === '' ? '' : Number(newValue);
+        if (fieldPath === 'myScore') {
+            albums[index][fieldPath] = parseFloat(newValue) || 0;
         } else {
             albums[index][fieldPath] = newValue;
         }
     }
 
-    // 3. Felküldés a Firebase-be
     try {
-        const docRef = doc(db, "data", "library");
-        await updateDoc(docRef, { albums: albums }); 
-        console.log(`✅ Sikeres mentés: ${fieldPath} -> ${newValue}`);
-        
-        if (typeof runFilter === 'function') runFilter(); 
+        if (typeof saveToFirebase === 'function') {
+            await saveToFirebase();
+            console.log(`✅ Sikeres mentés a felhőbe: ${fieldPath} -> ${newValue}`);
+            if (typeof runFilter === 'function') runFilter(); 
+        } else {
+            console.error("Nem találom a saveToFirebase függvényt!");
+        }
     } catch (error) {
         console.error("❌ Hiba mentéskor:", error);
-        alert("Nem sikerült menteni a felhőbe! Nézd meg a konzolt.");
     }
-}
+};
 
 function initResizers() {
     const table = document.querySelector('.excel-table');
