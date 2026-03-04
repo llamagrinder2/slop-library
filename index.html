@@ -21,7 +21,28 @@
 		
 		nav { 
 			background: #252525; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; 
-			border-bottom: 2px solid var(--accent); position: sticky; top: 0; z-index: 1000; 
+			border-bottom: 2px solid var(--accent); position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+			transform: translateY(-100%);
+			transition: transform 0.3s ease-in-out;
+		}
+
+		/* Hover zone at top for desktop to reveal header */
+		#nav-hover-zone {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 14px;
+			z-index: 999;
+			background: transparent;
+		}
+
+		/* Desktop: show header when hovering top edge or header itself */
+		@media (min-width: 816px) {
+			#nav-hover-zone:hover + nav,
+			nav:hover {
+				transform: translateY(0);
+			}
 		}
 
 		@font-face {
@@ -420,7 +441,9 @@ button[onclick="toggleMod('addTodo')"],
 button[onclick^="editAlbum"], 
 button[onclick^="window.editAlbum"], 
 button[onclick^="deleteAlbum"], 
-button[onclick^="window.deleteAlbum"] {
+button[onclick^="window.deleteAlbum"],
+button[onclick^="moveToRating"],
+button[onclick^="editTodo"] {
     display: none !important;
 }
 
@@ -432,7 +455,9 @@ body.is-admin button[onclick="toggleMod('addTodo')"],
 body.is-admin button[onclick^="editAlbum"], 
 body.is-admin button[onclick^="window.editAlbum"],
 body.is-admin button[onclick^="deleteAlbum"],
-body.is-admin button[onclick^="window.deleteAlbum"] {
+body.is-admin button[onclick^="window.deleteAlbum"],
+body.is-admin button[onclick^="moveToRating"],
+body.is-admin button[onclick^="editTodo"] {
     display: inline-block !important;
 }
 
@@ -581,12 +606,23 @@ select.inline-edit option {
         flex-direction: column;
         padding: 15px 10px;
         gap: 15px;
+        transform: translateY(0); /* mobilon alapból látszódjon */
     }
     .nav-links {
         display: flex;
         flex-wrap: wrap;
         justify-content: center; /* Középre igazítja a gombokat */
         gap: 8px; /* Távolság a gombok között */
+    }
+
+    /* Mobilon nem kell a hover-zóna */
+    #nav-hover-zone {
+        display: none;
+    }
+
+    /* Mobil: ha lefelé görgetünk, rejtsük el a nav-ot */
+    body.nav-hidden-mobile nav {
+        transform: translateY(-100%);
     }
 
     .nav-links button {
@@ -912,6 +948,7 @@ td[contenteditable="true"]:empty::before {
 
 <div id="lightbox" onclick="this.style.display='none'"><img id="lb-img" src=""></div>
 
+<div id="nav-hover-zone"></div>
 <nav>
     <div class="nav-logo" onclick="handleTitleClick()" style="cursor:pointer;">
         <img src="favicon.svg" alt="Logo">
@@ -3051,6 +3088,31 @@ window.saveToFirebase = saveToFirebase;
 	// Inicializálás
 	initFilters();
 	runFilter();
+</script>
+
+<script>
+// Mobil header auto-hide on scroll
+(function() {
+	const MOBILE_MAX_WIDTH = 815;
+	let lastScrollY = window.scrollY;
+
+	function handleScroll() {
+		if (window.innerWidth > MOBILE_MAX_WIDTH) return;
+
+		const currentY = window.scrollY;
+		const goingDown = currentY > lastScrollY;
+
+		if (goingDown && currentY > 50) {
+			document.body.classList.add('nav-hidden-mobile');
+		} else if (currentY < lastScrollY) {
+			document.body.classList.remove('nav-hidden-mobile');
+		}
+
+		lastScrollY = currentY;
+	}
+
+	window.addEventListener('scroll', handleScroll, { passive: true });
+})();
 </script>
 </body>
 </html>
