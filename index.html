@@ -120,7 +120,17 @@
 			box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Egy kis árnyék, hogy elváljon a majdani háttértől */
 		}
 		.album-info { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
-		.artist-name { color: var(--accent); font-size: 1.2em; font-weight: bold; margin: 0; transition: 0.2s; cursor: pointer; display: inline-block; }
+		.artist-name { 
+			color: var(--accent); 
+			font-weight: bold; 
+			margin: 0; 
+			transition: 0.2s; 
+			cursor: pointer; 
+			display: inline-block; 
+			white-space: normal; 
+			max-width: 100%; 
+			font-size: clamp(0.9rem, 2.4vw, 1.2rem); 
+		}
 		.artist-name:hover { text-decoration: underline; color: #fff; }
 		.score-badge { position: absolute; top: 15px; right: 15px; padding: 8px 12px; border-radius: 6px; font-weight: bold; color: white; }
 		
@@ -631,7 +641,7 @@ select.inline-edit option {
     .album-art-container {
         width: 100%;
         min-width: 100%;
-        height: 350px; 
+        height: 180px; /* reduced from 350px to make header shorter */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -651,12 +661,12 @@ select.inline-edit option {
     
     /* Éles borítókép középen */
     .album-art {
-        width: 280px;
-        height: 280px;
+        width: 140px;  /* half of previous 280px */
+        height: 140px;
         object-fit: cover;
         z-index: 2;
         border-radius: 6px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.8); /* Erősebb árnyék */
+        box-shadow: 0 5px 20px rgba(0,0,0,0.8);
     }
 
     /* --- Nagyobb betűk és elrendezés az adatoknál --- */
@@ -669,16 +679,37 @@ select.inline-edit option {
 	}
     
     .artist-name {
-        font-size: 1.45em; 
         display: block;
         margin-bottom: 4px;
-        word-wrap: break-word; 
         max-width: 90%;
+        white-space: normal;
+        font-size: clamp(1rem, 3vw, 1.4rem);
     }
     
     .album-info p {
-        font-size: 1.15em; 
-        margin: 0 0 10px 0;
+        font-size: 1em; 
+        margin: 0 0 8px 0;
+    }
+
+    .album-info p strong {
+        font-size: 0.95em;
+        font-weight: 600;
+    }
+
+    .todo-artist {
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
+        font-weight: 800;
+        white-space: normal;
+    }
+
+    .todo-album {
+        font-size: clamp(1rem, 2.5vw, 1.3rem);
+        font-weight: 700;
+        margin-top: 4px;
+    }
+
+    .todo-album strong {
+        font-size: inherit;
     }
     
 	.album-info small {
@@ -1122,7 +1153,7 @@ td[contenteditable="true"]:empty::before {
 
 			<div class="stat-card full-width">
 				<h3>Idővonal</h3>
-				<div style="height:220px">
+				<div style="height:660px">
 					<canvas id="cYear"></canvas>
 				</div>
 			</div>
@@ -1563,6 +1594,7 @@ window.sortExcelTable = function(event, field, thElement) {
 	
 	// Kezdeti alapértékek
 	let todos = [];
+	let todoEditIdx = -1;
 	let slopG = [];
 	let rareLimit = 3;
 	let charts = {};
@@ -1908,7 +1940,7 @@ function initResizers() {
 			return;
 		}
 
-		const newTodo = { 
+		const todoData = { 
 			artist: artist, 
 			album: album, 
 			coverUrl: document.getElementById('todoCover').value.trim(), 
@@ -1918,11 +1950,46 @@ function initResizers() {
 			albumLink: document.getElementById('todoLink').value.trim()
 		};
 
-		todos.push(newTodo);
+		// Ha épp szerkesztünk egy meglévő To-Do-t, akkor azt frissítjük
+		if (typeof todoEditIdx === 'number' && todoEditIdx >= 0 && todos[todoEditIdx]) {
+			todos[todoEditIdx] = { ...todos[todoEditIdx], ...todoData };
+		} else {
+			todos.push(todoData);
+		}
 		
-		// Mivel az adatbázisod ismeri a "todos" tömböt, csak meg kell hívnunk a mentést
+		// Mentés a felhőbe
 		await saveToFirebase();
-		location.reload();
+
+		// Visszaállítjuk az űrlapot és a szerkesztési állapotot
+		todoEditIdx = -1;
+		document.getElementById('todoArtist').value = '';
+		document.getElementById('todoAlbum').value = '';
+		document.getElementById('todoCover').value = '';
+		document.getElementById('todoYear').value = '';
+		document.getElementById('todoGenre').value = '';
+		document.getElementById('todoLink').value = '';
+		document.getElementById('todoRec').value = '';
+
+		// Bezárjuk a kis To-Do panelt és frissítjük a kártyákat
+		if (typeof toggleMod === 'function') toggleMod('addTodo');
+		if (typeof renderTodo === 'function') renderTodo();
+	}
+
+	window.editTodo = function(idx) {
+		const t = todos[idx];
+		if (!t) return;
+
+		todoEditIdx = idx;
+
+		document.getElementById('todoArtist').value = t.artist || '';
+		document.getElementById('todoAlbum').value = t.album || '';
+		document.getElementById('todoCover').value = t.coverUrl || '';
+		document.getElementById('todoYear').value = t.year || '';
+		document.getElementById('todoGenre').value = t.genre || '';
+		document.getElementById('todoLink').value = t.albumLink || '';
+		document.getElementById('todoRec').value = t.recommender || '';
+
+		if (typeof toggleMod === 'function') toggleMod('addTodo');
 	}
 	
 	window.renderList = function(data) {
@@ -2130,18 +2197,22 @@ window.renderPagination = function(totalPages, totalItems) {
 			container.innerHTML += `
 				<div class="album-card">
 					<div class="row-number">${i+1}</div>
-					<img src="${t.coverUrl || 'https://via.placeholder.com/120'}" class="album-art">
+					<div class="album-art-container">
+						<img src="${t.coverUrl || 'https://via.placeholder.com/120'}" class="album-art-blur">
+						<img src="${t.coverUrl || 'https://via.placeholder.com/120'}" class="album-art">
+					</div>
 					<div class="album-info">
 						<div style="display: flex; justify-content: space-between; align-items: flex-start;">
 							<div>
-								<h3 class="artist-name">${t.artist}</h3>
-								<p><strong>${t.album}</strong></p>
+								<h3 class="artist-name todo-artist">${t.artist}</h3>
+								<p class="todo-album"><strong>${t.album}</strong></p>
 								${linkHtml}
 							</div>
 							${getRecommenderHTML(t.recommender)}
 						</div>
 						<div style="margin-top: 10px; display: flex; gap: 10px;">
 							<button class="btn-check" onclick="moveToRating(${i})">✓</button>
+							<button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${i})">✎</button>
 						</div>
 						<button class="btn-del" onclick="deleteAlbum(${i}, 'todo')">✖</button>
 					</div>
@@ -2683,13 +2754,45 @@ window.handleCSV = function() {
 		if(charts.y) charts.y.destroy();
 		const ySorted = Object.keys(years).sort();
 		charts.y = new Chart(document.getElementById('cYear'), { 
-			type:'bar', data:{labels:ySorted, datasets:[{data:ySorted.map(k=>years[k]), backgroundColor:'#ffcc00'}]}, 
+			type:'bar', 
+			data:{
+				labels:ySorted, 
+				datasets:[{
+					data:ySorted.map(k=>years[k]), 
+					backgroundColor:'#ffcc00'
+				}]
+			}, 
 			options:{ 
 				devicePixelRatio: 2,
+				indexAxis: 'y', // horizontal bar chart, years on Y-axis
 				onClick:(e, el)=>{if(el[0]) qFilter('y', ySorted[el[0].index]);}, 
-				maintainAspectRatio:false, layout: { padding: { top: 25 } },
-				plugins:{ legend:{display:false}, datalabels:{ display: true, anchor: 'end', align: 'top', color: '#ffcc00', font: { weight: 'bold', size: 11 }, formatter: v => v }},
-				scales: { y: { beginAtZero: true, grid: { color: '#333' }, ticks: { display: false } }, x: { grid: { display: false }, ticks: { color: '#ccc', autoSkip: false, maxRotation: 90, minRotation: 90 } } }
+				maintainAspectRatio:false, 
+				layout: { padding: { top: 25, right: 10 } },
+				plugins:{ 
+					legend:{display:false}, 
+					datalabels:{ 
+						display: true, 
+						anchor: 'end', 
+						align: 'right', 
+						color: '#ffcc00', 
+						font: { weight: 'bold', size: 11 }, 
+						formatter: v => v 
+					}
+				},
+				scales: { 
+					x: { 
+						beginAtZero: true, 
+						grid: { color: '#333' }, 
+						ticks: { color: '#ccc' } 
+					}, 
+					y: { 
+						grid: { display: false }, 
+						ticks: { 
+							color: '#ccc', 
+							autoSkip: false 
+						} 
+					} 
+				}
 			}
 		});
 
