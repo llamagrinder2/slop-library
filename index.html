@@ -1222,7 +1222,7 @@ td[contenteditable="true"]:empty::before {
 
 			<div class="stat-card full-width">
 				<h3>Idővonal</h3>
-				<div style="height:660px">
+				<div style="height:300px">
 					<canvas id="cYear"></canvas>
 				</div>
 			</div>
@@ -2835,7 +2835,6 @@ window.handleCSV = function() {
 		document.getElementById('stat-avg-score').innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
 		document.getElementById('stat-total-yap').innerText = totalWords + " szó";
 
-		// --- HIÁNYOS BEJEGYZÉSEK SZÁMOLÁSA (Javított verzió) ---
 		// Helyben definiáljuk a feltételt, hogy biztosan elérje
 		const checkMissing = (val) => {
 			if (val === undefined || val === null) return true;
@@ -3047,7 +3046,7 @@ window.handleCSV = function() {
 			}, 
 			options:{ 
 				devicePixelRatio: 2,
-				indexAxis: 'y', // horizontal bar chart, years on Y-axis
+				indexAxis: 'x', 
 				onClick:(e, el)=>{if(el[0]) qFilter('y', ySorted[el[0].index]);}, 
 				maintainAspectRatio:false, 
 				layout: { padding: { top: 25, right: 10 } },
@@ -3056,23 +3055,25 @@ window.handleCSV = function() {
 					datalabels:{ 
 						display: true, 
 						anchor: 'end', 
-						align: 'right', 
+						align: 'top', 
 						color: '#ffcc00', 
 						font: { weight: 'bold', size: 11 }, 
 						formatter: v => v 
 					}
 				},
 				scales: { 
-					x: { 
+					y: { 
 						beginAtZero: true, 
 						grid: { color: '#333' }, 
 						ticks: { color: '#ccc' } 
 					}, 
-					y: { 
+					x: { 
 						grid: { display: false }, 
 						ticks: { 
 							color: '#ccc', 
-							autoSkip: false 
+							autoSkip: false, 
+							maxRotation: 45,
+                    		minRotation: 45
 						} 
 					} 
 				}
