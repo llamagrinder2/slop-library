@@ -972,10 +972,6 @@ td[contenteditable="true"]:empty::before {
 	<div id="library" class="page active">
 		<div class="form-row">
 			<button onclick="toggleMod('add')" class="ctrl-btn admin-only">+ ÚJ BEJEGYZÉS</button>
-			<button id="btn-sp-import" onclick="authSpotify()" class="ctrl-btn admin-only" style="display: none; background: #1DB954; color: white; border: none;">
-				<img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" style="width:15px; margin-right:5px; vertical-align:middle;"> 
-				SPOTIFY IMPORT
-			</button>
 			<button onclick="toggleMod('search')" class="ctrl-btn">SZŰRÉS</button>
 			<button onclick="resetFilters()" class="ctrl-btn" style="border-color: #666; color: #aaa;">ALAPHELYZET</button>
 		</div>
@@ -1000,6 +996,13 @@ td[contenteditable="true"]:empty::before {
 		</div>
 		
 		<div id="mod-add" class="module-box">
+			<div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between;">
+				<span style="font-size: 0.8rem; color: #888; font-weight: bold; letter-spacing: 1px;">SPOTIFY ADATKINYERŐ</span>
+				<button id="btn-sp-import" onclick="authSpotify()" class="ctrl-btn" style="background: #1DB954; color: white; border: none; padding: 5px 15px; font-size: 0.75rem; display: flex; align-items: center; gap: 8px;">
+					<img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" style="width:14px;"> 
+					IMPORTÁLÁS
+				</button>
+			</div>
 			<div class="form-row" style="flex-wrap: wrap; gap: 10px;">
 				<input type="text" id="inArtist" placeholder="Előadó">
 				<input type="text" id="inAlbum" placeholder="Album">
@@ -1612,9 +1615,12 @@ window.addEventListener('load', async () => {
 
         if (response.access_token) {
             spotifyToken = response.access_token;
-            // URL tisztítása (eltüntetjük a kódot a linkből)
-            window.history.replaceState({}, document.title, window.location.pathname);
-            document.getElementById('spotifyModal').style.display = 'flex';
+			window.history.replaceState({}, document.title, window.location.pathname);
+			
+			// Kinyitjuk az űrlapot is, hogy látszódjon, hova kerülnek az adatok
+			document.getElementById('mod-add').style.display = 'block'; 
+			// Megnyitjuk a linkbeillesztő ablakot
+			document.getElementById('spotifyModal').style.display = 'flex';
         }
     }
 });
