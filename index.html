@@ -2108,13 +2108,13 @@ function initResizers() {
 			}
 		}
 		if (spBtn) {
-			if (panels['add'].style.display === 'block' && currentUser) {
-				spBtn.style.display = 'inline-block';
-			} else {
-				spBtn.style.display = 'none';
-			}
-		}
-	}
+        if (panels['add'].style.display === 'block') {
+            spBtn.style.display = 'inline-block';
+        } else {
+            spBtn.style.display = 'none';
+        }
+    }
+}
 
 	window.saveAlbum = async function() {
 		const saveBtn = document.querySelector('button[onclick="saveAlbum()"]');
