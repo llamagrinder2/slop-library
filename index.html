@@ -972,9 +972,9 @@ td[contenteditable="true"]:empty::before {
 	<div id="library" class="page active">
 		<div class="form-row">
 			<button onclick="toggleMod('add')" class="ctrl-btn admin-only">+ ÚJ BEJEGYZÉS</button>
-			<button onclick="authSpotify()" class="ctrl-btn admin-only" style="background: #1DB954; color: white; border: none;">
+			<button id="btn-sp-import" onclick="authSpotify()" class="ctrl-btn admin-only" style="display: none; background: #1DB954; color: white; border: none;">
 				<img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" style="width:15px; margin-right:5px; vertical-align:middle;"> 
-				IMPORT
+				SPOTIFY IMPORT
 			</button>
 			<button onclick="toggleMod('search')" class="ctrl-btn">SZŰRÉS</button>
 			<button onclick="resetFilters()" class="ctrl-btn" style="border-color: #666; color: #aaa;">ALAPHELYZET</button>
@@ -2105,6 +2105,13 @@ function initResizers() {
 				} else {
 					panels[key].style.display = 'none';
 				}
+			}
+		}
+		if (spBtn) {
+			if (panels['add'].style.display === 'block' && currentUser) {
+				spBtn.style.display = 'inline-block';
+			} else {
+				spBtn.style.display = 'none';
 			}
 		}
 	}
