@@ -8,6 +8,7 @@
 	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
 	<style>
 		:root { 
 			--bg-color: #121212; 
@@ -976,10 +977,15 @@ td[contenteditable="true"]:empty::before {
 		</div>
 		
 		<div id="mod-add" class="module-box">
-			<div class="form-row">
+			<div class="form-row" style="flex-wrap: wrap; gap: 10px;">
 				<input type="text" id="inArtist" placeholder="Előadó">
 				<input type="text" id="inAlbum" placeholder="Album">
 				<input type="text" id="inCover" placeholder="Borító URL">
+				
+				<div style="display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px; border: 1px solid #444; flex: 1; min-width: 200px;">
+					<span style="font-size: 0.8rem; color: #888; margin-right: 10px; white-space: nowrap;">Vagy fájl:</span>
+					<input type="file" id="fileCover" accept="image/*" style="font-size: 0.8rem; background: transparent; border: none; color: #ccc; cursor: pointer;">
+				</div>
 			</div>
 			<div id="ratingFields">
 				<div class="form-row">
@@ -1372,6 +1378,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebas
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 	// https://firebase.google.com/docs/web/setup#available-libraries
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 
 	const firebaseConfig = {
 	apiKey: "AIzaSyB8vcEb3IvLNqT2R6xS_ax_cm0WFV1fRC8",
@@ -1385,6 +1392,7 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 	const app = initializeApp(firebaseConfig);
 	const db = getFirestore(app);
 	const auth = getAuth(app); // Auth inicializálása
+	const storage = getStorage(app);
 	const provider = new GoogleAuthProvider();
 	
 	let currentUser = null; // Itt tároljuk, be vagyunk-e jelentkezve
@@ -1928,6 +1936,35 @@ function initResizers() {
 	}
 
 	window.saveAlbum = async function() {
+		const saveBtn = document.querySelector('button[onclick="saveAlbum()"]');
+		if(saveBtn) saveBtn.disabled = true; // Megakadályozzuk a dupla kattintást mentés alatt
+		if(saveBtn) saveBtn.innerText = "Mentés...";
+
+		const fileInput = document.getElementById('fileCover');
+		const urlInput = document.getElementById('inCover');
+		let finalCoverUrl = urlInput.value.trim();
+
+		// 1. KÉPFELTÖLTÉS LOGIKA: Ha van kiválasztva fájl
+		if (fileInput.files && fileInput.files[0]) {
+			const file = fileInput.files[0];
+			// Egyedi nevet adunk a fájlnak (időbélyeg + eredeti név)
+			const fileName = Date.now() + "_" + file.name;
+			const storageRef = ref(storage, 'album_covers/' + fileName);
+			
+			try {
+				console.log("Feltöltés indul...");
+				const snapshot = await uploadBytes(storageRef, file);
+				finalCoverUrl = await getDownloadURL(snapshot.ref);
+				console.log("Sikeres feltöltés! Link:", finalCoverUrl);
+			} catch (error) {
+				console.error("Hiba a feltöltésnél:", error);
+				alert("Képfeltöltés sikertelen!");
+				if(saveBtn) saveBtn.disabled = false;
+				return;
+			}
+		}
+
+		// 2. ADATOK ÖSSZEGYŰJTÉSE (a már megkapott finalCoverUrl-lel)
 		const dateEl = document.getElementById('inDate');
 		const dateInput = dateEl ? dateEl.value : '';
 		const traits = {
@@ -1938,13 +1975,14 @@ function initResizers() {
 			szoveg: document.getElementById('t_szoveg').value,
 			vibe: document.getElementById('t_vibe').value
 		};
+		
 		const maxId = albums.length > 0 ? Math.max(...albums.map(a => a.id || 0)) : 0;
 		
 		const a = {
 			id: editIdx > -1 ? albums[editIdx].id : (maxId + 1),
 			artist: document.getElementById('inArtist').value.trim(),
 			album: document.getElementById('inAlbum').value.trim(),
-			coverUrl: document.getElementById('inCover').value.trim(),
+			coverUrl: finalCoverUrl, // Ez most már vagy a link, vagy a feltöltött kép URL-je
 			year: document.getElementById('inYear').value,
 			genre: document.getElementById('inGenre').value.trim(),
 			recommender: document.getElementById('inRec').value,
@@ -2113,34 +2151,55 @@ function initResizers() {
 	}
 
 	window.captureCard = async function(cardElement, albumName) {
-		const img = cardElement.querySelector('.album-art');
-		const originalSrc = img.src;
+		// 1. Megjegyezzük az eredeti méreteket, hogy ne ugorjon el a dizájn
+		const originalWidth = cardElement.offsetWidth;
+		const originalHeight = cardElement.offsetHeight;
+		
+		// 2. Megkeressük az összes UI elemet (gombok, szerkesztés, törlés)
+		const uiElements = cardElement.querySelectorAll('[data-html2canvas-ignore], .edit-btn, .btn-snap, .btn-del');
+		
+		// 3. TELJES ELTÜNTETÉS mentés előtt
+		uiElements.forEach(el => el.style.setProperty('display', 'none', 'important'));
 
-		if (!img.src.includes('data:image')) {
+		// CORS és képek előkészítése
+		const images = cardElement.querySelectorAll('img');
+		images.forEach(img => {
 			img.crossOrigin = "anonymous";
-			img.src = `https://images.weserv.nl/?url=${encodeURIComponent(originalSrc)}`;
-		}
-		await new Promise(r => setTimeout(r, 1000));
-
-		html2canvas(cardElement, {
-			useCORS: true,
-			allowTaint: false,
-			backgroundColor: "#1a1a1a", // A kártya háttérszíne a képen
-			scale: 2,
-			logging: false
-		}).then(canvas => {
-			const link = document.createElement('a');
-			link.download = `${albumName}_review.png`;
-			link.href = canvas.toDataURL("image/png");
-			link.click();
-			
-			// Visszaállítjuk az eredeti linket a weboldalon
-			img.src = originalSrc;
-		}).catch(err => {
-			console.error("Hiba:", err);
-			img.src = originalSrc;
 		});
-	}
+
+		// Beállítások a mentéshez
+		const options = {
+			width: originalWidth,
+			height: originalHeight,
+			style: {
+				transform: 'scale(1)',
+				margin: '0',
+				// padding: '15px 12px', 
+				// borderRadius: '12px'
+			},
+			bgcolor: '#1a1a1a',
+			quality: 1.0
+		};
+
+		// Pici várakozás, hogy a böngésző "felfogja" az eltüntetést
+		await new Promise(r => setTimeout(r, 100));
+
+		domtoimage.toPng(cardElement, options)
+			.then(function (dataUrl) {
+				const link = document.createElement('a');
+				link.download = `${albumName}_review.png`;
+				link.href = dataUrl;
+				link.click();
+				
+				// 4. VISSZAÁLLÍTÁS: Minden gomb újra látható
+				uiElements.forEach(el => el.style.display = '');
+			})
+			.catch(function (error) {
+				console.error('Hiba:', error);
+				// Hiba esetén is hozzuk vissza a gombokat!
+				uiElements.forEach(el => el.style.display = '');
+			});
+	};
 
 	window.statsToLibrary = function(recId) {
 		// 1. Átváltunk a könyvtár oldalra
