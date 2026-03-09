@@ -54,8 +54,6 @@
 			font-display: swap;
 		}
 
-
-
 		.slime-text {
 			font-family: 'gooeyFont' !important;
 			font-size: 1.3em; /* A Gooey fontok gyakran vékonyabbak, így nagyobbra vesszük */
@@ -88,8 +86,8 @@
 		
 		.nav-logo img {
 		    height: 40px;        /* Ez a magasság illik a szövegedhez */
-		    width: auto;         /* EZ A KULCS: ettől nem lesz összenyomva a kazetta! */
-		    object-fit: contain; /* Biztosítja, hogy az egész logó látszódjon */
+		    width: auto;         
+		    object-fit: contain; 
 		    display: block;
 		}
 		.nav-links { display: flex; gap: 15px; }
@@ -432,6 +430,23 @@
     margin-bottom: 15px;
 }	
 
+.external-link-indicator {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--accent); /* Ez az #ffcc00 */
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    pointer-events: none; /* Ne zavarja a kattintást */
+    z-index: 2;
+    border: 1px solid var(--accent);
+}
 	
 /* --- ADMIN LOGIKA FIX --- */
 /* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
@@ -1365,7 +1380,7 @@ td[contenteditable="true"]:empty::before {
         
         <p>Mindemellett drága kis társaságom számára könnyebben és stílusosabban meg tudom osztani a véleményem egy vitatott lemezről, enélkül, hogy a RYM oldalán kellene navigálni.</p>
         
-		<p style="color: var(--accent); font-weight: bold; font-size: 1.2em; margin-top: 30px;">Tisztelet és Fém!</p>
+		<p style="color: var(--accent); font-weight: bold; font-size: 1.2em; margin-top: 30px;">Üdvözlet és Fém!</p>
 		
 		<hr style="border: 0; border-top: 1px solid #444; margin: 30px 0;">
 
@@ -1451,7 +1466,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstati
 	// Kijelentkezés
 	async function logout() {
 		await signOut(auth);
-		location.reload(); // Tisztasági újratöltés
+		location.reload();
 	}
 
 	// FIGYELŐ: Ez fut le minden változásnál (be/kijelentkezés)
@@ -1470,9 +1485,9 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstati
 			// Ha nincs bejelentkezve: korlátozások
 			document.body.classList.remove('is-admin');
 			if(settingsMenu) settingsMenu.style.display = 'none';
-			window.showPage('library'); // Ne maradjon a beállításokon, ha kijelentkezik
+			window.showPage('library'); 
 		}
-		runFilter(); // Kártyák újrarajzolása a szerkesztés gomb miatt
+		runFilter(); t
 	});
 
 // Új, üres sor beszúrása a táblázat tetejére
@@ -1495,7 +1510,7 @@ window.addNewListRow = function() {
         </select>
     `;
 
-    // Cella szerkezet a placeholderekkel (placeholder="Előadó..." stb.)
+    // Cella szerkezet a placeholderekkel
     tr.innerHTML = `
         <td style="color:var(--accent); font-weight:bold;">ÚJ</td>
         <td contenteditable="true" class="new-val-artist" placeholder="Előadó..." style="background:#222;"></td>
@@ -1597,7 +1612,7 @@ window.addEventListener('load', async () => {
     if (code) {
         const codeVerifier = window.localStorage.getItem('code_verifier');
         
-        // Kód becserélése Tokenre
+        // token
         const payload = {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1617,9 +1632,9 @@ window.addEventListener('load', async () => {
             spotifyToken = response.access_token;
 			window.history.replaceState({}, document.title, window.location.pathname);
 			
-			// Kinyitjuk az űrlapot is, hogy látszódjon, hova kerülnek az adatok
+			// űrlap nyit
 			document.getElementById('mod-add').style.display = 'block'; 
-			// Megnyitjuk a linkbeillesztő ablakot
+			// linkbeillesztő ablak
 			document.getElementById('spotifyModal').style.display = 'flex';
         }
     }
@@ -1816,8 +1831,6 @@ window.sortExcelTable = function(event, field, thElement) {
 
 	let sortAsc = false;
 	let albums = [];
-	
-	// Kezdeti alapértékek
 	let todos = [];
 	let todoEditIdx = -1;
 	let slopG = [];
@@ -2283,11 +2296,10 @@ function initResizers() {
 
 		paginatedData.forEach(a => {
 			const idx = albums.indexOf(a);
-
-			// --- ÚJ LOGIKA: HIÁNYZÓ ADATOK ELLENŐRZÉSE ---
+			// hiány check
+			const isExternal = a.coverUrl && !a.coverUrl.includes('firebasestorage');
 			const isMissing = (val) => !val || String(val).trim() === '' || String(val).trim() === '0' || String(val).trim() === '?';
 			const incomplete = isMissing(a.review) || isMissing(a.favSong) || isMissing(a.coverUrl) || isMissing(a.year) || isMissing(a.album) || isMissing(a.genre);
-			// ----------------------------------------------
 
 			const songLabel = a.myScore > 4.5 ? "Kiemelkedő dal:" : "Legkevésbé rossz dal:";
 			const getTClass = (val) => {
@@ -2316,6 +2328,7 @@ function initResizers() {
 				<div class="album-card ${incomplete ? 'incomplete-card' : ''}" id="card-${idx}">
 					<div class="row-number ${incomplete ? 'incomplete-row' : ''}">#${a.id || '?'}</div>
 					<div class="album-art-container">
+						${isExternal ? `<div class="external-link-indicator" title="Külső hivatkozás">🔗</div>` : ''}
 						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art-blur">
 						<img src="${a.coverUrl || 'https://via.placeholder.com/120'}" class="album-art" onclick="openLB('${a.coverUrl}')">
 					</div>
@@ -3507,3 +3520,4 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
