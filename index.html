@@ -2218,7 +2218,8 @@ function initResizers() {
 		}
 		
 		await saveToFirebase(); 
-		location.reload();
+		renderStats(); 
+		renderList(albums); 
 	}
 
 	// 3. ÚJ FÜGGVÉNY: Kizárólag az új pici To-Do űrlapot menti a Firebase-be
@@ -3520,4 +3521,5 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
 
