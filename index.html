@@ -1827,6 +1827,8 @@ window.sortExcelTable = function(event, field, thElement) {
 	let currentPage = 1;
 	let itemsPerPage = 25;
 	let topSortAsc = false;
+	let catDeath = [], catBlack = [], catCore = [], catHeavy = [], catEtc = [], catNonMetal = [];
+	let currentGenreLevel = 'main';
 
 	// --- SZŰRŐK ÉS KERESŐ ESEMÉNYKEZELŐJE ---
 	setTimeout(() => {
@@ -1858,14 +1860,19 @@ window.sortExcelTable = function(event, field, thElement) {
 			const docSnap = await getDoc(docRef);
 
 			if (docSnap.exists()) {
-				const data = docSnap.data(); // Kimentjük a teljes felhős csomagot
+				const data = docSnap.data();
 				
-				// Betöltjük a felhős adatokat a változókba
 				albums = data.albums || [];
 				todos = data.todos || [];
 				
 				if (data.slopG !== undefined) slopG = data.slopG;
 				if (data.rareLimit !== undefined) rareLimit = data.rareLimit;
+				catDeath = data.catDeath || [];
+				catBlack = data.catBlack || [];
+				catCore = data.catCore || [];
+				catHeavy = data.catHeavy || [];
+				catEtc = data.catEtc || []; 
+				catNonMetal = data.catNonMetal || [];
 
 				console.log("🔥 Adatok és beállítások betöltve a Firebase-ből!");
 			} else {
@@ -1874,6 +1881,12 @@ window.sortExcelTable = function(event, field, thElement) {
 				todos = JSON.parse(localStorage.getItem('slopTodo')) || [];
 				slopG = JSON.parse(localStorage.getItem('slopSettings')) || [];
 				rareLimit = parseInt(localStorage.getItem('slopRareLimit')) || 8;
+				catDeath = data.catDeath || [];
+				catBlack = data.catBlack || [];
+				catCore = data.catCore || [];
+				catHeavy = data.catHeavy || [];
+				catEtc = data.catEtc || [];
+				catNonMetal = data.catNonMetal || [];
 			}
 			
 			// Miután minden adat lejött a felhőből, frissítjük a képernyőt:
@@ -1883,7 +1896,6 @@ window.sortExcelTable = function(event, field, thElement) {
             } else if (typeof showPage === 'function') {
                 showPage('library');
             }
-			
 			
 			// Ha van To-Do rajzoló függvényed, azt is meghívjuk:
 			if (typeof updateTodoUI === 'function') updateTodoUI(); 
@@ -1897,6 +1909,10 @@ window.sortExcelTable = function(event, field, thElement) {
 	}
 
 	loadFromFirebase();
+
+
+
+
 
 function renderExcelTable(data) {
     const body = document.getElementById('excelBody');
@@ -2608,6 +2624,31 @@ window.deleteAlbum = async function(i, type) {
 					${slopG.includes(g.toLowerCase())?'SLOP':'RENDES'}
 				</button>
 			</div>`).join('');
+		// ... (rareLimit és gs Set feltöltése változatlan)
+
+		container.innerHTML = [...gs].sort().map(g => {
+			const lg = g.toLowerCase();
+			
+			// Segédfüggvény a gomb stílusához
+			const getBtnStyle = (list, color) => {
+				const isActive = list.includes(lg);
+				return `background:${isActive ? color : '#333'}; color:${isActive ? '#000' : '#ccc'}; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:10px; font-weight:bold;`;
+			};
+
+			return `
+				<div class="settings-row" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:5px; border-bottom:1px solid #333;">
+					<span style="flex:1; font-size:13px;">${g}</span>
+					<div style="display:flex; gap:4px;">
+						<button onclick="tCat('${lg}', 'death')" style="${getBtnStyle(catDeath, '#ff4444')}">DEATH</button>
+						<button onclick="tCat('${lg}', 'black')" style="${getBtnStyle(catBlack, '#9944ff')}">BLACK</button>
+						<button onclick="tCat('${lg}', 'core')" style="${getBtnStyle(catCore, '#44ff44')}">CORE</button>
+						<button onclick="tCat('${lg}', 'heavy')" style="${getBtnStyle(catHeavy, '#4444ff')}">HEAVY/Etc.</button>
+						<button onclick="tCat('${lg}', 'etc')" style="${getBtnStyle(catEtc, '#888888')}">ETC</button>
+						<button onclick="tCat('${lg}', 'nonmetal')" style="${getBtnStyle(catNonMetal, '#ff00ff')}">NON-METAL</button>
+						<button onclick="tSlop('${lg}')" style="background:${slopG.includes(lg)?'#ffcc00':'#222'}; color:#000; border:none; padding:5px 8px; border-radius:4px; font-size:10px; font-weight:bold; margin-left:10px;">SLOP</button>
+					</div>
+				</div>`;
+		}).join('');
 	}
 
 	window.tSlop = function(g) { 
@@ -2617,8 +2658,31 @@ window.deleteAlbum = async function(i, type) {
 		window.saveToFirebase(); 
 		window.renderSettings(); 
 	}
+
 	window.openLB = function(src) { if(src) { document.getElementById('lb-img').src=src; document.getElementById('lightbox').style.display='flex'; } }
 	
+	window.tCat = function(g, cat) {
+		// Először kivesszük mindenhonnan, hogy ne legyen duplikáció
+		catDeath = catDeath.filter(x => x !== g);
+		catBlack = catBlack.filter(x => x !== g);
+		catCore = catCore.filter(x => x !== g);
+		catHeavy = catHeavy.filter(x => x !== g);
+		catEtc = catEtc.filter(x => x !== g);
+    	catNonMetal = catNonMetal.filter(x => x !== g);
+
+		// Ha nem kikapcsolni akartuk (tehát rányomtunk egy újra), akkor hozzáadjuk
+		if (cat === 'death') catDeath.push(g);
+		if (cat === 'black') catBlack.push(g);
+		if (cat === 'core') catCore.push(g);
+		if (cat === 'heavy') catHeavy.push(g);
+		if (cat === 'etc') catEtc.push(g);
+   		 if (cat === 'nonmetal') catNonMetal.push(g);
+
+		// Mentés és frissítés
+		if(window.saveToFirebase) window.saveToFirebase(); 
+		if(window.renderSettings) window.renderSettings(); 
+	}
+
 	window.resetFilters = function() { 
 		document.querySelectorAll('#mod-search select, #mod-search input').forEach(i=>i.value=''); 
 		albums.sort((a, b) => {
@@ -2827,6 +2891,135 @@ window.handleCSV = function() {
 				}
 			});
 			if(isS) sCount++;
+			
+			// Pie chart drill down basz
+
+			// --- 1. KÉTÁLLAPOTÚ ADATGYŰJTÉS (DRILL-DOWN LOGIKA) ---
+        // --- 1. KÉTÁLLAPOTÚ ADATGYŰJTÉS (DRILL-DOWN LOGIKA) ---
+    let chartLabels = [];
+    let chartData = [];
+
+    if (currentGenreLevel === 'main') {
+        // FŐNÉZET: Csak a nagy kategóriák
+        const mainCats = { "Death": 0, "Black": 0, "Core": 0, "Heavy": 0, "ETC": 0, "Non-Metal": 0, "Besorolatlan": 0 };
+
+        Object.entries(genres).forEach(([genreName, count]) => {
+            const lg = genreName.toLowerCase();
+            if (catDeath.includes(lg)) mainCats["Death"] += count;
+            else if (catBlack.includes(lg)) mainCats["Black"] += count;
+            else if (catCore.includes(lg)) mainCats["Core"] += count;
+            else if (catHeavy.includes(lg)) mainCats["Heavy"] += count;
+            else if (catEtc.includes(lg)) mainCats["ETC"] += count;
+            else if (catNonMetal.includes(lg)) mainCats["Non-Metal"] += count;
+            else mainCats["Besorolatlan"] += count;
+        });
+
+        // Szűrjük ki az üreseket, és RENDEZZÜK méret szerint csökkenőbe a szép színátmenetért!
+        chartLabels = Object.keys(mainCats)
+            .filter(k => mainCats[k] > 0)
+            .sort((a, b) => mainCats[b] - mainCats[a]);
+            
+        chartData = chartLabels.map(k => mainCats[k]);
+
+    } else {
+        // LEFÚRT NÉZET: Csak a kiválasztott kategória al-műfajai
+        let targetList = [];
+        if (currentGenreLevel === 'Death') targetList = catDeath;
+        else if (currentGenreLevel === 'Black') targetList = catBlack;
+        else if (currentGenreLevel === 'Core') targetList = catCore;
+        else if (currentGenreLevel === 'Heavy') targetList = catHeavy;
+        else if (currentGenreLevel === 'ETC') targetList = catEtc;
+        else if (currentGenreLevel === 'Non-Metal') targetList = catNonMetal;
+
+        const subGenres = {};
+        Object.entries(genres).forEach(([genreName, count]) => {
+            if (targetList.includes(genreName.toLowerCase())) {
+                subGenres[genreName] = count;
+            }
+        });
+
+        // Sorbarendezés itt is
+        chartLabels = Object.keys(subGenres).sort((a,b) => subGenres[b] - subGenres[a]);
+        chartData = chartLabels.map(k => subGenres[k]);
+    }
+
+    // --- SZÍNEK GENERÁLÁSA (Közös mindkét nézetre) ---
+    // Az 50% adja a pontos #ffcc00 színt, innen vonunk ki 6-ot minden egyes szeletnél
+    const bgColors = chartLabels.map((label, i) => {
+        if (label === "Besorolatlan") return "#333333"; // A besorolatlan maradjon sötétszürke
+        return `hsl(48, 100%, ${Math.max(15, 50 - i * 6)}%)`; 
+    });
+
+    // --- 2. DIAGRAM MEGRAJZOLÁSA ---
+    if(charts.g) charts.g.destroy();
+    charts.g = new Chart(document.getElementById('cGenre'), { 
+        type: 'pie', 
+        data: { 
+            labels: chartLabels, 
+            datasets: [{ 
+                data: chartData, 
+                backgroundColor: bgColors, // Itt használjuk az új közös színeket
+                borderWidth: 1, 
+                borderColor: '#1e1e1e', 
+				radius: '95%'
+            }] 
+        },
+
+            options: { 
+                devicePixelRatio: 2,
+                maintainAspectRatio: false,
+				layout: {
+					padding: {
+						top: 20,
+						bottom: 20,
+						left: 30,
+						right: 30
+					}
+				}, 
+                // --- KATTINTÁS FIGYELÉSE (DRILL-DOWN) ---
+                onClick: (e, el) => { 
+                    if (el[0]) { 
+                        const label = chartLabels[el[0].index]; 
+                        
+                        if (currentGenreLevel === 'main') {
+                            // HA A FŐNÉZETBEN VAGYUNK: Belépünk a kategóriába (kivéve a Besorolatlant)
+                            if (label !== "Besorolatlan") {
+                                currentGenreLevel = label;
+                                renderStats(); 
+                            }
+                        } else {
+                            // HA MÁR BELÜL VAGYUNK: Szűrünk a konkrét műfajra a könyvtárban
+                            qFilter('g', label); 
+                        }
+                    } else {
+                        // HA A DIAGRAM MELLÉ KATTINTASZ: Visszaugrik a főnézetbe
+                        if (currentGenreLevel !== 'main') {
+                            currentGenreLevel = 'main';
+                            renderStats();
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    // Kurzort mutatóujjra váltja, ha rákattinthatsz
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
+                plugins: { 
+                    legend: { display: false }, 
+                    datalabels: { 
+                        anchor: 'end', 
+                        align: 'end', 
+                        color: '#ccc', 
+                        offset: 10,
+						font: {
+							size: 11 // Picit kisebb betűméret, ha még mindig kilógna
+						}, 
+                        formatter: (v, ctx) => ctx.chart.data.labels[ctx.dataIndex] 
+                    } 
+                } 
+            }
+        });
+        
+
 		});
 
 		document.getElementById('stat-total-albums').innerText = albums.length;
@@ -2920,10 +3113,6 @@ window.handleCSV = function() {
 		const mainGenresSorted = genreEntries.filter(e => e[1] >= rareLimit).sort((a, b) => b[1] - a[1]);
 		const rareSum = genreEntries.filter(e => e[1] < rareLimit).reduce((acc, curr) => acc + curr[1], 0);
 
-		let chartLabels = mainGenresSorted.map(e => e[0]);
-		let chartData = mainGenresSorted.map(e => e[1]);
-		if(rareSum > 0) { chartLabels.push("Egyéb (ritka)"); chartData.push(rareSum); }
-
 	if(charts.traits) charts.traits.destroy();
 	// --- TECCET-E STATISZTIKA ---
     const traitKeys = ['riff', 'vox', 'dob', 'mix', 'szoveg', 'vibe'];
@@ -2981,58 +3170,7 @@ window.handleCSV = function() {
         }
     });
 
-	if(charts.g) charts.g.destroy();
-		charts.g = new Chart(document.getElementById('cGenre'), { 
-			type: 'pie', 
-			data: { 
-				labels: chartLabels, 
-				datasets: [{ 
-					data: chartData, 
-					backgroundColor: chartLabels.map((l, i) => l === "Egyéb (ritka)" ? "#444" : `hsl(48, 100%, ${Math.max(15, 65 - i * 4)}%)`), 
-					borderWidth: 1, 
-					borderColor: '#1e1e1e' 
-				}] 
-			}, 
-			options: { 
-			devicePixelRatio: 2,
-				onClick: (e, el) => { 
-					if(el[0]) { 
-						const label = chartLabels[el[0].index]; 
-						if(label !== "Egyéb (ritka)") {
-							qFilter('g', label); 
-						} else {
-							// Legördít a ritkaságok listájához
-							document.getElementById('listRare').scrollIntoView({ behavior: 'smooth' });
-						}
-					} 
-				},
-				onHover: (event, chartElement) => {
-					// Mutatóujjas kurzor, ha szelet fölé érsz
-					event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-				},
-				maintainAspectRatio: false, 
-				layout: { 
-					padding: {
-						top: 10,
-						bottom: 10,
-						left: 60,
-						right: 60
-					} 
-				}, 
-				plugins: { 
-					title: { display: false }, 
-					legend: { display: false }, 
-					datalabels: { 
-						anchor: 'end', 
-						align: 'end', 
-						color: '#ccc', 
-						offset: 8, 
-						formatter: (v, ctx) => ctx.chart.data.labels[ctx.dataIndex] 
-					} 
-				} 
-			}
-		});
-
+	
 		if(charts.y) charts.y.destroy();
 		const ySorted = Object.keys(years).sort();
 		charts.y = new Chart(document.getElementById('cYear'), { 
@@ -3322,7 +3460,13 @@ async function saveToFirebase() {
             albums: albums,
 			todos: todos,
 			rareLimit: rareLimit,
-			slopG: slopG
+			slopG: slopG,
+			catDeath: catDeath,
+            catBlack: catBlack,
+            catCore:  catCore,
+            catHeavy: catHeavy,
+			catEtc: catEtc,
+			catNonMetal: catNonMetal
         });
         console.log("Sikeres mentés a felhőbe!");
     } catch (e) {
