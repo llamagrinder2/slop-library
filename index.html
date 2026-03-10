@@ -2223,7 +2223,8 @@ function initResizers() {
 		}
 		
 		await saveToFirebase(); 
-		location.reload() 
+		renderStats(); // Frissítjük a kördiagramokat
+        runFilter(); 
 	}
 
 	window.handleDiskDrop = async function(e, albumIdx) {
@@ -2262,7 +2263,7 @@ function initResizers() {
 	
 	        // 4. Frissítés UI-n (reload nélkül!)
 	        renderStats();
-	        renderList(albums); 
+	        runFilter(); 
 	
 	    } catch (error) {
 	        console.error("D&D hiba:", error);
@@ -2318,6 +2319,7 @@ function initResizers() {
 	}
 
 	window.editTodo = function(idx) {
+	
 		const t = todos[idx];
 		if (!t) return;
 
@@ -2335,6 +2337,7 @@ function initResizers() {
 	}
 	
 	window.renderList = function(data) {
+		const scrollPos = window.scrollY;
 		const container = document.getElementById('listContainer');
 		if(!container) return;
 		container.innerHTML = '';
@@ -2419,6 +2422,7 @@ function initResizers() {
 				</div>`;
 		});
 		if (totalItems > 0) renderPagination(totalPages, totalItems);
+		window.scrollTo(0, scrollPos);
 	}
 
 	window.captureCard = async function(cardElement, albumName) {
@@ -2522,7 +2526,6 @@ window.changeItemsPerPage = function(amount) {
     window.runFilter();
 };
 
-// 2. A módosított renderPagination
 window.renderPagination = function(totalPages, totalItems) {
 	const container = document.getElementById('listContainer');
 	let html = `
@@ -2836,7 +2839,8 @@ window.handleCSV = function() {
 		fill('fGenre', [...gs], "Minden műfaj");
 	}
 
-	window.runFilter = function() {
+	window.runFilter = function(resetPage = false) {
+		if (resetPage) currentPage = 1;
 		const q = document.getElementById('gSearch').value.trim();
 		const fA = document.getElementById('fArtist').value;
 		const fY = document.getElementById('fYear').value;
@@ -3575,7 +3579,3 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
-
-
-
-
