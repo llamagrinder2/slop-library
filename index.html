@@ -105,7 +105,12 @@
 		.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 		.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
-		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; }
+		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; ransition: all 0.2s ease;}
+		.album-card.drag-over {
+		    border: 2px dashed #ffcc00 !important; 
+		    background: rgba(255, 204, 0, 0.05) !important;
+		    transform: scale(1.01); 
+		}
 		.row-number { background: #333; color: #888; display: flex; align-items: center; justify-content: center; min-width: 40px; font-weight: bold; flex-shrink: 0; }
 		.album-art-container {
 			width: 180px; /* Ugyanaz a szélesség, amit a képnek adtál */
@@ -2221,6 +2226,52 @@ function initResizers() {
 		location.reload() 
 	}
 
+	window.handleDiskDrop = async function(e, albumIdx) {
+	    e.preventDefault();
+	    e.stopPropagation();
+	    
+	    // Vizuális visszajelzés levétele
+	    const card = document.getElementById(`card-${albumIdx}`);
+	    if(card) card.classList.remove('drag-over');
+	
+	    const file = e.dataTransfer.files[0];
+	    if (!file || !file.type.startsWith('image/')) {
+	        alert("Csak képfájlt (jpg, png stb.) dobhatsz rá!");
+	        return;
+	    }
+	
+	    // Elhalványítjuk a kártyát, hogy lássuk: dolgozunk
+	    if(card) card.style.opacity = "0.4";
+	
+	    try {
+	        console.log("Drag & Drop feltöltés indul...");
+	        const fileName = Date.now() + "_" + file.name;
+	        const storageRef = ref(storage, 'album_covers/' + fileName);
+	        
+	        // 1. Feltöltés a Storage-ba
+	        const snapshot = await uploadBytes(storageRef, file);
+	        const finalUrl = await getDownloadURL(snapshot.ref);
+	        
+	        // 2. A globális albums tömbben frissítjük az adott albumot
+	        albums[albumIdx].coverUrl = finalUrl;
+	        
+	        // 3. Mentés a Firebase-be
+	        await saveToFirebase();
+	        
+	        console.log("Sikeres mentés! Új URL:", finalUrl);
+	
+	        // 4. Frissítés UI-n (reload nélkül!)
+	        renderStats();
+	        renderList(albums); 
+	
+	    } catch (error) {
+	        console.error("D&D hiba:", error);
+	        alert("Hiba történt a feltöltés során!");
+	    } finally {
+	        if(card) card.style.opacity = "1";
+	    }
+	}
+	
 	// 3. ÚJ FÜGGVÉNY: Kizárólag az új pici To-Do űrlapot menti a Firebase-be
 	window.saveTodoOnly = async function() {
 		const artist = document.getElementById('todoArtist').value.trim();
@@ -2325,7 +2376,11 @@ function initResizers() {
 				</div>
 			`;
 			container.innerHTML += `
-				<div class="album-card ${incomplete ? 'incomplete-card' : ''}" id="card-${idx}">
+				<div class="album-card ${incomplete ? 'incomplete-card' : ''}" 
+			         id="card-${idx}"
+			         ondragover="event.preventDefault(); this.classList.add('drag-over');"
+			         ondragleave="this.classList.remove('drag-over');"
+			         ondrop="handleDiskDrop(event, ${idx})">
 					<div class="row-number ${incomplete ? 'incomplete-row' : ''}">#${a.id || '?'}</div>
 					<div class="album-art-container">
 						${isExternal ? `<div class="external-link-indicator" title="Külső hivatkozás">🔗</div>` : ''}
@@ -3520,6 +3575,7 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
 
 
 
