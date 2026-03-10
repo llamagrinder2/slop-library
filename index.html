@@ -1202,6 +1202,10 @@ td[contenteditable="true"]:empty::before {
 		</div>
 
 		<div id="mod-addTodo" class="module-box" style="display: none;">
+			<div class="form-row" style="background: rgba(29, 185, 84, 0.1); padding: 10px; border-radius: 6px; border: 1px solid #1DB954; margin-bottom: 15px;">
+		        <input type="text" id="todoSpotifyLink" placeholder="Spotify album link beillesztése ide..." style="flex: 1; border-color: #1DB954; margin-bottom: 0;">
+		        <button onclick="fetchSpotifyForTodo()" class="ctrl-btn" style="background: #1DB954; color: #fff; width: auto; padding: 0 15px; margin-left: 10px;">🎧 BETÖLTÉS</button>
+		    </div>
 			<div class="form-row">
 				<input type="text" id="todoArtist" placeholder="Előadó">
 				<input type="text" id="todoAlbum" placeholder="Album">
@@ -2318,6 +2322,69 @@ function initResizers() {
 		if (typeof renderTodo === 'function') renderTodo();
 	}
 
+	window.fetchSpotifyForTodo = async function() {
+	    // Ellenőrizzük, hogy van-e token a főoldali bejelentkezésből
+	    if (typeof spotifyToken === 'undefined' || !spotifyToken) {
+	        alert("Kérlek, először jelentkezz be a Spotify-ba a könyvtár nézetnél található gombbal!");
+	        return;
+	    }
+	
+	    const linkEl = document.getElementById('todoSpotifyLink');
+	    const link = linkEl.value.trim();
+	    
+	    if (!link) {
+	        alert("Kérlek, illessz be egy Spotify linket!");
+	        return;
+	    }
+	
+	    // Kinyerjük az Album ID-t az URL-ből (biztonságos módszer)
+	    const albumIdMatch = link.match(/\/album\/([a-zA-Z0-9]+)/);
+	    const albumId = albumIdMatch ? albumIdMatch[1] : null;
+	
+	    if (!albumId) {
+	        alert("Érvénytelen Spotify link! Kérlek teljes album linket adj meg.");
+	        return;
+	    }
+	
+	    const btn = document.querySelector('button[onclick="fetchSpotifyForTodo()"]');
+	    const origText = btn.innerText;
+	    btn.innerText = "Töltés..."; // Vizuális visszajelzés
+	
+	    try {
+	        const response = await fetch(`https://api.spotify.com/v1/albums/${albumId}`, {
+	            headers: { 'Authorization': `Bearer ${spotifyToken}` }
+	        });
+	        
+	        if (!response.ok) throw new Error("Hiba az API-val.");
+	        const data = await response.json();
+	
+	        // Űrlap automatikus kitöltése
+	        document.getElementById('todoArtist').value = data.artists.map(a => a.name).join(', ');
+	        document.getElementById('todoAlbum').value = data.name;
+	        
+	        if (data.release_date) {
+	            document.getElementById('todoYear').value = data.release_date.split('-')[0];
+	        }
+	        
+	        if (data.images && data.images.length > 0) {
+	            document.getElementById('todoCover').value = data.images[0].url; // A legmagasabb felbontású borító
+	        }
+	        
+	        if (data.external_urls && data.external_urls.spotify) {
+	            document.getElementById('todoLink').value = data.external_urls.spotify;
+	        }
+	
+	        // Töröljük a linket a beviteli mezőből, hogy tiszta maradjon
+	        linkEl.value = '';
+	
+	    } catch (err) {
+	        console.error("Spotify adat hiba:", err);
+	        alert("Hiba történt az adatok lekérésekor. Lehet, hogy lejárt a munkamenet, próbálj meg újra bejelentkezni a Spotify-ba!");
+	    } finally {
+	        btn.innerText = origText;
+	    }
+	};
+	
 	window.editTodo = function(idx) {
 	
 		const t = todos[idx];
@@ -3579,3 +3646,4 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
