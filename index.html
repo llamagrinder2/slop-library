@@ -2963,7 +2963,7 @@ window.deleteAlbum = async function(i, type) {
 		document.getElementById('inReview').value = a.review || "";
 		document.getElementById('inFavSong').value = a.favSong || "";
 		document.getElementById('inSongUrl').value = a.songUrl || "";
-		document.getElementById('inDate').value = '';
+		document.getElementById('inDate').value = a.addedDate && a.addedDate !== 'Ősidőkben' ? a.addedDate : '';
 		document.getElementById('inRec').value = a.recommender || "";
 		const t = a.traits || { riff:'Meh', vox:'Meh', dob:'Meh', mix:'Meh', szoveg:'Meh', vibe:'Meh' };
 
@@ -3875,4 +3875,5 @@ window.saveToFirebase = saveToFirebase;
 </script>
 </body>
 </html>
+
 
