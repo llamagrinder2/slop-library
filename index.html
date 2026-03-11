@@ -164,8 +164,9 @@
 		.song-label { color: #888; margin-right: 5px; }
 		.fav-song-link { color: var(--accent); font-style: italic; text-decoration: underline; display: inline-block; }
 
-		.btn-del { position: absolute; bottom: 10px; right: 10px; background: none; border: none; color: var(--accent); font-size: 1em; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+		.btn-del { position: absolute; bottom: 10px; right: 10px; display: none; background: none; border: none; color: var(--accent); font-size: 1em; cursor: pointer; opacity: 0.6; transition: 0.2s; }
 		.btn-del:hover { color: var(--danger); opacity: 1; transform: scale(1.1); }
+		.edit-btn { display: none; }
 		.btn-check { background: none; border: 2px solid var(--success); color: var(--success); font-size: 1.5em; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-top: 10px; }
 
 		.pagination-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
@@ -547,24 +548,32 @@
     pointer-events: none; /* Ne zavarja a kattintást */
     z-index: 2;
     border: 1px solid var(--accent);
-}
-	
-/* --- ADMIN LOGIKA FIX --- */
-/* 1. Kényszerített rejtés: Elrejtjük a konkrét gombokat a funkciójuk alapján */
-#nav-settings, 
-#nav-listView,
-button[onclick="toggleMod('add')"], 
-button[onclick="toggleMod('addTodo')"],
-button[onclick^="editAlbum"], 
-button[onclick^="window.editAlbum"], 
-button[onclick^="deleteAlbum"], 
-button[onclick^="window.deleteAlbum"],
-button[onclick^="moveToRating"],
-button[onclick^="editTodo"] {
-    display: none !important;
+	}
+
+	.gallery-external-link-indicator {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		background: rgba(0, 0, 0, 0.7);
+		color: var(--accent);
+		width: 16px;
+		height: 16px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 10px;
+		pointer-events: none;
+		z-index: 2;
+		border: 1px solid var(--accent);
+	}
+/* 1. Rejtés: Alapértelmezésben az admin-only elemek nem látszódnak */
+.admin-only {
+	display: none !important;
 }
 
 /* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
+body.is-admin .admin-only,
 body.is-admin #nav-settings, 
 body.is-admin #nav-listView,
 body.is-admin button[onclick="toggleMod('add')"],
@@ -574,8 +583,17 @@ body.is-admin button[onclick^="window.editAlbum"],
 body.is-admin button[onclick^="deleteAlbum"],
 body.is-admin button[onclick^="window.deleteAlbum"],
 body.is-admin button[onclick^="moveToRating"],
-body.is-admin button[onclick^="editTodo"] {
+body.is-admin button[onclick^="editTodo"],
+body.is-admin .edit-btn,
+body.is-admin .btn-del {
     display: inline-block !important;
+}
+
+/* Mobile media query: Also ensure admin buttons show on mobile */
+@media (max-width: 815px) {
+    body.is-admin .btn-del {
+        display: block !important;
+    }
 }
 
 /* Lista nézet */
@@ -997,10 +1015,7 @@ select.inline-edit option {
 
     /* Törlés gomb (kártya alján egy nagy, kényelmes sáv) */
     .btn-del {
-        position: relative;
-        bottom: 0;
-        right: 0;
-        display: block;
+        display: none;
         width: 100%;
         text-align: center;
         margin-top: 20px;
@@ -1008,6 +1023,13 @@ select.inline-edit option {
         padding: 15px;
         font-size: 1.3em;
         border-radius: 6px;
+    }
+
+    body.is-admin .btn-del {
+        position: relative;
+        bottom: 0;
+        right: 0;
+        display: block;
     }
 	.info-btn {
 			width: 25px !important;
@@ -2332,15 +2354,19 @@ function initResizers() {
 			return;
 		}
 
-		container.innerHTML = albumsWithCover.map(album => `
+		container.innerHTML = albumsWithCover.map(album => {
+			const isExternal = album.coverUrl && !album.coverUrl.includes('firebasestorage');
+			return `
 			<div class="gallery-item" onclick="showAlbumDetails(${album.id})">
+				${isExternal ? `<div class="gallery-external-link-indicator" title="Külső hivatkozás">🔗</div>` : ''}
 				<img src="${album.coverUrl}" alt="${album.album}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22180%22 height=%22180%22%3E%3Crect fill=%22%23151515%22 width=%22180%22 height=%22180%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2214%22 fill=%22%23555%22%3EKép nem érhető el%3C/text%3E%3C/svg%3E'">
 				<div class="album-overlay">
 					<div class="album-overlay-title">${album.album}</div>
 					<div class="album-overlay-artist">${album.artist}</div>
 				</div>
 			</div>
-		`).join('');
+		`;
+		}).join('');
 	};
 
 	window.showAlbumDetails = function(albumId) {
