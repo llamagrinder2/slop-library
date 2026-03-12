@@ -1308,6 +1308,7 @@ td[contenteditable="true"]:empty::before {
 				<option value="10">10</option>
 			</select>
 			<button onclick="document.getElementById('galleryFilterArtist').value=''; document.getElementById('galleryFilterGenre').value=''; document.getElementById('galleryFilterRating').value=''; renderGallery();" class="ctrl-btn" style="max-width: 100px;">RESET</button>
+			<button onclick="window.toggleRainbowMode()" id="btnRainbow" class="ctrl-btn" style="max-width: 150px; border: 2px solid; border-image: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1; background: #111; color: #fff;">Szivárvány Rács</button>
 		</div>
 		<div id="galleryContainer" class="gallery-container"></div>
 	</div>
@@ -1516,6 +1517,13 @@ td[contenteditable="true"]:empty::before {
 			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">artist;album;year;genre;score;cover;review;favorite;link</p>
 			<input type="file" id="csvFileInput" accept=".csv" style="margin-bottom: 10px;">
 			<button onclick="handleCSV()" class="ctrl-btn" style="background:var(--accent); color:#000;">IMPORTÁLÁS</button>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Szivárvány Rács (Színek elemzése)</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">Végigmegy az albumokon, és kiszámolja a borítók domináns színét. Ezt csak egyszer kell lefuttatni a már meglévő képeknél!</p>
+			<button id="btnColorHarvester" onclick="runColorHarvester()" class="ctrl-btn" style="background: linear-gradient(to right, #ff4444, #ffcc00, #44ff44, #4444ff); color:#000; border:none; font-weight:bold;">
+				SZÍNEK FELDOLGOZÁSA
+			</button>
 		</div>
 		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
 	</div>
@@ -1986,7 +1994,8 @@ window.sortExcelTable = function(event, field, thElement) {
 		'Poop': 1,
 		'Volt??': 0
 	};
-
+	
+	let isRainbowMode = false;
 	let sortAsc = false;
 	let albums = [];
 	let todos = [];
@@ -2301,14 +2310,31 @@ function initResizers() {
 				}
 			}
 		}
-		if (spBtn) {
-        if (panels['add'].style.display === 'block') {
-            spBtn.style.display = 'inline-block';
-        } else {
-            spBtn.style.display = 'none';
-        }
-    }
-}
+			if (spBtn) {
+		        if (panels['add'].style.display === 'block') {
+		            spBtn.style.display = 'inline-block';
+		        } else {
+		            spBtn.style.display = 'none';
+		        }
+		    }
+		}
+
+		window.toggleRainbowMode = function() {
+		    isRainbowMode = !isRainbowMode;
+		    const btn = document.getElementById('btnRainbow');
+		    if(isRainbowMode) {
+		        btn.style.background = 'linear-gradient(to right, #ff000033, #0000ff33)';
+		        btn.innerText = "Normál Rács";
+		        // Reseteljük a többi szűrőt, ha a szivárványt nézzük
+		        if(document.getElementById('galleryFilterArtist')) document.getElementById('galleryFilterArtist').value = '';
+		        if(document.getElementById('galleryFilterGenre')) document.getElementById('galleryFilterGenre').value = '';
+		        if(document.getElementById('galleryFilterRating')) document.getElementById('galleryFilterRating').value = '';
+		    } else {
+		        btn.style.background = '#111';
+		        btn.innerText = "Szivárvány Rács";
+		    }
+		    renderGallery();
+		};
 
 	window.renderGallery = function() {
 		const container = document.getElementById('galleryContainer');
@@ -2318,36 +2344,43 @@ function initResizers() {
 			container.innerHTML = '<div class="gallery-empty">Nincsenek albumok az adatbázisban</div>';
 			return;
 		}
-
 		// Szűrjük az albumokat, amelyeknek van borítóképük
 		let albumsWithCover = albums.filter(a => a.coverUrl && a.coverUrl.trim());
 
+		if (isRainbowMode) {
+	        // Szivárvány mód: Kiszűrjük azokat, amiknek nincs kiszámolt Hue értéke (pl. linkek), 
+	        // és aminek van, azt Hue szerint növekvőbe tesszük.
+	        albumsWithCover = albumsWithCover.filter(a => a.dominantHue !== undefined);
+	        albumsWithCover.sort((a, b) => a.dominantHue - b.dominantHue);
+	    } else {
+	        // ... (Itt jön a te eredeti szűrős kódod, if filterArtist stb.) ...
 		// Alkalmazzuk a szűrőket
-		const filterArtist = document.getElementById('galleryFilterArtist')?.value.toLowerCase().trim() || '';
-		const filterGenre = document.getElementById('galleryFilterGenre')?.value.toLowerCase().trim() || '';
-		const filterRating = document.getElementById('galleryFilterRating')?.value;
-
-		if (filterArtist || filterGenre || filterRating) {
-			albumsWithCover = albumsWithCover.filter(album => {
-				let matches = true;
-
-				if (filterArtist) {
-					matches = matches && album.artist.toLowerCase().includes(filterArtist);
-				}
-
-				if (filterGenre) {
-					const genres = (album.genre || '').toLowerCase();
-					matches = matches && genres.includes(filterGenre);
-				}
-
-				if (filterRating) {
-					const rating = parseFloat(filterRating);
-					matches = matches && parseFloat(album.myScore) === rating;
-				}
-
-				return matches;
-			});
-		}
+			const filterArtist = document.getElementById('galleryFilterArtist')?.value.toLowerCase().trim() || '';
+			const filterGenre = document.getElementById('galleryFilterGenre')?.value.toLowerCase().trim() || '';
+			const filterRating = document.getElementById('galleryFilterRating')?.value;
+	
+			if (filterArtist || filterGenre || filterRating) {
+				albumsWithCover = albumsWithCover.filter(album => {
+					let matches = true;
+	
+					if (filterArtist) {
+						matches = matches && album.artist.toLowerCase().includes(filterArtist);
+					}
+	
+					if (filterGenre) {
+						const genres = (album.genre || '').toLowerCase();
+						matches = matches && genres.includes(filterGenre);
+					}
+	
+					if (filterRating) {
+						const rating = parseFloat(filterRating);
+						matches = matches && parseFloat(album.myScore) === rating;
+					}
+	
+					return matches;
+				});
+			}
+		}	
 
 		if (albumsWithCover.length === 0) {
 			container.innerHTML = '<div class="gallery-empty">Nincs olyan album, amely megfelel a szűrő feltételeknek</div>';
@@ -2485,9 +2518,11 @@ function initResizers() {
 	        // 1. Feltöltés a Storage-ba
 	        const snapshot = await uploadBytes(storageRef, file);
 	        const finalUrl = await getDownloadURL(snapshot.ref);
+			const newHue = await extractHueFromFile(file);
 	        
 	        // 2. A globális albums tömbben frissítjük az adott albumot
 	        albums[albumIdx].coverUrl = finalUrl;
+			albums[albumIdx].dominantHue = newHue;
 	        
 	        // 3. Mentés a Firebase-be
 	        await saveToFirebase();
@@ -2991,7 +3026,6 @@ window.deleteAlbum = async function(i, type) {
 					${slopG.includes(g.toLowerCase())?'SLOP':'RENDES'}
 				</button>
 			</div>`).join('');
-		// ... (rareLimit és gs Set feltöltése változatlan)
 
 		container.innerHTML = [...gs].sort().map(g => {
 			const lg = g.toLowerCase();
@@ -3018,6 +3052,90 @@ window.deleteAlbum = async function(i, type) {
 		}).join('');
 	}
 
+	window.runColorHarvester = async function() {
+		const btn = document.getElementById('btnColorHarvester');
+		if(!btn) return;
+
+		// Kiszámoljuk, mennyi albumot kell feldolgozni
+		const toProcess = albums.filter(a => a.coverUrl && a.coverUrl.includes('firebasestorage') && a.dominantHue === undefined);
+		const total = toProcess.length;
+
+		if (total === 0) {
+			btn.innerText = "Minden kép fel van dolgozva!";
+			setTimeout(() => { btn.innerText = "SZÍNEK FELDOLGOZÁSA"; }, 3000);
+			return;
+		}
+
+		btn.disabled = true;
+		btn.innerText = `Előkészítés... (0 / ${total})`;
+		let updatedCount = 0;
+		let currentCount = 0;
+
+		const rgbToHue = (r, g, b) => {
+			r /= 255; g /= 255; b /= 255;
+			let max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0;
+			if (max !== min) {
+				let d = max - min;
+				switch (max) {
+					case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+					case g: h = (b - r) / d + 2; break;
+					case b: h = (r - g) / d + 4; break;
+				}
+				h /= 6;
+			}
+			return Math.round(h * 360);
+		};
+
+		const getHueFromUrl = (url) => new Promise((resolve) => {
+			const img = new Image();
+			img.crossOrigin = "Anonymous";
+			img.onload = () => {
+				const canvas = document.createElement('canvas');
+				canvas.width = img.width; canvas.height = img.height;
+				const ctx = canvas.getContext('2d');
+				ctx.drawImage(img, 0, 0);
+				try {
+					const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+					let r=0, g=0, b=0, c=0;
+					for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; c++; }
+					resolve(rgbToHue(Math.floor(r/c), Math.floor(g/c), Math.floor(b/c)));
+				} catch(e) { resolve(null); }
+			};
+			img.onerror = () => resolve(null);
+			img.src = url;
+		});
+
+		// Végigmegyünk az albumokon
+		for (let i = 0; i < albums.length; i++) {
+			let a = albums[i];
+			if (a.coverUrl && a.coverUrl.includes('firebasestorage') && a.dominantHue === undefined) {
+				currentCount++;
+				btn.innerText = `Feldolgozás... ${currentCount} / ${total}`;
+				
+				const hue = await getHueFromUrl(a.coverUrl);
+				if (hue !== null) {
+					a.dominantHue = hue;
+					updatedCount++;
+				}
+			}
+		}
+
+		// Ha végeztünk, mentünk
+		if (updatedCount > 0) {
+			btn.innerText = "Mentés az adatbázisba...";
+			await saveToFirebase();
+			btn.innerText = `Kész! (${updatedCount} album frissítve)`;
+		} else {
+			btn.innerText = "Nem sikerült új színt kinyerni.";
+		}
+
+		// 4 másodperc múlva visszaállítjuk a gombot alaphelyzetbe
+		setTimeout(() => {
+			btn.innerText = "SZÍNEK FELDOLGOZÁSA";
+			btn.disabled = false;
+		}, 4000);
+	};
+	
 	window.tSlop = function(g) { 
 		slopG.includes(g) ? slopG = slopG.filter(x => x !== g) : slopG.push(g); 
 		
@@ -3872,8 +3990,41 @@ window.saveToFirebase = saveToFirebase;
 
 	window.addEventListener('scroll', handleScroll, { passive: true });
 })();
+
+window.extractHueFromFile = (file) => new Promise((resolve) => {
+	const reader = new FileReader();
+	reader.onload = (e) => {
+		const img = new Image();
+		img.onload = () => {
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			canvas.width = img.width; canvas.height = img.height;
+			ctx.drawImage(img, 0, 0);
+			const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+			let r=0, g=0, b=0, c=0;
+			for(let i=0; i<data.length; i+=4) { r+=data[i]; g+=data[i+1]; b+=data[i+2]; c++; }
+			r = Math.floor(r/c); g = Math.floor(g/c); b = Math.floor(b/c);
+			
+			// RGB -> Hue konverzió (beépítve ide, hogy ne kelljen külső fv.)
+			r /= 255; g /= 255; b /= 255;
+			let max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0;
+			if (max !== min) {
+				let d = max - min;
+				if(max===r) h = (g - b) / d + (g < b ? 6 : 0);
+				else if(max===g) h = (b - r) / d + 2;
+				else h = (r - g) / d + 4;
+				h /= 6;
+			}
+			resolve(Math.round(h * 360));
+		};
+		img.src = e.target.result;
+	};
+	reader.readAsDataURL(file);
+});
+	
 </script>
 </body>
 </html>
+
 
 
