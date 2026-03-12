@@ -1311,6 +1311,9 @@ td[contenteditable="true"]:empty::before {
 			<button onclick="window.toggleRainbowMode()" id="btnRainbow" class="ctrl-btn" style="max-width: 150px; border: 2px solid; border-image: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1; background: #111; color: #fff;">Szivárvány Rács</button>
 		</div>
 		<div id="galleryContainer" class="gallery-container"></div>
+		<button onclick="downloadGalleryAsImage()" class="ctrl-btn" style="background: #555; color: #fff; margin-top: 20px;">
+		    GALÉRIA MENTÉSE KÉPKÉNT
+		</button>
 	</div>
 	<div id="listView" class="page">
 		<div class="form-row" style="margin-bottom: 15px;">
@@ -2402,6 +2405,77 @@ function initResizers() {
 		}).join('');
 	};
 
+	window.downloadGalleryAsImage = async function() {
+	    // 1. Megkeressük azokat az albumokat, amik épp a galériában látszanak
+	    const container = document.getElementById('galleryContainer');
+	    const images = container.querySelectorAll('img');
+	    
+	    if (images.length === 0) return alert("Nincs mit menteni!");
+	
+	    const btn = document.querySelector('button[onclick="downloadGalleryAsImage()"]');
+	    const origText = btn.innerText;
+	    btn.innerText = "Kép generálása... (ez eltarthat egy ideig)";
+	    btn.disabled = true;
+	
+	    // 2. Beállítások
+	    const thumbSize = 300; // Egy borító mérete a nagy képen
+	    const cols = 5;        // Hány oszlop legyen
+	    const rows = Math.ceil(images.length / cols);
+	
+	    const canvas = document.createElement('canvas');
+	    canvas.width = cols * thumbSize;
+	    canvas.height = rows * thumbSize;
+	    const ctx = canvas.getContext('2d');
+	
+	    // Háttérszín (fekete, mint az appod)
+	    ctx.fillStyle = "#111111";
+	    ctx.fillRect(0, 0, canvas.width, canvas.height);
+	
+	    try {
+	        // 3. Képek beolvasása és rajzolása
+	        const loadAndDraw = (imgSrc, x, y) => {
+	            return new Promise((resolve) => {
+	                const img = new Image();
+	                img.crossOrigin = "Anonymous"; // Kell a Firebase miatt!
+	                img.onload = () => {
+	                    ctx.drawImage(img, x, y, thumbSize, thumbSize);
+	                    resolve();
+	                };
+	                img.onerror = () => {
+	                    // Ha egy kép hibás, rajzolunk egy szürke négyzetet a helyére
+	                    ctx.fillStyle = "#222";
+	                    ctx.fillRect(x, y, thumbSize, thumbSize);
+	                    resolve();
+	                };
+	                img.src = imgSrc;
+	            });
+	        };
+	
+	        for (let i = 0; i < images.length; i++) {
+	            const x = (i % cols) * thumbSize;
+	            const y = Math.floor(i / cols) * thumbSize;
+	            await loadAndDraw(images[i].src, x, y);
+	            
+	            // Haladás jelzése a gombon
+	            btn.innerText = `Rajzolás: ${i + 1} / ${images.length}`;
+	        }
+	
+	        // 4. Letöltés indítása
+	        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+	        const link = document.createElement('a');
+	        link.download = `album_gyujtemeny_${Date.now()}.jpg`;
+	        link.href = dataUrl;
+	        link.click();
+	
+	    } catch (err) {
+	        console.error("Hiba a kép generálásakor:", err);
+	        alert("Hiba történt a kép összeállítása közben.");
+	    } finally {
+	        btn.innerText = origText;
+	        btn.disabled = false;
+	    }
+	};
+	
 	window.showAlbumDetails = function(albumId) {
 		const album = albums.find(a => a.id === albumId);
 		if (!album) return;
@@ -4025,6 +4099,7 @@ window.extractHueFromFile = (file) => new Promise((resolve) => {
 </script>
 </body>
 </html>
+
 
 
 
