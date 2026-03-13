@@ -105,7 +105,7 @@
 		.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 		.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
-		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; ransition: all 0.2s ease;}
+		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; transition: all 0.2s ease;}
 		.album-card.drag-over {
 		    border: 2px dashed #ffcc00 !important; 
 		    background: rgba(255, 204, 0, 0.05) !important;
@@ -1159,14 +1159,6 @@ td[contenteditable="true"]:empty::before {
 				<label style="display:block; margin-top:10px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
 				<select id="inRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
 					<option value="">-- Saját felfedezés --</option>
-					<option value="baal">The Almighty Baal</option>
-					<option value="goatlord">Goatlord</option>
-					<option value="caller">Caller of Slam Riffs</option>
-					<option value="bacchus">Bacchus the Second</option>
-					<option value="mammvth">The Mammvth Hvnter</option>
-					<option value="gaben">X14Gaben88X</option>
-					<option value="christian">Christian Woman</option>
-					<option value="max">Max, the Mad</option>
 				</select>
 					<input type="number" id="inScore" placeholder="Pont" step="0.1">
 				</div>
@@ -1376,14 +1368,6 @@ td[contenteditable="true"]:empty::before {
 					<label style="display:block; margin-top:5px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
 					<select id="todoRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
 						<option value="">-- Saját felfedezés --</option>
-						<option value="baal">The Almighty Baal</option>
-						<option value="goatlord">Goatlord</option>
-						<option value="caller">Caller of Slam Riffs</option>
-						<option value="bacchus">Bacchus the Second</option>
-						<option value="mammvth">The Mammvth Hvnter</option>
-						<option value="gaben">X14Gaben88X</option>
-						<option value="christian">Christian Woman</option>
-						<option value="max">Max, the Mad</option>
 					</select>
 				</div>
 				<button onclick="saveTodoOnly()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:1; height: 42px;">TO-DO MENTÉSE</button>
@@ -2013,6 +1997,13 @@ window.sortExcelTable = function(event, field, thElement) {
 	let catDeath = [], catBlack = [], catCore = [], catHeavy = [], catEtc = [], catNonMetal = [];
 	let currentGenreLevel = 'main';
 
+	// Shared helper: returns true if a field value should be considered missing/empty
+	const isMissing = (val) => {
+		if (!val) return true;
+		const s = String(val).trim();
+		return s === '' || s === '0' || s === '?' || s === 'https://via.placeholder.com/120';
+	};
+
 	// --- SZŰRŐK ÉS KERESŐ ESEMÉNYKEZELŐJE ---
 	setTimeout(() => {
 		const filterIds = ['gSearch', 'fArtist', 'fYear', 'fGenre', 'sortField'];
@@ -2249,6 +2240,26 @@ function initResizers() {
 			.join('');
 		return baseOption + otherOptions;
 	}
+
+	// Populate recommender selects from the single recommenders source
+	(function() {
+		const recEntries = Object.entries(recommenders);
+		['inRec', 'todoRec'].forEach(id => {
+			const sel = document.getElementById(id);
+			if (!sel) return;
+			sel.innerHTML = '';
+			const placeholder = document.createElement('option');
+			placeholder.value = '';
+			placeholder.textContent = '-- Saját felfedezés --';
+			sel.appendChild(placeholder);
+			recEntries.forEach(([key, data]) => {
+				const opt = document.createElement('option');
+				opt.value = key;
+				opt.textContent = data.name1;
+				sel.appendChild(opt);
+			});
+		});
+	})();
 
 	window.toggleSortOrder = function() {
 		sortAsc = !sortAsc;
@@ -2757,7 +2768,6 @@ function initResizers() {
 			const idx = albums.indexOf(a);
 			// hiány check
 			const isExternal = a.coverUrl && !a.coverUrl.includes('firebasestorage');
-			const isMissing = (val) => !val || String(val).trim() === '' || String(val).trim() === '0' || String(val).trim() === '?';
 			const incomplete = isMissing(a.review) || isMissing(a.favSong) || isMissing(a.coverUrl) || isMissing(a.year) || isMissing(a.album) || isMissing(a.genre);
 
 			const songLabel = a.myScore > 4.5 ? "Kiemelkedő dal:" : "Legkevésbé rossz dal:";
@@ -3084,7 +3094,6 @@ window.deleteAlbum = async function(i, type) {
 		document.getElementById('t_vibe').value = t.vibe;
 
 		toggleMod('add'); window.scrollTo(0,0);
-		document.getElementById('inDate').value = (a.addedDate && a.addedDate !== 'Ősidőkben') ? a.addedDate : '';
 		showModal('album');
 	}
 
@@ -3093,14 +3102,6 @@ window.deleteAlbum = async function(i, type) {
 		const gs = new Set(); albums.forEach(a=>a.genre.split(',').forEach(g=>gs.add(g.trim())));
 		const container = document.getElementById('setG');
 		if(!container) return;
-		container.innerHTML = [...gs].sort().map(g => `
-			<div class="settings-row">
-				<span>${g}</span>
-				<button onclick="tSlop('${g.toLowerCase()}')" style="background:${slopG.includes(g.toLowerCase())?'var(--accent)':'#444'}; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; color:${slopG.includes(g.toLowerCase())?'#000':'#fff'}; font-weight:bold;">
-					${slopG.includes(g.toLowerCase())?'SLOP':'RENDES'}
-				</button>
-			</div>`).join('');
-
 		container.innerHTML = [...gs].sort().map(g => {
 			const lg = g.toLowerCase();
 			
@@ -3221,22 +3222,11 @@ window.deleteAlbum = async function(i, type) {
 	window.openLB = function(src) { if(src) { document.getElementById('lb-img').src=src; document.getElementById('lightbox').style.display='flex'; } }
 	
 	window.tCat = function(g, cat) {
+		const catArrays = { death: catDeath, black: catBlack, core: catCore, heavy: catHeavy, etc: catEtc, nonmetal: catNonMetal };
 		// Először kivesszük mindenhonnan, hogy ne legyen duplikáció
-		catDeath = catDeath.filter(x => x !== g);
-		catBlack = catBlack.filter(x => x !== g);
-		catCore = catCore.filter(x => x !== g);
-		catHeavy = catHeavy.filter(x => x !== g);
-		catEtc = catEtc.filter(x => x !== g);
-    	catNonMetal = catNonMetal.filter(x => x !== g);
-
+		Object.values(catArrays).forEach(arr => { const i = arr.indexOf(g); if (i !== -1) arr.splice(i, 1); });
 		// Ha nem kikapcsolni akartuk (tehát rányomtunk egy újra), akkor hozzáadjuk
-		if (cat === 'death') catDeath.push(g);
-		if (cat === 'black') catBlack.push(g);
-		if (cat === 'core') catCore.push(g);
-		if (cat === 'heavy') catHeavy.push(g);
-		if (cat === 'etc') catEtc.push(g);
-   		 if (cat === 'nonmetal') catNonMetal.push(g);
-
+		if (catArrays[cat]) catArrays[cat].push(g);
 		// Mentés és frissítés
 		if(window.saveToFirebase) window.saveToFirebase(); 
 		if(window.renderSettings) window.renderSettings(); 
@@ -3341,7 +3331,6 @@ window.handleCSV = function() {
 			const searchTerm = q.toLowerCase();
 			
 			// Kiszámoljuk, hogy a jelenlegi album hiányos-e
-			const isMissing = (val) => !val || String(val).trim() === '' || String(val).trim() === '0' || String(val).trim() === '?';
 			const isIncomplete = isMissing(a.review) || isMissing(a.favSong) || isMissing(a.coverUrl) || isMissing(a.year) || isMissing(a.album) || isMissing(a.genre);
 			
 			// ajánló 
@@ -3588,35 +3577,28 @@ window.handleCSV = function() {
 		document.getElementById('stat-avg-score').innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
 		document.getElementById('stat-total-yap').innerText = totalWords + " szó";
 
-		// Helyben definiáljuk a feltételt, hogy biztosan elérje
-		const checkMissing = (val) => {
-			if (val === undefined || val === null) return true;
-			const s = String(val).trim();
-			return s === '' || s === '0' || s === '?' || s === 'https://via.placeholder.com/120';
-		};
-
 		let incompleteCount = 0;
 
 		// Fontos: a globális 'albums' tömböt használjuk
 		if (window.albums && window.albums.length > 0) {
 			window.albums.forEach(a => {
-				const isInc = checkMissing(a.review) || 
-							  checkMissing(a.favSong) || 
-							  checkMissing(a.coverUrl) || 
-							  checkMissing(a.year) || 
-							  checkMissing(a.album) || 
-							  checkMissing(a.genre);
+				const isInc = isMissing(a.review) || 
+							  isMissing(a.favSong) || 
+							  isMissing(a.coverUrl) || 
+							  isMissing(a.year) || 
+							  isMissing(a.album) || 
+							  isMissing(a.genre);
 				if (isInc) incompleteCount++;
 			});
 		} else if (typeof albums !== 'undefined' && albums.length > 0) {
 			// Ha modulon belül vagyunk és nincs a window-n
 			albums.forEach(a => {
-				const isInc = checkMissing(a.review) || 
-							  checkMissing(a.favSong) || 
-							  checkMissing(a.coverUrl) || 
-							  checkMissing(a.year) || 
-							  checkMissing(a.album) || 
-							  checkMissing(a.genre);
+				const isInc = isMissing(a.review) || 
+							  isMissing(a.favSong) || 
+							  isMissing(a.coverUrl) || 
+							  isMissing(a.year) || 
+							  isMissing(a.album) || 
+							  isMissing(a.genre);
 				if (isInc) incompleteCount++;
 			});
 		}
@@ -3637,8 +3619,6 @@ window.handleCSV = function() {
 
 		const gMedian = getMedian(genres);
 		const yMedian = getMedian(years);
-
-		document.getElementById('topTitle').innerHTML = `Top 10 <span style="font-size:0.6em; color:#888; font-weight:normal; margin-left:10px;">(min.${gMedian}/műfaj, min.${yMedian}/év)</span>`;
 
 		// --- TOP LISTÁK GENERÁLÁSA ---
 		const drawTopList = (scoreObj, countObj, type, threshold) => {
