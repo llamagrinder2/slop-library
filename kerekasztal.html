@@ -701,7 +701,7 @@
 		}
 
 		.sheet-table tbody tr.session-start > td {
-			border-top: 3px solid #555;
+			border-top: 4px solid #777;
 		}
 
 		.sheet-table tbody tr.session-end > td {
@@ -1784,7 +1784,7 @@
 			const z1Lower = avg(set.map((value) => minVal - value));
 			const n4 = (z1Lower / z2) * -1;
 
-			const finalValue = (((n1 + n2 + n3 + n4) / 4) / 31.5) * 100;
+			const finalValue = (((n1 + n2 + n3 + n4) / 4) / 31.5) * 100 * 10;
 			return Math.round(finalValue * 10) / 10;
 		}
 
@@ -1987,7 +1987,7 @@
 					<td class="rank-cell">${idx + 1}</td>
 					<td class="band-cell art-cell top-band-cell"></td>
 					<td class="album-cell art-cell"></td>
-					<td class="top-avg-cell"><span class="top-avg-inner"><span class="avg-number">${item.divisiveness.toFixed(1)}%</span><span class="latest-star${item.isLatest ? " is-visible" : ""}" aria-label="Latest pick">★</span></span></td>
+					<td class="top-avg-cell"><span class="top-avg-inner"><span class="avg-number">${item.divisiveness.toFixed(1)}</span><span class="latest-star${item.isLatest ? " is-visible" : ""}" aria-label="Latest pick">★</span></span></td>
 				`;
 
 				const artistCell = tr.querySelector(".band-cell");
