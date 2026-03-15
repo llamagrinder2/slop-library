@@ -1,0 +1,2228 @@
+﻿<!DOCTYPE html>
+<html lang="hu">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Kerekasztal</title>
+	<link rel="icon" type="image/svg+xml" href="favicon.svg">
+	<style>
+		:root {
+			--bg-color: #121212;
+			--card-bg: #1e1e1e;
+			--text-color: #e0e0e0;
+			--accent: #d94141;
+			--border-color: #444;
+			--sticky-header-top: 0px;
+		}
+
+		@font-face {
+			font-family: "Brotheric";
+			src: url("Brotheric.otf") format("opentype");
+			font-weight: normal;
+			font-style: normal;
+			font-display: swap;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			min-height: 100vh;
+			background: var(--bg-color);
+			color: var(--text-color);
+			font-family: "Segoe UI", sans-serif;
+			display: flex;
+			flex-direction: column;
+		}
+
+		nav {
+			position: sticky;
+			top: 0;
+			z-index: 10;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 16px;
+			padding: 14px 24px;
+			background: #252525;
+			border-bottom: 2px solid var(--accent);
+			transition: transform 180ms ease, opacity 180ms ease;
+			transform: translateY(0);
+			opacity: 1;
+		}
+
+		body.page-header-hidden:not(.show-page-header) nav {
+			transform: translateY(calc(-100% - 2px));
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		body.page-header-hidden:not(.show-page-header) {
+			--sticky-header-top: 0px;
+		}
+
+		.page-header-hover-zone {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 36px;
+			z-index: 11;
+			background: transparent;
+			pointer-events: none;
+		}
+
+		body.page-header-hidden .page-header-hover-zone {
+			pointer-events: auto;
+		}
+
+		.nav-logo {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			letter-spacing: 1px;
+			color: var(--accent);
+		}
+
+		.nav-actions {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.view-btn {
+			border: 1px solid #575757;
+			background: #202020;
+			color: #d2d2d2;
+			padding: 7px 12px;
+			border-radius: 8px;
+			font-size: 0.78rem;
+			font-weight: 800;
+			letter-spacing: 0.08em;
+			cursor: pointer;
+		}
+
+		.view-btn.is-active {
+			background: var(--accent);
+			border-color: var(--accent);
+			color: #fff;
+		}
+
+		.brand-main {
+			font-family: "Brotheric", "Segoe UI", sans-serif;
+			font-size: 1.45rem;
+			letter-spacing: 0.6px;
+			line-height: 1;
+			font-weight: 400;
+		}
+
+		.brand-sub {
+			font-family: "Segoe UI", sans-serif;
+			font-size: 0.95rem;
+			font-weight: 700;
+			color: var(--text-color);
+			text-transform: none;
+		}
+
+		main {
+			flex: 1;
+			display: flex;
+			align-items: flex-start;
+			justify-content: center;
+			padding: 32px 20px;
+		}
+
+		.sheet-shell {
+			width: min(1400px, 100%);
+			padding: 24px;
+			border-radius: 16px;
+			background: var(--card-bg);
+			border: 1px solid var(--border-color);
+			box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+		}
+
+		@media (max-width: 1450px) {
+			main {
+				justify-content: flex-start;
+				overflow-x: auto;
+			}
+
+			.sheet-shell {
+				width: 1400px;
+				max-width: none;
+				flex: 0 0 auto;
+			}
+		}
+
+		.page-view[hidden] {
+			display: none;
+		}
+
+		.sheet-toolbar {
+			display: none;
+		}
+
+		.sheet-btn {
+			position: fixed;
+			left: 20px;
+			bottom: 20px;
+			z-index: 20;
+			background: var(--accent);
+			color: #fff;
+			border: none;
+			padding: 10px 16px;
+			border-radius: 8px;
+			font-weight: 700;
+			cursor: pointer;
+			box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+		}
+
+		.sheet-table-wrap {
+			flex: 1;
+			min-width: 0;
+			overflow: visible;
+			border: 1px solid #363636;
+			border-radius: 12px;
+			background: #181818;
+		}
+
+		.sheet-layout {
+			display: flex;
+			align-items: stretch;
+			gap: 12px;
+		}
+
+		.session-tracker {
+			width: 72px;
+			border: 1px solid #363636;
+			border-radius: 12px;
+			background: #181818;
+			display: flex;
+			flex-direction: column;
+			padding: 8px;
+			gap: 8px;
+			overflow: hidden;
+		}
+
+		.session-blocks {
+			flex: 1;
+			display: grid;
+			grid-template-columns: 1fr;
+			grid-auto-flow: row;
+			gap: 0;
+			min-height: 0;
+			overflow-y: auto;
+			overflow-x: hidden;
+			scrollbar-width: thin;
+			scrollbar-color: #484848 #1a1a1a;
+		}
+
+		.session-block {
+			min-height: 28px;
+			border: 1px solid #3d3d3d;
+			border-radius: 0;
+			background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: space-between;
+			color: #d4d4d4;
+			overflow: hidden;
+		}
+
+		.session-block.special-edition-block {
+			border-color: #b8678f;
+			background: linear-gradient(180deg, rgba(255, 140, 190, 0.3), rgba(255, 120, 176, 0.18));
+			color: #ffe8f4;
+		}
+
+		.session-label {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			width: 100%;
+			flex: 1;
+			padding: 6px 2px;
+			writing-mode: vertical-rl;
+			transform: rotate(180deg);
+			font-size: 1rem;
+			font-weight: 700;
+			letter-spacing: 0.04em;
+			text-align: center;
+			cursor: text;
+		}
+
+		.session-resize-handle {
+			height: 8px;
+			width: 100%;
+			border-top: 1px dashed #5a5a5a;
+			background: rgba(0, 0, 0, 0.22);
+			cursor: ns-resize;
+			flex: 0 0 8px;
+		}
+
+		.session-resize-handle.top {
+			border-top: none;
+			border-bottom: 1px dashed #5a5a5a;
+		}
+
+		.session-resize-handle.bottom {
+			border-top: 1px dashed #5a5a5a;
+		}
+
+		.session-add-btn {
+			width: 100%;
+			height: 28px;
+			border: 1px solid #525252;
+			border-radius: 7px;
+			background: #202020;
+			color: var(--accent);
+			font-size: 1rem;
+			font-weight: 700;
+			line-height: 1;
+			cursor: pointer;
+		}
+
+		.session-add-btn:hover {
+			border-color: var(--accent);
+			background: #262626;
+		}
+
+		.sheet-table {
+			width: 100%;
+			border-collapse: collapse;
+			table-layout: fixed;
+			min-width: 0;
+		}
+
+		.sheet-table th,
+		.sheet-table td {
+			border: 1px solid #303030;
+		}
+
+		.sheet-table th {
+			position: sticky;
+			top: var(--sticky-header-top);
+			z-index: 4;
+			background: #222;
+			color: var(--accent);
+			font-size: 0.86rem;
+			font-weight: 700;
+			padding: 10px 8px;
+			text-align: left;
+			vertical-align: bottom;
+			line-height: 1.25;
+			box-shadow: 0 1px 0 #303030;
+		}
+
+		.sheet-table th.col-date {
+			width: 10%;
+		}
+
+		.sheet-table th.col-order {
+			width: 8%;
+		}
+
+		.sheet-table th.col-band {
+			width: 14%;
+		}
+
+		.sheet-table th.col-album {
+			width: 16%;
+		}
+
+		.sheet-table th.avg-col {
+			width: 5.6%;
+			padding: 8px 2px;
+			text-align: center;
+		}
+
+		.sheet-table th.avg-col > span {
+			display: inline-block;
+			writing-mode: vertical-rl;
+			transform: rotate(180deg);
+			padding: 6px 4px;
+			line-height: 1.15;
+			white-space: nowrap;
+		}
+
+		.sheet-table th.member-col {
+			width: 3.9%;
+			padding: 6px 1px;
+			text-align: center;
+		}
+
+		.sheet-table th.col-delete {
+			width: 2.2%;
+			padding: 4px 1px;
+			text-align: center;
+		}
+
+		.toplist-table th.col-rank {
+			width: 8%;
+			text-align: center;
+		}
+
+		.toplist-table th.col-artist {
+			width: 36%;
+		}
+
+		.toplist-table th.col-top-album {
+			width: 38%;
+		}
+
+		.toplist-table th.col-top-avg {
+			width: 18%;
+			text-align: center;
+		}
+
+		.header-with-info {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			white-space: nowrap;
+		}
+
+		.info-wrap {
+			position: relative;
+			display: inline-flex;
+			align-items: center;
+		}
+
+		.info-icon-btn {
+			width: 18px;
+			height: 18px;
+			border: 1px solid #676767;
+			border-radius: 999px;
+			background: #202020;
+			color: #d0d0d0;
+			font-size: 12px;
+			line-height: 1;
+			padding: 0;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+		}
+
+		.info-icon-btn:hover,
+		.info-icon-btn:focus-visible {
+			border-color: var(--accent);
+			color: var(--accent);
+			outline: none;
+		}
+
+		.formula-tooltip {
+			display: none;
+			position: absolute;
+			top: calc(100% + 8px);
+			right: 0;
+			width: 450px;
+			height: auto;
+			overflow: hidden;
+			white-space: normal;
+			word-wrap: break-word;
+			padding: 12px 12px 18px;
+			border: 1px solid #4a4a4a;
+			border-radius: 10px;
+			background: #1d1d1d;
+			color: #d8d8d8;
+			text-align: left;
+			font-family: "Segoe UI", sans-serif;
+			font-size: 0.78rem;
+			line-height: 1.45;
+			z-index: 30;
+			box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+		}
+
+		.formula-tooltip p {
+			margin: 0 0 8px;
+		}
+
+		.formula-tooltip p:last-child {
+			margin-bottom: 0;
+		}
+
+		.info-wrap:hover .formula-tooltip,
+		.info-wrap.open .formula-tooltip {
+			display: block;
+		}
+
+		.toplist-table td.rank-cell,
+		.toplist-table td.top-avg-cell {
+			text-align: center;
+			font-weight: 700;
+		}
+
+		.toplist-table td.top-avg-cell {
+			color: var(--accent);
+		}
+
+		.toplist-table td.top-avg-cell .top-avg-inner {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			min-width: 84px;
+		}
+
+		.toplist-table td.top-avg-cell .avg-number {
+			min-width: 42px;
+			text-align: right;
+		}
+
+		.toplist-table td.top-avg-cell .latest-star {
+			color: #f5c84c;
+			font-size: 1.08em;
+			line-height: 1;
+			visibility: hidden;
+			width: 1em;
+			text-align: center;
+		}
+
+		.toplist-table td.top-avg-cell .latest-star.is-visible {
+			visibility: visible;
+		}
+
+		.toplist-table td.band-cell.top-band-cell::after {
+			content: "";
+			position: absolute;
+			inset: 0;
+			z-index: -1;
+			pointer-events: none;
+			background: linear-gradient(to right, var(--pick-hue, rgba(255, 255, 255, 1)) 0%, rgba(0, 0, 0, 0) 100%);
+		}
+
+		.toplist-table td {
+			min-height: 50px;
+			height: 50px;
+			padding: 10px 10px;
+		}
+
+		.slammer-bar {
+			display: flex;
+			gap: 14px;
+			margin-bottom: 18px;
+			flex-wrap: wrap;
+		}
+
+		.slammer-card {
+			flex: 1 1 0;
+			min-width: 220px;
+			background: #1c1c1c;
+			border: 1px solid #3a3a3a;
+			border-radius: 8px;
+			padding: 10px 14px 12px;
+		}
+
+		.slammer-label {
+			font-family: "Brotheric", sans-serif;
+			font-size: 1.05rem;
+			color: #aaa;
+			margin-bottom: 6px;
+			letter-spacing: 0.5px;
+		}
+
+		.slammer-stats {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px 16px;
+			font-size: 0.92rem;
+			color: #d8d8d8;
+			font-family: "Segoe UI", sans-serif;
+		}
+
+		.slammer-stats span {
+			white-space: nowrap;
+		}
+
+		.slammer-stats .stat-value {
+			color: #fff;
+			font-weight: 600;
+		}
+
+		.toplist-workspace {
+			display: flex;
+			justify-content: flex-start;
+			align-items: flex-start;
+			gap: 14px;
+			flex-wrap: nowrap;
+		}
+
+		.toplist-panel {
+			flex: 1 1 0;
+			min-width: 0;
+		}
+
+		.toplist-title {
+			margin: 0 0 12px;
+			text-align: center;
+			font-family: "Brotheric", "Segoe UI", sans-serif;
+			font-size: 1.6rem;
+			font-weight: 400;
+			letter-spacing: 0.09em;
+			color: var(--accent);
+		}
+
+		#tartozasokView {
+			width: 2200px;
+			max-width: none;
+		}
+
+		.tartozasok-grid {
+			display: flex;
+			flex-wrap: nowrap;
+			gap: 16px;
+			padding: 8px 0;
+			overflow-x: auto;
+		}
+
+		.tartozas-card {
+			background: #1c1c1c;
+			border: 1px solid #3a3a3a;
+			border-radius: 10px;
+			padding: 12px 14px 14px;
+			min-width: 220px;
+			flex: 0 0 220px;
+			max-width: 220px;
+		}
+
+		.tartozas-card-name {
+			font-family: "Segoe UI", sans-serif;
+			font-size: 1.05rem;
+			letter-spacing: 0.01em;
+			margin-bottom: 10px;
+			padding-bottom: 7px;
+			border-bottom: 1px solid #333;
+		}
+
+		.tartozas-album-list {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.tartozas-album-item {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			font-family: "Segoe UI", sans-serif;
+			font-size: 0.82rem;
+			color: #d8d8d8;
+		}
+
+		.tartozas-album-thumb {
+			width: 42px;
+			height: 42px;
+			border-radius: 4px;
+			object-fit: cover;
+			flex-shrink: 0;
+			background: #2a2a2a;
+		}
+
+		.tartozas-album-text {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			min-width: 0;
+		}
+
+		.tartozas-album-text strong {
+			color: #fff;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.tartozas-empty {
+			color: #555;
+			font-size: 0.78rem;
+			font-family: "Segoe UI", sans-serif;
+			font-style: italic;
+		}
+
+		.sheet-table th.member-col > span {
+			display: inline-block;
+			writing-mode: vertical-rl;
+			transform: rotate(180deg);
+			padding: 4px 2px;
+			line-height: 1.15;
+			white-space: nowrap;
+		}
+
+		.sheet-table th.member-col > span.member-baal { color: #FFEB3B; }
+		.sheet-table th.member-col > span.member-caller { color: #1E88E5; }
+		.sheet-table th.member-col > span.member-goatlord { color: #bbb; }
+		.sheet-table th.member-col > span.member-raso { color: #14b8a6; }
+		.sheet-table th.member-col > span.member-bacchus { color: #4CAF50; }
+		.sheet-table th.member-col > span.member-gaben { color: #AB47BC; }
+		.sheet-table th.member-col > span.member-mammvth { color: #8D6E63; }
+		.sheet-table th.member-col > span.member-christian { color: #FF9800; }
+		.sheet-table th.member-col > span.member-max { color: #E8E8E8; }
+		.sheet-table th.member-col > span.member-kolos { color: #8b1e3f; }
+
+		.sheet-table td {
+			background: #1a1a1a;
+			min-height: 42px;
+			height: 42px;
+			padding: 8px 10px;
+			color: var(--text-color);
+			word-break: break-word;
+			transition: background-color 180ms ease;
+		}
+
+		.sheet-table td.bang-alert {
+			background: #b14b4b !important;
+			color: #000 !important;
+			font-weight: 800;
+			text-shadow: none;
+		}
+
+		.sheet-table td.bang-alert.art-cell::before {
+			opacity: 0 !important;
+		}
+
+		.sheet-table tbody tr:nth-child(even) td {
+			background: #161616;
+		}
+
+		.sheet-table tbody tr.session-start > td {
+			border-top: 3px solid #555;
+		}
+
+		.sheet-table tbody tr.session-end > td {
+			border-bottom: 3px solid #555;
+		}
+
+		.sheet-table tbody tr.session-special-row > td {
+			box-shadow: inset 0 0 0 9999px rgba(255, 120, 176, 0.18);
+		}
+
+		.sheet-table td[contenteditable="true"]:focus {
+			outline: 2px solid var(--accent);
+			outline-offset: -2px;
+			background: #242424;
+		}
+
+		.sheet-table td.member-cell {
+			text-align: center;
+			padding: 6px 2px;
+		}
+
+		.sheet-table td.avg-cell {
+			text-align: center;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.sheet-table td.art-cell {
+			position: relative;
+			overflow: hidden;
+			font-weight: 700;
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+			isolation: isolate;
+		}
+
+		.sheet-table td.art-cell::before {
+			content: "";
+			position: absolute;
+			inset: 0;
+			z-index: -1;
+			opacity: var(--art-opacity, 0);
+			transition: opacity 360ms ease;
+			background-image: var(--art-overlay, linear-gradient(rgba(0, 0, 0, 0.58), rgba(0, 0, 0, 0.58))), var(--art-image, none);
+			background-size: 100% 100%, 200% auto;
+			background-position: 0 0, var(--art-pos, center center);
+			background-repeat: no-repeat, no-repeat;
+		}
+
+		.sheet-table td.art-cell.has-art {
+			--art-opacity: 1;
+		}
+
+		.sheet-table tr.row-drag-active td.art-cell {
+			outline: 1px dashed rgba(255, 255, 255, 0.6);
+			outline-offset: -2px;
+			box-shadow: inset 0 0 0 9999px rgba(217, 65, 65, 0.16);
+		}
+
+		.sheet-table td.delete-cell {
+			text-align: center;
+			padding: 2px 1px;
+		}
+
+		.row-delete-btn {
+			width: 16px;
+			height: 16px;
+			border: 1px solid #666;
+			border-radius: 999px;
+			background: #1a1a1a;
+			color: #b8b8b8;
+			font-size: 10px;
+			line-height: 1;
+			padding: 0;
+			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.row-delete-btn:hover {
+			color: #ff6b6b;
+			border-color: #ff6b6b;
+		}
+
+		.soros-select {
+			width: 100%;
+			height: 30px;
+			background: #202020;
+			color: var(--text-color);
+			border: 1px solid #3a3a3a;
+			border-radius: 6px;
+			font-size: 0.85rem;
+			padding: 2px 6px;
+			appearance: none;
+			-webkit-appearance: none;
+			-moz-appearance: none;
+			background-image: none;
+		}
+
+		.soros-select:focus {
+			padding-right: 24px;
+			background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23d94141' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+			background-repeat: no-repeat;
+			background-position: right 8px center;
+			outline: 2px solid var(--accent);
+			outline-offset: 0;
+		}
+
+		.sheet-table td:empty::before {
+			content: attr(data-placeholder);
+			color: #5f5f5f;
+			font-style: italic;
+		}
+
+		@media (max-width: 640px) {
+			nav {
+				padding: 12px 16px;
+			}
+
+			.brand-main {
+				font-size: 1.2rem;
+			}
+
+			.brand-sub {
+				font-size: 0.82rem;
+			}
+
+			.sheet-shell {
+				padding: 18px;
+			}
+
+			.session-tracker {
+				width: 64px;
+			}
+
+			.sheet-toolbar {
+				display: none;
+			}
+
+			.sheet-btn {
+				left: 14px;
+				bottom: 14px;
+			}
+
+			.toplist-panel {
+				width: 100%;
+				min-width: 0;
+			}
+
+			.toplist-workspace {
+				flex-direction: column;
+			}
+		}
+	</style>
+</head>
+<body spellcheck="false">
+	<nav>
+		<div class="nav-logo">
+			<span class="brand-main">Fanatical Kerekasztal</span>
+			<span class="brand-sub">rating tábla</span>
+		</div>
+		<div class="nav-actions">
+			<button type="button" id="viewRatingBtn" class="view-btn is-active">RATING</button>
+			<button type="button" id="viewTopBtn" class="view-btn">TOP</button>
+			<button type="button" id="viewTartozasokBtn" class="view-btn">Tartozások</button>
+		</div>
+	</nav>
+	<div id="pageHeaderHoverZone" class="page-header-hover-zone" aria-hidden="true"></div>
+
+	<main>
+		<section id="ratingView" class="sheet-shell page-view">
+			<div class="sheet-layout">
+				<aside class="session-tracker" aria-label="Session Tracker">
+					<div id="sessionBlocks" class="session-blocks"></div>
+					<button type="button" id="addSessionBlockBtn" class="session-add-btn" aria-label="Uj session blokk">+</button>
+				</aside>
+				<div class="sheet-table-wrap">
+					<table class="sheet-table">
+					<thead>
+						<tr>
+							<th class="col-date">Dátum</th>
+							<th class="col-order">Soros:</th>
+							<th class="col-band">Banda neve</th>
+							<th class="col-album">Album címe</th>
+							<th class="avg-col"><span>Átl.</span></th>
+							<th class="member-col"><span class="member-baal">Bálint</span></th>
+							<th class="member-col"><span class="member-caller">Szabber</span></th>
+							<th class="member-col"><span class="member-goatlord">Ivanics</span></th>
+							<th class="member-col"><span class="member-raso">Rásó</span></th>
+							<th class="member-col"><span class="member-bacchus">Bakos</span></th>
+							<th class="member-col"><span class="member-gaben">Gaben</span></th>
+							<th class="member-col"><span class="member-mammvth">Bence</span></th>
+							<th class="member-col"><span class="member-christian">Sári</span></th>
+							<th class="member-col"><span class="member-max">Max</span></th>
+							<th class="member-col"><span class="member-kolos">Kolos</span></th>
+							<th class="col-delete"></th>
+						</tr>
+					</thead>
+					<tbody id="kerekasztalBody">
+						<tr>
+							<td contenteditable="true" data-placeholder="YYYY.MM.DD"></td>
+							<td>
+								<select class="soros-select" aria-label="Soros tag valasztasa">
+									<option value="Bálint">Bálint</option>
+									<option value="Szabber">Szabber</option>
+									<option value="Ivanics">Ivanics</option>
+									<option value="Rásó">Rásó</option>
+									<option value="Bakos">Bakos</option>
+									<option value="Gaben">Gaben</option>
+									<option value="Bence">Bence</option>
+									<option value="Sári">Sári</option>
+									<option value="Max">Max</option>
+									<option value="Kolos">Kolos</option>
+								</select>
+							</td>
+							<td contenteditable="true" class="band-cell art-cell" data-placeholder="Banda"></td>
+							<td contenteditable="true" class="album-cell art-cell" data-placeholder="Album"></td>
+							<td class="avg-cell">-</td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+							<td class="delete-cell"><button type="button" class="row-delete-btn" aria-label="Sor torlese">x</button></td>
+						</tr>
+					</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+		<section id="topView" class="sheet-shell page-view" hidden>
+
+				<div class="slammer-card">
+					<div class="slammer-label" id="pickyLabel">Most picky soft boy:</div>
+					<div class="slammer-stats">
+						<span>Name: <span class="stat-value" id="pickyName">—</span></span>
+						<span>Avg.: <span class="stat-value" id="pickyIndex">—</span></span>
+						<span>Lo.: <span class="stat-value" id="pickyLo">—</span></span>
+						<span>Hi.: <span class="stat-value" id="pickyHi">—</span></span>
+					</div>
+				</div>
+				<div class="slammer-card">
+					<div class="slammer-label">Easyest-to-impress Princess:</div>
+					<div class="slammer-stats">
+						<span>Name: <span class="stat-value" id="easyName">—</span></span>
+						<span>Avg.: <span class="stat-value" id="easyIndex">—</span></span>
+						<span>Lo.: <span class="stat-value" id="easyLo">—</span></span>
+						<span>Hi.: <span class="stat-value" id="easyHi">—</span></span>
+					</div>
+				</div>
+			</div>
+			<div class="toplist-workspace">
+				<div class="toplist-panel">
+					<h2 class="toplist-title">Toplista</h2>
+					<div class="sheet-table-wrap">
+						<table class="sheet-table toplist-table">
+							<thead>
+								<tr>
+									<th class="col-rank">Rank</th>
+									<th class="col-artist">Artist</th>
+									<th class="col-top-album">Album</th>
+									<th class="col-top-avg">Average</th>
+								</tr>
+							</thead>
+							<tbody id="toplistBody"></tbody>
+						</table>
+					</div>
+				</div>
+				<div class="toplist-panel">
+					<h2 class="toplist-title">
+						<span class="header-with-info">
+							Divisiveness
+							<span id="divisivenessInfoWrap" class="info-wrap">
+								<button type="button" class="info-icon-btn" aria-label="Divisiveness szamitas informacio" aria-expanded="false">ⓘ</button>
+								<div class="formula-tooltip" role="dialog" aria-label="Divisiveness szamitasi modszer">
+									<p><strong>A megosztottsági index kiszámítása:</strong>
+                                                    <p><strong>N1 (Szélső értékek átlagkülönbsége):</strong><br>A pontszámokat sorba rendezzük. Vesszük az alsó felét (N/2, felfelé kerekítve) és kiszámoljuk az átlagukat (Avg_low). Ugyanezt megtesszük a felső felével (Avg_high).<br>N1 = Avg_high - Avg_low</p>
+									<p><strong>N2 (Abszolút terjedelem):</strong><br>A legnagyobb és a legkisebb pontszám különbsége.<br>N2 = Max - Min</p>
+									<p><strong>N3 (Felső torzítási):</strong><br>Létrehozunk egy új sorozatot úgy, hogy a legnagyobb értékből (Max) kivonjuk egyenként az összes pontszámot. Ennek az átlaga legyen Z1. Ezt elosszuk a következővel: Z2 = N - 1 (ahol N a szavazók száma).<br>N3 = Z1 / Z2</p>
+									<p><strong>N4 (Alsó torzítási):</strong><br>Létrehozunk még egysorozatot úgy, hogy a legkisebb értékből (Min) kivonjuk egyenként az összes pontszámot. Ennek átlagával ugyanúgy végzünk egy osztást mint N3 esetében, de megszorozzuk -1-gyel, hogy pozitív szám legyen.<br>N4 = (Z1 / Z2) * -1</p>
+									<p><strong>Végeredmény:</strong><br>Vesszük az N1, N2, N3 és N4 értékek átlagát, majd ezt elosztjuk 31,5-tel. Az eredményt megszorozzuk 100-zal, hogy százalékos értéket kapjunk, amit egy tizedesjegyre kerekítünk.</p>
+									<p><strong>Index = ((N1+N2+N3+N4)/4) / 31,5 * 100</strong></p>
+                                                </div>
+							</span>
+						</span>
+					</h2>
+					<div class="sheet-table-wrap">
+						<table class="sheet-table toplist-table">
+							<thead>
+								<tr>
+									<th class="col-rank">Rank</th>
+									<th class="col-artist">Artist</th>
+									<th class="col-top-album">Album</th>
+									<th class="col-top-avg">Divisiveness</th>
+								</tr>
+							</thead>
+							<tbody id="divisiveListBody"></tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</section>
+		<section id="tartozasokView" class="sheet-shell page-view" hidden>
+			<div id="tartozasokGrid" class="tartozasok-grid"></div>
+		</section>
+	</main>
+
+	<button type="button" id="addRowBtn" class="sheet-btn" onclick="window.addKerekasztalRow()">+ Új sor</button>
+
+	<script type="module">
+		import { db, storage, doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, ref, uploadBytes, getDownloadURL } from "./src/core/firebase.js";
+
+		const MEMBER_NAMES = ["Bálint", "Szabber", "Ivanics", "Rásó", "Bakos", "Gaben", "Bence", "Sári", "Max", "Kolos"];
+		const MEMBER_COLORS = {
+			"Bálint": "#FFEB3B",
+			"Szabber": "#1E88E5",
+			"Ivanics": "#BBBBBB",
+			"Rásó": "#14B8A6",
+			"Bakos": "#4CAF50",
+			"Gaben": "#AB47BC",
+			"Bence": "#8D6E63",
+			"Sári": "#FF9800",
+			"Max": "#E8E8E8",
+			"Kolos": "#8B1E3F"
+		};
+		const KEREK_DOC = doc(db, "data", "kerekasztal");
+		const SESSION_BLOCKS_COL = collection(db, "session_blocks");
+		const body = document.getElementById("kerekasztalBody");
+		const sessionBlocks = document.getElementById("sessionBlocks");
+		const addSessionBlockBtn = document.getElementById("addSessionBlockBtn");
+		const tableWrap = document.querySelector(".sheet-table-wrap");
+		const tableHead = document.querySelector(".sheet-table thead");
+		const topNav = document.querySelector("nav");
+		const pageHeaderHoverZone = document.getElementById("pageHeaderHoverZone");
+		const ratingView = document.getElementById("ratingView");
+		const topView = document.getElementById("topView");
+		const tartozasokView = document.getElementById("tartozasokView");
+		const viewRatingBtn = document.getElementById("viewRatingBtn");
+		const viewTopBtn = document.getElementById("viewTopBtn");
+		const viewTartozasokBtn = document.getElementById("viewTartozasokBtn");
+		const topListBody = document.getElementById("toplistBody");
+		const divisiveListBody = document.getElementById("divisiveListBody");
+		const addRowBtn = document.getElementById("addRowBtn");
+		let saveTimer = null;
+		let sessionBlocksSaveTimer = null;
+		const imageMetaCache = new Map();
+		let trackerSyncFrame = 0;
+		let trackerScrollSyncLock = false;
+		let trackerResizeObserver = null;
+		let sessionBlocksUnsubscribe = null;
+		let isApplyingSessionSnapshot = false;
+		let lastPageScrollY = window.scrollY || 0;
+
+		function createSessionBlockId() {
+			if (window.crypto && typeof window.crypto.randomUUID === "function") {
+				return window.crypto.randomUUID();
+			}
+			return `session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+		}
+
+		function clamp(value, min, max) {
+			return Math.min(max, Math.max(min, value));
+		}
+
+		function updateStickyHeaderOffset() {
+			const navHeight = Math.ceil(topNav?.getBoundingClientRect().height || 0);
+			document.documentElement.style.setProperty("--sticky-header-top", `${navHeight}px`);
+		}
+
+		function setActiveView(viewName) {
+			const showTop = viewName === "top";
+			const showTartozasok = viewName === "tartozasok";
+			const showRating = !showTop && !showTartozasok;
+			if (ratingView) ratingView.hidden = !showRating;
+			if (topView) topView.hidden = !showTop;
+			if (tartozasokView) tartozasokView.hidden = !showTartozasok;
+			if (viewRatingBtn) viewRatingBtn.classList.toggle("is-active", showRating);
+			if (viewTopBtn) viewTopBtn.classList.toggle("is-active", showTop);
+			if (viewTartozasokBtn) viewTartozasokBtn.classList.toggle("is-active", showTartozasok);
+			if (addRowBtn) addRowBtn.hidden = !showRating;
+			if (showTop) renderTopList();
+			if (showTartozasok) renderTartozasok();
+		}
+
+		function bindViewButtons() {
+			if (viewRatingBtn && viewRatingBtn.dataset.boundView !== "1") {
+				viewRatingBtn.dataset.boundView = "1";
+				viewRatingBtn.addEventListener("click", function() {
+					setActiveView("rating");
+				});
+			}
+
+			if (viewTopBtn && viewTopBtn.dataset.boundView !== "1") {
+				viewTopBtn.dataset.boundView = "1";
+				viewTopBtn.addEventListener("click", function() {
+					setActiveView("top");
+				});
+			}
+
+			if (viewTartozasokBtn && viewTartozasokBtn.dataset.boundView !== "1") {
+				viewTartozasokBtn.dataset.boundView = "1";
+				viewTartozasokBtn.addEventListener("click", function() {
+					setActiveView("tartozasok");
+				});
+			}
+		}
+
+		function bindDivisivenessInfoPopover() {
+			const wrap = document.getElementById("divisivenessInfoWrap");
+			if (!wrap || wrap.dataset.boundInfo === "1") return;
+			wrap.dataset.boundInfo = "1";
+
+			const button = wrap.querySelector(".info-icon-btn");
+			if (!button) return;
+
+			const syncExpanded = () => {
+				button.setAttribute("aria-expanded", wrap.classList.contains("open") ? "true" : "false");
+			};
+
+			const open = () => {
+				wrap.classList.add("open");
+				syncExpanded();
+			};
+
+			const close = () => {
+				wrap.classList.remove("open");
+				syncExpanded();
+			};
+
+			button.addEventListener("click", function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+				if (wrap.classList.contains("open")) {
+					close();
+				} else {
+					open();
+				}
+			});
+
+			wrap.addEventListener("mouseenter", open);
+			wrap.addEventListener("mouseleave", function() {
+				if (document.activeElement !== button) close();
+			});
+
+			button.addEventListener("focus", open);
+			button.addEventListener("blur", function() {
+				setTimeout(function() {
+					if (!wrap.matches(":hover")) close();
+				}, 0);
+			});
+
+			document.addEventListener("click", function(event) {
+				const target = event.target;
+				if (!(target instanceof Node)) return;
+				if (!wrap.contains(target)) close();
+			});
+
+			document.addEventListener("keydown", function(event) {
+				if (event.key === "Escape") close();
+			});
+		}
+
+		function updatePageHeaderVisibility() {
+			const y = window.scrollY || 0;
+			const atTop = y <= 4;
+			const scrollingDown = y > lastPageScrollY + 1;
+
+			if (atTop) {
+				document.body.classList.remove("page-header-hidden");
+				document.body.classList.remove("show-page-header");
+			} else if (scrollingDown) {
+				document.body.classList.add("page-header-hidden");
+				document.body.classList.remove("show-page-header");
+			}
+
+			lastPageScrollY = y;
+		}
+
+		function bindPageHeaderHoverReveal() {
+			if (!pageHeaderHoverZone || !topNav) return;
+			if (pageHeaderHoverZone.dataset.boundHover === "1") return;
+			pageHeaderHoverZone.dataset.boundHover = "1";
+
+			const show = () => {
+				if (!document.body.classList.contains("page-header-hidden")) return;
+				document.body.classList.add("show-page-header");
+			};
+			const hide = () => {
+				document.body.classList.remove("show-page-header");
+			};
+
+			pageHeaderHoverZone.addEventListener("mouseenter", show);
+			pageHeaderHoverZone.addEventListener("mouseleave", hide);
+			topNav.addEventListener("mouseenter", show);
+			topNav.addEventListener("mouseleave", hide);
+		}
+
+		function isSpecialEditionLabel(label) {
+			return String(label || "").trim().toLowerCase() === "special edition";
+		}
+
+		function syncSessionBlockSpecialState(block, forcedIsSpecial) {
+			if (!block) return false;
+			const label = String(block.querySelector(".session-label")?.innerText || "");
+			const isSpecial = typeof forcedIsSpecial === "boolean" ? forcedIsSpecial : isSpecialEditionLabel(label);
+			block.dataset.isSpecial = isSpecial ? "1" : "0";
+			block.classList.toggle("special-edition-block", isSpecial);
+			return isSpecial;
+		}
+
+		function getBodyRows() {
+			if (!body) return [];
+			return Array.from(body.querySelectorAll("tr"));
+		}
+
+		function getRowCount() {
+			return getBodyRows().length;
+		}
+
+		function queueSessionTrackerSync() {
+			if (trackerSyncFrame) return;
+			trackerSyncFrame = window.requestAnimationFrame(() => {
+				trackerSyncFrame = 0;
+				syncSessionTrackerGrid();
+			});
+		}
+
+		function getClosestRowIndexByY(clientY) {
+			const rows = getBodyRows();
+			if (!rows.length) return 1;
+			for (let i = 0; i < rows.length; i += 1) {
+				const rect = rows[i].getBoundingClientRect();
+				if (clientY <= rect.bottom) return i + 1;
+			}
+			return rows.length;
+		}
+
+		function bindSessionBlockResize(block, handle, edge) {
+			if (!block || !handle || handle.dataset.boundResize === "1") return;
+			handle.dataset.boundResize = "1";
+			handle.addEventListener("pointerdown", function(event) {
+				event.preventDefault();
+				handle.setPointerCapture(event.pointerId);
+				let didChange = false;
+
+				const onMove = (moveEvent) => {
+					const rowCount = getRowCount();
+					const start = clamp(Number.parseInt(block.dataset.start || "1", 10) || 1, 1, rowCount);
+					const span = clamp(Number.parseInt(block.dataset.span || "1", 10) || 1, 1, rowCount - start + 1);
+					const end = start + span - 1;
+
+					if (edge === "top") {
+						const newStart = clamp(getClosestRowIndexByY(moveEvent.clientY), 1, end);
+						block.dataset.start = String(newStart);
+						block.dataset.span = String(Math.max(1, end - newStart + 1));
+					} else {
+						const newEnd = clamp(getClosestRowIndexByY(moveEvent.clientY), start, rowCount);
+						block.dataset.span = String(Math.max(1, newEnd - start + 1));
+					}
+
+					didChange = true;
+					queueSessionTrackerSync();
+				};
+
+				const onUp = () => {
+					handle.removeEventListener("pointermove", onMove);
+					handle.removeEventListener("pointerup", onUp);
+					handle.removeEventListener("pointercancel", onUp);
+					if (didChange) scheduleSessionBlocksSave();
+				};
+
+				handle.addEventListener("pointermove", onMove);
+				handle.addEventListener("pointerup", onUp);
+				handle.addEventListener("pointercancel", onUp);
+			});
+		}
+
+		function createSessionBlock(label = "New Round", start = 1, span = 1, id = "", isSpecial = false) {
+			const block = document.createElement("div");
+			block.className = "session-block";
+			block.dataset.id = id || createSessionBlockId();
+			block.dataset.start = String(Math.max(1, Number.parseInt(start, 10) || 1));
+			block.dataset.span = String(Math.max(1, Number.parseInt(span, 10) || 1));
+
+			const text = document.createElement("span");
+			text.className = "session-label";
+			text.textContent = label;
+			text.setAttribute("contenteditable", "true");
+			text.setAttribute("spellcheck", "false");
+			text.setAttribute("autocorrect", "off");
+			text.setAttribute("autocapitalize", "none");
+			text.setAttribute("autocomplete", "off");
+
+			const topHandle = document.createElement("div");
+			topHandle.className = "session-resize-handle top";
+			topHandle.setAttribute("aria-label", "Session start atmeretezes");
+
+			const bottomHandle = document.createElement("div");
+			bottomHandle.className = "session-resize-handle bottom";
+			bottomHandle.setAttribute("aria-label", "Session end atmeretezes");
+
+			block.appendChild(topHandle);
+			block.appendChild(text);
+			block.appendChild(bottomHandle);
+			bindSessionBlockResize(block, topHandle, "top");
+			bindSessionBlockResize(block, bottomHandle, "bottom");
+			syncSessionBlockSpecialState(block, isSpecial);
+			return block;
+		}
+
+		function serializeSessionBlocks() {
+			if (!sessionBlocks) return [];
+			const rowCount = Math.max(1, getRowCount());
+			return Array.from(sessionBlocks.querySelectorAll(".session-block")).map((block, idx) => {
+				const start = clamp(Number.parseInt(block.dataset.start || "1", 10) || 1, 1, rowCount);
+				const span = clamp(Number.parseInt(block.dataset.span || "1", 10) || 1, 1, rowCount - start + 1);
+				const end = start + span - 1;
+				const label = String(block.querySelector(".session-label")?.innerText || `Round ${idx + 1}`).trim() || `Round ${idx + 1}`;
+				const isSpecial = block.dataset.isSpecial === "1" || isSpecialEditionLabel(label);
+				return {
+					id: String(block.dataset.id || createSessionBlockId()),
+					order: idx,
+					label,
+					startRow: start,
+					endRow: end,
+					isSpecial
+				};
+			});
+		}
+
+		function renderSessionBlocks(blocks) {
+			if (!sessionBlocks) return;
+			sessionBlocks.innerHTML = "";
+			const rowCount = Math.max(1, getRowCount());
+			const safeBlocks = Array.isArray(blocks) && blocks.length
+				? blocks
+				: [{ id: "default-first", label: "First Round", startRow: 1, endRow: Math.max(1, Math.ceil(rowCount / 2)), order: 0, isSpecial: false }, { id: "default-second", label: "Second Round", startRow: Math.max(1, Math.ceil(rowCount / 2) + 1), endRow: rowCount, order: 1, isSpecial: false }];
+
+			safeBlocks.forEach((item, idx) => {
+				const start = clamp(Number.parseInt(item?.startRow, 10) || 1, 1, rowCount);
+				const end = clamp(Number.parseInt(item?.endRow, 10) || start, start, rowCount);
+				const span = Math.max(1, end - start + 1);
+				const label = String(item?.label || `Round ${idx + 1}`);
+				const id = String(item?.id || createSessionBlockId());
+				const isSpecial = typeof item?.isSpecial === "boolean" ? item.isSpecial : isSpecialEditionLabel(label);
+				sessionBlocks.appendChild(createSessionBlock(label, start, span, id, isSpecial));
+			});
+
+			queueSessionTrackerSync();
+		}
+
+		async function saveSessionBlocksToFirestore() {
+			if (!sessionBlocks || isApplyingSessionSnapshot) return;
+			try {
+				const blocks = serializeSessionBlocks();
+				const existingSnap = await getDocs(SESSION_BLOCKS_COL);
+				const existingIds = new Set(existingSnap.docs.map((d) => d.id));
+				const nextIds = new Set(blocks.map((b) => b.id));
+				const batch = writeBatch(db);
+
+				blocks.forEach((block) => {
+					const blockRef = doc(db, "session_blocks", block.id);
+					batch.set(blockRef, {
+						label: block.label,
+						startRow: block.startRow,
+						endRow: block.endRow,
+						isSpecial: !!block.isSpecial,
+						order: block.order
+					});
+				});
+
+				existingIds.forEach((id) => {
+					if (!nextIds.has(id)) {
+						batch.delete(doc(db, "session_blocks", id));
+					}
+				});
+
+				await batch.commit();
+			} catch (err) {
+				console.error("Session blokkok mentesi hiba:", err);
+			}
+		}
+
+		function scheduleSessionBlocksSave() {
+			if (sessionBlocksSaveTimer) clearTimeout(sessionBlocksSaveTimer);
+			sessionBlocksSaveTimer = setTimeout(saveSessionBlocksToFirestore, 250);
+		}
+
+		function subscribeSessionBlocksRealtime() {
+			if (sessionBlocksUnsubscribe) sessionBlocksUnsubscribe();
+			sessionBlocksUnsubscribe = onSnapshot(SESSION_BLOCKS_COL, (snap) => {
+				const remoteBlocks = snap.docs
+					.map((d) => ({ id: d.id, ...d.data() }))
+					.sort((a, b) => {
+						const aOrder = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER;
+						const bOrder = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER;
+						if (aOrder !== bOrder) return aOrder - bOrder;
+						const aStart = Number.parseInt(a.startRow, 10) || 0;
+						const bStart = Number.parseInt(b.startRow, 10) || 0;
+						if (aStart !== bStart) return aStart - bStart;
+						return String(a.label || "").localeCompare(String(b.label || ""));
+					});
+
+				isApplyingSessionSnapshot = true;
+				renderSessionBlocks(remoteBlocks);
+				isApplyingSessionSnapshot = false;
+			});
+		}
+
+		function observeRowHeightsForTracker() {
+			if (!window.ResizeObserver) return;
+			if (trackerResizeObserver) trackerResizeObserver.disconnect();
+			trackerResizeObserver = new ResizeObserver(() => {
+				queueSessionTrackerSync();
+			});
+			if (tableHead) trackerResizeObserver.observe(tableHead);
+			getBodyRows().forEach((row) => trackerResizeObserver.observe(row));
+		}
+
+		function syncSessionTrackerGrid() {
+			if (!sessionBlocks) return;
+			const rows = getBodyRows();
+			const rowCount = rows.length || 1;
+			const headerHeight = Math.max(0, Math.round(tableHead?.getBoundingClientRect().height || 0));
+			const rowHeights = rows.length
+				? rows.map((row) => Math.max(1, Math.round(row.getBoundingClientRect().height || row.offsetHeight || 42)))
+				: [42];
+			const startRows = new Set();
+			const endRows = new Set();
+			const specialRows = new Set();
+
+			sessionBlocks.style.gridTemplateRows = `${headerHeight}px ${rowHeights.map((h) => `${h}px`).join(" ")}`;
+
+			Array.from(sessionBlocks.querySelectorAll(".session-block")).forEach((block) => {
+				syncSessionBlockSpecialState(block);
+				const start = clamp(Number.parseInt(block.dataset.start || "1", 10) || 1, 1, rowCount);
+				const maxSpan = Math.max(1, rowCount - start + 1);
+				const span = clamp(Number.parseInt(block.dataset.span || "1", 10) || 1, 1, maxSpan);
+				const end = start + span - 1;
+				const isSpecial = block.dataset.isSpecial === "1";
+
+				block.dataset.start = String(start);
+				block.dataset.span = String(span);
+				block.style.gridColumn = "1";
+				block.style.gridRow = `${start + 1} / span ${span}`;
+
+				startRows.add(start);
+				endRows.add(end);
+				if (isSpecial) {
+					for (let rowNum = start; rowNum <= end; rowNum += 1) {
+						specialRows.add(rowNum);
+					}
+				}
+			});
+
+			rows.forEach((row, idx) => {
+				const rowIndex = idx + 1;
+				row.classList.toggle("session-start", startRows.has(rowIndex));
+				row.classList.toggle("session-end", endRows.has(rowIndex));
+				row.classList.toggle("session-special-row", specialRows.has(rowIndex));
+			});
+		}
+
+		function bindTrackerScrollSync() {
+			if (!tableWrap || !sessionBlocks) return;
+			if (tableWrap.dataset.trackerScrollBound === "1") return;
+			tableWrap.dataset.trackerScrollBound = "1";
+
+			tableWrap.addEventListener("scroll", function() {
+				if (trackerScrollSyncLock) return;
+				trackerScrollSyncLock = true;
+				sessionBlocks.scrollTop = tableWrap.scrollTop;
+				trackerScrollSyncLock = false;
+			});
+
+			sessionBlocks.addEventListener("scroll", function() {
+				if (trackerScrollSyncLock) return;
+				trackerScrollSyncLock = true;
+				tableWrap.scrollTop = sessionBlocks.scrollTop;
+				trackerScrollSyncLock = false;
+			});
+		}
+
+		function initSessionTracker() {
+			if (!sessionBlocks || !addSessionBlockBtn) return;
+
+			if (!sessionBlocks.children.length) {
+				renderSessionBlocks();
+			}
+
+			addSessionBlockBtn.addEventListener("click", function() {
+				const rowCount = Math.max(1, getRowCount());
+				const blocks = Array.from(sessionBlocks.querySelectorAll(".session-block"));
+				const lastBlock = blocks[blocks.length - 1];
+				const lastStart = Number.parseInt(lastBlock?.dataset.start || "1", 10) || 1;
+				const lastSpan = Number.parseInt(lastBlock?.dataset.span || "1", 10) || 1;
+				const nextStart = clamp(lastStart + lastSpan, 1, rowCount);
+				sessionBlocks.appendChild(createSessionBlock(`Round ${blocks.length + 1}`, nextStart, 1));
+				queueSessionTrackerSync();
+				scheduleSessionBlocksSave();
+			});
+
+			if (sessionBlocks.dataset.inputBound !== "1") {
+				sessionBlocks.dataset.inputBound = "1";
+				sessionBlocks.addEventListener("input", function(event) {
+					const target = event.target;
+					if (!(target instanceof HTMLElement)) return;
+					if (!target.classList.contains("session-label")) return;
+
+					const block = target.closest(".session-block");
+					if (!block) return;
+					syncSessionBlockSpecialState(block);
+
+					const value = String(target.innerText || "").trim().toLowerCase();
+					if (value === "delete") {
+						block.remove();
+						queueSessionTrackerSync();
+						scheduleSessionBlocksSave();
+						return;
+					}
+
+					queueSessionTrackerSync();
+					scheduleSessionBlocksSave();
+				});
+			}
+
+			bindTrackerScrollSync();
+			observeRowHeightsForTracker();
+			queueSessionTrackerSync();
+			disableNativeSpellcheck(sessionBlocks);
+		}
+
+		function disableNativeSpellcheck(root = document) {
+			const editableEls = root.querySelectorAll("input, textarea, [contenteditable='true']");
+			editableEls.forEach((el) => {
+				el.setAttribute("spellcheck", "false");
+				el.setAttribute("autocorrect", "off");
+				el.setAttribute("autocapitalize", "none");
+				el.setAttribute("autocomplete", "off");
+			});
+		}
+
+		function getSorosSelectHTML(selected = "Bálint") {
+			const opts = MEMBER_NAMES
+				.map((name) => `<option value="${name}" ${name === selected ? "selected" : ""}>${name}</option>`)
+				.join("");
+			return `<select class="soros-select" aria-label="Soros tag valasztasa">${opts}</select>`;
+		}
+
+		function getEmptyRowData() {
+			return {
+				date: "",
+				soros: MEMBER_NAMES[0],
+				band: "",
+				album: "",
+				artUrl: "",
+				ratings: Array(10).fill("")
+			};
+		}
+
+		function getRowTintRgba(row, alpha = 0.72) {
+			const select = row?.querySelector(".soros-select");
+			const baseHex = select ? MEMBER_COLORS[select.value] : "";
+			const rgb = hexToRgb(baseHex);
+			if (!rgb) return `rgba(30, 30, 30, ${alpha})`;
+			const dark = darkenRgb(rgb, 0.56);
+			return `rgba(${dark.r}, ${dark.g}, ${dark.b}, ${alpha})`;
+		}
+
+		async function getImageMeta(url) {
+			if (!url) return null;
+			if (imageMetaCache.has(url)) return imageMetaCache.get(url);
+			const meta = await new Promise((resolve) => {
+				const img = new Image();
+				img.onload = function() {
+					resolve({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
+				};
+				img.onerror = function() {
+					resolve(null);
+				};
+				img.src = url;
+			});
+			if (meta) imageMetaCache.set(url, meta);
+			return meta;
+		}
+
+		function clearRowArtwork(row) {
+			if (!row) return;
+			delete row.dataset.artUrl;
+			const cells = row.querySelectorAll(".art-cell");
+			cells.forEach((cell) => {
+				cell.classList.remove("has-art");
+				cell.style.removeProperty("--art-image");
+				cell.style.removeProperty("--art-pos");
+				cell.style.removeProperty("--art-overlay");
+			});
+		}
+
+		async function applyRowArtwork(row, url) {
+			if (!row) return;
+			if (!url) {
+				clearRowArtwork(row);
+				return;
+			}
+
+			const bandCell = row.querySelector(".band-cell");
+			const albumCell = row.querySelector(".album-cell");
+			if (!bandCell || !albumCell) return;
+
+			const tint = getRowTintRgba(row, 0.78);
+
+			bandCell.style.setProperty("--art-image", `url("${url}")`);
+			bandCell.style.setProperty("--art-pos", "left center");
+			bandCell.style.setProperty("--art-overlay", "linear-gradient(rgba(10, 10, 10, 0.52), rgba(10, 10, 10, 0.52))");
+
+			albumCell.style.setProperty("--art-image", `url("${url}")`);
+			albumCell.style.setProperty("--art-pos", "right center");
+			albumCell.style.setProperty("--art-overlay", `linear-gradient(to right, rgba(10, 10, 10, 0.52) 0%, rgba(10, 10, 10, 0.52) 60%, ${tint} 100%)`);
+
+			bandCell.classList.add("has-art");
+			albumCell.classList.add("has-art");
+			row.dataset.artUrl = url;
+		}
+
+		function handleDeleteKeyword(row) {
+			if (!row) return;
+			const albumCell = row.querySelector(".album-cell");
+			if (!albumCell) return;
+			const value = String(albumCell.innerText || "").trim().toLowerCase();
+			if (value !== "delete") return;
+			albumCell.innerText = "";
+			clearRowArtwork(row);
+			scheduleSave();
+		}
+
+		async function uploadRowArtwork(file) {
+			const safeName = String(file?.name || "art").replace(/[^a-zA-Z0-9._-]/g, "_");
+			const storagePath = `kerekasztal-art/${Date.now()}-${safeName}`;
+			const storageRef = ref(storage, storagePath);
+			await uploadBytes(storageRef, file);
+			return getDownloadURL(storageRef);
+		}
+
+		function parseMemberScore(text) {
+			const value = Number.parseFloat(String(text || "").trim().replace(",", "."));
+			if (!Number.isFinite(value)) return null;
+			return value;
+		}
+
+		function getAverageFromRatings(ratings) {
+			const numbers = (Array.isArray(ratings) ? ratings : [])
+				.map((value) => parseMemberScore(value))
+				.filter((value) => value !== null);
+			if (!numbers.length) return null;
+			const sum = numbers.reduce((acc, n) => acc + n, 0);
+			return sum / numbers.length;
+		}
+
+		function calculateDivisivenessIndex(ratings) {
+			const set = (Array.isArray(ratings) ? ratings : [])
+				.map((value) => parseMemberScore(value))
+				.filter((value) => value !== null);
+
+			const n = set.length;
+			if (n < 2) return null;
+
+			const sorted = [...set].sort((a, b) => a - b);
+			const halfSize = Math.ceil(n / 2);
+			const lowHalf = sorted.slice(0, halfSize);
+			const highHalf = sorted.slice(n - halfSize);
+
+			const avg = (arr) => arr.reduce((acc, value) => acc + value, 0) / arr.length;
+			const avgLow = avg(lowHalf);
+			const avgHigh = avg(highHalf);
+			const n1 = avgHigh - avgLow;
+
+			const maxVal = Math.max(...set);
+			const minVal = Math.min(...set);
+			const n2 = maxVal - minVal;
+
+			const z2 = n - 1;
+			if (z2 <= 0) return null;
+
+			const z1Upper = avg(set.map((value) => maxVal - value));
+			const n3 = z1Upper / z2;
+
+			const z1Lower = avg(set.map((value) => minVal - value));
+			const n4 = (z1Lower / z2) * -1;
+
+			const finalValue = (((n1 + n2 + n3 + n4) / 4) / 31.5) * 100;
+			return Math.round(finalValue * 10) / 10;
+		}
+
+		function getPickerHueRgba(soros) {
+			const hex = MEMBER_COLORS[String(soros || "").trim()];
+			const rgb = hexToRgb(hex);
+			if (!rgb) return "rgba(255, 255, 255, 1)";
+			return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
+		}
+
+		function getDateKey(value) {
+			const parts = String(value || "")
+				.trim()
+				.split(/\D+/)
+				.filter(Boolean)
+				.map((part) => Number.parseInt(part, 10));
+			if (parts.length < 3 || parts.some((part) => !Number.isFinite(part))) return null;
+			const [year, month, day] = parts;
+			if (year < 1000 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+			return year * 10000 + month * 100 + day;
+		}
+
+		function calculateSlammerStats(rowsData) {
+			const sourceRows = Array.isArray(rowsData) ? rowsData : [];
+			const memberStats = MEMBER_NAMES.map((name) => ({ name, scores: [] }));
+			sourceRows.forEach((row) => {
+				const ratings = Array.isArray(row.ratings) ? row.ratings : [];
+				ratings.forEach((val, idx) => {
+					if (idx < MEMBER_NAMES.length) {
+						const score = parseMemberScore(val);
+						if (score !== null) memberStats[idx].scores.push(score);
+					}
+				});
+			});
+			const computed = memberStats
+				.map((m) => {
+					if (!m.scores.length) return null;
+					const avg = m.scores.reduce((a, b) => a + b, 0) / m.scores.length;
+					const lo = Math.min(...m.scores);
+					const hi = Math.max(...m.scores);
+					const loCount = m.scores.filter((s) => s === lo).length;
+					const hiCount = m.scores.filter((s) => s === hi).length;
+					return { name: m.name, avg, lo, hi, loCount, hiCount };
+				})
+				.filter(Boolean);
+			if (!computed.length) return null;
+			const picky = computed.reduce((best, m) => m.avg < best.avg ? m : best);
+			const easy = computed.reduce((best, m) => m.avg > best.avg ? m : best);
+			return { picky, easy };
+		}
+
+		const FEMALE_MEMBERS = ["Sári", "Max"];
+
+		function updateSlammerCards(rowsData) {
+			const stats = calculateSlammerStats(rowsData);
+			const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+			const setColored = (id, name) => {
+				const el = document.getElementById(id);
+				if (!el) return;
+				el.textContent = name;
+				el.style.color = MEMBER_COLORS[name] || "#fff";
+			};
+			if (!stats) {
+				["pickyName","pickyIndex","pickyLo","pickyHi","easyName","easyIndex","easyLo","easyHi"].forEach((id) => set(id, "—"));
+				const labelEl = document.getElementById("pickyLabel");
+				if (labelEl) labelEl.textContent = "Most picky soft boy:";
+				return;
+			}
+			const fmt = (m) => ({
+				name: m.name,
+				avg: m.avg.toFixed(2),
+				lo: `${m.lo} (×${m.loCount})`,
+				hi: `${m.hi} (×${m.hiCount})`
+			});
+			const p = fmt(stats.picky);
+			const e = fmt(stats.easy);
+			const labelEl = document.getElementById("pickyLabel");
+			if (labelEl) labelEl.textContent = FEMALE_MEMBERS.includes(stats.picky.name) ? "Most picky soft girlie:" : "Most picky soft boy:";
+			setColored("pickyName", p.name);
+			set("pickyIndex", p.avg);
+			set("pickyLo", p.lo);
+			set("pickyHi", p.hi);
+			setColored("easyName", e.name);
+			set("easyIndex", e.avg);
+			set("easyLo", e.lo);
+			set("easyHi", e.hi);
+		}
+
+		function renderTartozasok(rowsData = serializeRows()) {
+			const grid = document.getElementById("tartozasokGrid");
+			if (!grid) return;
+			grid.innerHTML = "";
+			const sourceRows = Array.isArray(rowsData) ? rowsData : [];
+			const membersToShow = MEMBER_NAMES.slice(0, 9); // exclude Kolos
+			membersToShow.forEach((memberName, memberIdx) => {
+				const missing = sourceRows.filter((row) => {
+					const rating = String((Array.isArray(row.ratings) ? row.ratings[memberIdx] : "") || "").trim();
+					return rating.includes("!");
+				});
+				const card = document.createElement("div");
+				card.className = "tartozas-card";
+				const nameEl = document.createElement("div");
+				nameEl.className = "tartozas-card-name";
+				nameEl.textContent = memberName;
+				nameEl.style.color = MEMBER_COLORS[memberName] || "#fff";
+				card.appendChild(nameEl);
+				const list = document.createElement("div");
+				list.className = "tartozas-album-list";
+				if (!missing.length) {
+					const empty = document.createElement("div");
+					empty.className = "tartozas-empty";
+					empty.textContent = "Nincs tartozás";
+					list.appendChild(empty);
+				} else {
+					missing.forEach((row) => {
+						const item = document.createElement("div");
+						item.className = "tartozas-album-item";
+						const thumb = document.createElement("img");
+						thumb.className = "tartozas-album-thumb";
+						thumb.alt = "";
+						thumb.src = row.artUrl || "";
+						thumb.style.visibility = row.artUrl ? "visible" : "hidden";
+						const text = document.createElement("div");
+						text.className = "tartozas-album-text";
+						text.innerHTML = `<strong>${row.band || "?"}</strong><span>${row.album || "?"}</span>`;
+						item.appendChild(thumb);
+						item.appendChild(text);
+						list.appendChild(item);
+					});
+				}
+				card.appendChild(list);
+				grid.appendChild(card);
+			});
+		}
+
+		function renderTopList(rowsData = serializeRows()) {
+			if (!topListBody || !divisiveListBody) return;
+			topListBody.innerHTML = "";
+			divisiveListBody.innerHTML = "";
+
+			const sourceRows = Array.isArray(rowsData) ? rowsData : [];
+			updateSlammerCards(sourceRows);
+			const latestDateKey = sourceRows.reduce((max, row) => {
+				const key = getDateKey(row?.date);
+				if (key === null) return max;
+				return max === null ? key : Math.max(max, key);
+			}, null);
+
+			const entries = sourceRows
+				.map((row) => {
+					const avg = getAverageFromRatings(row.ratings);
+					const divisiveness = calculateDivisivenessIndex(row.ratings);
+					const dateKey = getDateKey(row.date);
+					return {
+						artist: String(row.band || "").trim(),
+						album: String(row.album || "").trim(),
+						artUrl: String(row.artUrl || "").trim(),
+						soros: String(row.soros || "").trim(),
+						avg,
+						divisiveness,
+						isLatest: latestDateKey !== null && dateKey === latestDateKey
+					};
+				})
+				.filter((item) => item.avg !== null || item.divisiveness !== null);
+
+			const averageEntries = entries
+				.filter((item) => item.avg !== null)
+				.sort((a, b) => b.avg - a.avg);
+
+			const divisiveEntries = entries
+				.filter((item) => item.divisiveness !== null)
+				.sort((a, b) => b.divisiveness - a.divisiveness);
+
+			averageEntries.forEach((item, idx) => {
+				const tr = document.createElement("tr");
+				tr.innerHTML = `
+					<td class="rank-cell">${idx + 1}</td>
+					<td class="band-cell art-cell top-band-cell"></td>
+					<td class="album-cell art-cell"></td>
+					<td class="top-avg-cell"><span class="top-avg-inner"><span class="avg-number">${item.avg.toFixed(2)}</span><span class="latest-star${item.isLatest ? " is-visible" : ""}" aria-label="Latest pick">★</span></span></td>
+				`;
+
+				const artistCell = tr.querySelector(".band-cell");
+				const albumCell = tr.querySelector(".album-cell");
+				if (artistCell) artistCell.textContent = item.artist;
+				if (albumCell) albumCell.textContent = item.album;
+				if (artistCell) {
+					artistCell.style.setProperty("--pick-hue", getPickerHueRgba(item.soros));
+				}
+
+				topListBody.appendChild(tr);
+				if (item.artUrl) {
+					applyRowArtwork(tr, item.artUrl);
+				}
+			});
+
+			divisiveEntries.forEach((item, idx) => {
+				const tr = document.createElement("tr");
+				tr.innerHTML = `
+					<td class="rank-cell">${idx + 1}</td>
+					<td class="band-cell art-cell top-band-cell"></td>
+					<td class="album-cell art-cell"></td>
+					<td class="top-avg-cell"><span class="top-avg-inner"><span class="avg-number">${item.divisiveness.toFixed(1)}%</span><span class="latest-star${item.isLatest ? " is-visible" : ""}" aria-label="Latest pick">★</span></span></td>
+				`;
+
+				const artistCell = tr.querySelector(".band-cell");
+				const albumCell = tr.querySelector(".album-cell");
+				if (artistCell) artistCell.textContent = item.artist;
+				if (albumCell) albumCell.textContent = item.album;
+				if (artistCell) {
+					artistCell.style.setProperty("--pick-hue", getPickerHueRgba(item.soros));
+				}
+
+				divisiveListBody.appendChild(tr);
+				if (item.artUrl) {
+					applyRowArtwork(tr, item.artUrl);
+				}
+			});
+		}
+
+		function updateRowAverage(row) {
+			if (!row) return;
+			const avgCell = row.querySelector(".avg-cell");
+			if (!avgCell) return;
+
+			const numbers = Array.from(row.querySelectorAll(".member-cell"))
+				.map((cell) => parseMemberScore(cell.innerText))
+				.filter((n) => n !== null);
+
+			if (!numbers.length) {
+				avgCell.textContent = "-";
+				return;
+			}
+
+			const sum = numbers.reduce((acc, n) => acc + n, 0);
+			const avg = sum / numbers.length;
+			avgCell.textContent = avg.toFixed(2);
+		}
+
+		function hexToRgb(hex) {
+			const value = String(hex || "").replace("#", "");
+			if (value.length !== 6) return null;
+			const num = Number.parseInt(value, 16);
+			if (Number.isNaN(num)) return null;
+			return {
+				r: (num >> 16) & 255,
+				g: (num >> 8) & 255,
+				b: num & 255
+			};
+		}
+
+		function darkenRgb(rgb, amount) {
+			return {
+				r: Math.max(0, Math.round(rgb.r * (1 - amount))),
+				g: Math.max(0, Math.round(rgb.g * (1 - amount))),
+				b: Math.max(0, Math.round(rgb.b * (1 - amount)))
+			};
+		}
+
+		function applySorosRowTint(row) {
+			if (!row) return;
+			const select = row.querySelector(".soros-select");
+			if (!select) return;
+
+			const baseHex = MEMBER_COLORS[select.value];
+			const cells = row.querySelectorAll("td");
+			if (!baseHex) {
+				cells.forEach((cell) => cell.style.removeProperty("background-color"));
+				return;
+			}
+
+			const rgb = hexToRgb(baseHex);
+			if (!rgb) return;
+
+			const dark = darkenRgb(rgb, 0.68);
+			const tint = `rgba(${dark.r}, ${dark.g}, ${dark.b}, 0.88)`;
+			cells.forEach((cell) => {
+				cell.style.backgroundColor = tint;
+			});
+		}
+
+		function updateBangHighlightForCell(cell) {
+			if (!cell) return;
+			const isEligibleColumn = Number.isFinite(cell.cellIndex) && cell.cellIndex >= 4;
+			const hasBang = isEligibleColumn && String(cell.innerText || "").includes("!");
+			cell.classList.toggle("bang-alert", hasBang);
+		}
+
+		function updateBangHighlights(scope = body) {
+			if (!scope) return;
+			scope.querySelectorAll("td").forEach((cell) => updateBangHighlightForCell(cell));
+		}
+
+		function wireRow(row) {
+			if (!row) return;
+			disableNativeSpellcheck(row);
+			const select = row.querySelector(".soros-select");
+			if (select && select.dataset.rowTintBound !== "1") {
+				select.dataset.rowTintBound = "1";
+				select.addEventListener("change", function() {
+					applySorosRowTint(row);
+					if (row.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+					scheduleSave();
+				});
+			}
+
+			if (row.dataset.dragBound !== "1") {
+				row.dataset.dragBound = "1";
+				const dropTargets = row.querySelectorAll(".band-cell, .album-cell");
+				dropTargets.forEach((target) => {
+					target.addEventListener("dragenter", function(event) {
+						event.preventDefault();
+						row.classList.add("row-drag-active");
+					});
+					target.addEventListener("dragover", function(event) {
+						event.preventDefault();
+						event.dataTransfer.dropEffect = "copy";
+						row.classList.add("row-drag-active");
+					});
+					target.addEventListener("dragleave", function(event) {
+						const related = event.relatedTarget;
+						if (related && row.contains(related)) return;
+						row.classList.remove("row-drag-active");
+					});
+					target.addEventListener("drop", async function(event) {
+						event.preventDefault();
+						row.classList.remove("row-drag-active");
+						const file = event.dataTransfer?.files?.[0];
+						if (!file || !file.type.startsWith("image/")) return;
+						try {
+							const url = await uploadRowArtwork(file);
+							await applyRowArtwork(row, url);
+							scheduleSave();
+						} catch (err) {
+							console.error("Artwork feltoltesi hiba:", err);
+						}
+					});
+				});
+			}
+			updateRowAverage(row);
+			applySorosRowTint(row);
+			updateBangHighlights(row);
+			if (row.dataset.artUrl) {
+				applyRowArtwork(row, row.dataset.artUrl);
+			}
+			renderTopList();
+		}
+
+		function createRowElement(rowData = getEmptyRowData()) {
+			const row = document.createElement("tr");
+			row.innerHTML = `
+				<td contenteditable="true" data-placeholder="YYYY.MM.DD"></td>
+				<td>${getSorosSelectHTML(rowData.soros || MEMBER_NAMES[0])}</td>
+				<td contenteditable="true" class="band-cell art-cell" data-placeholder="Banda"></td>
+				<td contenteditable="true" class="album-cell art-cell" data-placeholder="Album"></td>
+				<td class="avg-cell">-</td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				<td class="delete-cell"><button type="button" class="row-delete-btn" aria-label="Sor torlese">x</button></td>
+			`;
+
+			const cells = row.querySelectorAll("td");
+			cells[0].innerText = rowData.date || "";
+			cells[2].innerText = rowData.band || "";
+			cells[3].innerText = rowData.album || "";
+			row.dataset.artUrl = rowData.artUrl || "";
+
+			const ratings = Array.isArray(rowData.ratings) ? rowData.ratings : [];
+			const memberCells = row.querySelectorAll(".member-cell");
+			memberCells.forEach((cell, idx) => {
+				cell.innerText = ratings[idx] || "";
+			});
+
+			wireRow(row);
+			return row;
+		}
+
+		function serializeRows() {
+			if (!body) return [];
+			return Array.from(body.querySelectorAll("tr")).map((row) => {
+				const cells = row.querySelectorAll("td");
+				const select = row.querySelector(".soros-select");
+				return {
+					date: cells[0]?.innerText.trim() || "",
+					soros: select?.value || MEMBER_NAMES[0],
+					band: cells[2]?.innerText.trim() || "",
+					album: cells[3]?.innerText.trim() || "",
+					artUrl: row.dataset.artUrl || "",
+					ratings: Array.from(row.querySelectorAll(".member-cell")).map((c) => c.innerText.trim())
+				};
+			});
+		}
+
+		function renderRows(rows) {
+			if (!body) return;
+			body.innerHTML = "";
+			const safeRows = Array.isArray(rows) && rows.length ? rows : [getEmptyRowData()];
+			safeRows.forEach((rowData) => body.appendChild(createRowElement(rowData)));
+			updateBangHighlights(body);
+			renderTopList(safeRows);
+			observeRowHeightsForTracker();
+			queueSessionTrackerSync();
+		}
+
+		async function saveRowsToFirebase() {
+			try {
+				const payload = {
+					rows: serializeRows(),
+					updatedAt: Date.now()
+				};
+				await setDoc(KEREK_DOC, payload);
+			} catch (err) {
+				console.error("Kerekasztal mentesi hiba:", err);
+			}
+		}
+
+		function scheduleSave() {
+			if (saveTimer) clearTimeout(saveTimer);
+			saveTimer = setTimeout(saveRowsToFirebase, 450);
+		}
+
+		function setupAutosave() {
+			if (!body) return;
+
+			body.addEventListener("input", function(event) {
+				const target = event.target;
+				if (!(target instanceof HTMLElement)) return;
+				updateBangHighlights(target.closest("tr") || body);
+				renderTopList();
+				if (target.classList.contains("member-cell")) {
+					updateRowAverage(target.closest("tr"));
+				}
+				if (target.classList.contains("album-cell")) {
+					handleDeleteKeyword(target.closest("tr"));
+				}
+				queueSessionTrackerSync();
+				scheduleSave();
+			});
+
+			body.addEventListener("change", function(event) {
+				const target = event.target;
+				if (!(target instanceof HTMLElement)) return;
+				updateBangHighlights(target.closest("tr") || body);
+				renderTopList();
+				if (target.classList.contains("soros-select")) {
+					const row = target.closest("tr");
+					applySorosRowTint(row);
+					if (row?.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+				}
+				scheduleSave();
+			});
+
+			body.addEventListener("click", function(event) {
+				const target = event.target;
+				if (!(target instanceof HTMLElement)) return;
+				if (!target.classList.contains("row-delete-btn")) return;
+
+				const row = target.closest("tr");
+				if (!row) return;
+
+				const step1 = window.confirm("Biztosan torolni szeretned ezt a sort?");
+				if (!step1) return;
+
+				const step2 = window.confirm("Teljesen biztos vagy benne? A torles azonnal mentodik.");
+				if (!step2) return;
+
+				row.remove();
+				if (!body.querySelector("tr")) {
+					body.appendChild(createRowElement(getEmptyRowData()));
+				}
+				observeRowHeightsForTracker();
+				updateBangHighlights(body);
+				renderTopList();
+				queueSessionTrackerSync();
+				scheduleSave();
+				scheduleSessionBlocksSave();
+			});
+		}
+
+		window.addKerekasztalRow = function() {
+			if (!body) return;
+			const row = createRowElement(getEmptyRowData());
+			body.appendChild(row);
+			observeRowHeightsForTracker();
+			updateBangHighlights(row);
+			renderTopList();
+			queueSessionTrackerSync();
+			scheduleSave();
+			scheduleSessionBlocksSave();
+		};
+
+		window.addEventListener("resize", function() {
+			if (!body) return;
+			updateStickyHeaderOffset();
+			Array.from(body.querySelectorAll("tr")).forEach((row) => {
+				if (row.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+			});
+			queueSessionTrackerSync();
+		});
+
+		window.addEventListener("scroll", updatePageHeaderVisibility, { passive: true });
+
+		async function loadRowsFromFirebase() {
+			try {
+				const snap = await getDoc(KEREK_DOC);
+				if (snap.exists()) {
+					const data = snap.data();
+					renderRows(data.rows);
+				} else {
+					renderRows([getEmptyRowData()]);
+				}
+			} catch (err) {
+				console.error("Kerekasztal betoltesi hiba:", err);
+				renderRows([getEmptyRowData()]);
+			}
+		}
+
+		setupAutosave();
+		initSessionTracker();
+		disableNativeSpellcheck(document);
+		bindViewButtons();
+		bindDivisivenessInfoPopover();
+		setActiveView("rating");
+		updateStickyHeaderOffset();
+		bindPageHeaderHoverReveal();
+		updatePageHeaderVisibility();
+		loadRowsFromFirebase().then(() => {
+			subscribeSessionBlocksRealtime();
+		});
+	</script>
+</body>
+</html>
