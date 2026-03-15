@@ -154,6 +154,17 @@
 				max-width: none;
 				flex: 0 0 auto;
 			}
+
+			body.top-mobile-view main {
+				justify-content: center;
+				overflow-x: visible;
+			}
+
+			body.top-mobile-view .sheet-shell {
+				width: min(1400px, 100%);
+				max-width: 100%;
+				flex: 1 1 auto;
+			}
 		}
 
 		.page-view[hidden] {
@@ -810,6 +821,23 @@
 				padding: 12px 16px;
 			}
 
+			.nav-logo {
+				gap: 4px;
+				letter-spacing: 0.5px;
+			}
+
+			.nav-actions {
+				gap: 6px;
+			}
+
+			.nav-actions .view-btn {
+				padding: 6px 9px;
+				font-size: 0.68rem;
+				letter-spacing: 0.03em;
+				border-radius: 6px;
+				white-space: nowrap;
+			}
+
 			.brand-main {
 				font-size: 1.2rem;
 			}
@@ -843,6 +871,76 @@
 			.toplist-workspace {
 				flex-direction: column;
 			}
+
+			body.top-mobile-view #topView {
+				padding: 12px;
+			}
+
+			body.top-mobile-view #topView .slammer-bar {
+				gap: 10px;
+				margin-bottom: 12px;
+			}
+
+			body.top-mobile-view #topView .slammer-card {
+				min-width: 0;
+				flex: 1 1 100%;
+				padding: 8px 10px 10px;
+			}
+
+			body.top-mobile-view #topView .slammer-label {
+				font-size: 0.9rem;
+			}
+
+			body.top-mobile-view #topView .slammer-stats {
+				font-size: 0.78rem;
+				gap: 4px 12px;
+			}
+
+			body.top-mobile-view #topView .toplist-workspace {
+				flex-direction: column;
+				gap: 10px;
+			}
+
+			body.top-mobile-view #topView .toplist-panel {
+				width: 100%;
+			}
+
+			body.top-mobile-view #topView .toplist-title {
+				font-size: 1.12rem;
+				margin-bottom: 8px;
+			}
+
+			body.top-mobile-view #topView .sheet-table-wrap {
+				border-radius: 10px;
+			}
+
+			body.top-mobile-view #topView .toplist-table th {
+				font-size: 0.66rem;
+				padding: 5px 4px;
+			}
+
+			body.top-mobile-view #topView .toplist-table td {
+				min-height: 36px;
+				height: 36px;
+				padding: 6px 5px;
+				font-size: 0.72rem;
+			}
+
+			body.top-mobile-view #topView .toplist-table td.top-avg-cell .top-avg-inner {
+				min-width: 62px;
+				gap: 4px;
+			}
+
+			body.top-mobile-view #topView .toplist-table td.top-avg-cell .avg-number {
+				min-width: 34px;
+			}
+
+			body.top-mobile-view #topView .formula-tooltip {
+				left: 0;
+				right: auto;
+				width: min(340px, 90vw);
+				font-size: 0.72rem;
+			}
 		}
 	</style>
 </head>
@@ -853,9 +951,9 @@
 			<span class="brand-sub">rating tábla</span>
 		</div>
 		<div class="nav-actions">
-			<button type="button" id="viewRatingBtn" class="view-btn is-active">RATING</button>
-			<button type="button" id="viewTopBtn" class="view-btn">TOP</button>
-			<button type="button" id="viewTartozasokBtn" class="view-btn">Tartozások</button>
+			<button type="button" id="viewRatingBtn" class="view-btn is-active">Rate.</button>
+			<button type="button" id="viewTopBtn" class="view-btn">Top.</button>
+			<button type="button" id="viewTartozasokBtn" class="view-btn">Tart.</button>
 		</div>
 	</nav>
 	<div id="pageHeaderHoverZone" class="page-header-hover-zone" aria-hidden="true"></div>
@@ -1069,6 +1167,7 @@
 			const showTop = viewName === "top";
 			const showTartozasok = viewName === "tartozasok";
 			const showRating = !showTop && !showTartozasok;
+			document.body.classList.toggle("top-mobile-view", showTop);
 			if (ratingView) ratingView.hidden = !showRating;
 			if (topView) topView.hidden = !showTop;
 			if (tartozasokView) tartozasokView.hidden = !showTartozasok;
