@@ -380,6 +380,10 @@ registerStatsHandlers({
         state.currentGenreLevel = next;
     },
     getTopSortAsc: () => topSortAsc,
+    setSortAsc: (next) => {
+        sortAsc = next;
+        state.sortAsc = next;
+    },
     isMissing,
     recommenders
 });

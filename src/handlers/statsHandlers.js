@@ -12,9 +12,90 @@ export function registerStatsHandlers({
     getCurrentGenreLevel,
     setCurrentGenreLevel,
     getTopSortAsc,
+    setSortAsc,
     isMissing,
     recommenders
 }) {
+    // Sorting state for artists and genres
+    let artistSortBy = "name";
+    let artistSortAsc = true;
+    let genreSortBy = "name";
+    let genreSortAsc = true;
+
+    const escapeHtml = (value) =>
+        String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+    const formatDigestRating = (value) => {
+        const numericValue = parseFloat(value);
+        if (!Number.isFinite(numericValue)) return "0";
+        return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(1);
+    };
+
+    const getAlbumAddedTimestamp = (album) => {
+        if (album.addedDate && album.addedDate !== "Osidokben") {
+            const parsedDate = Date.parse(album.addedDate);
+            if (!Number.isNaN(parsedDate)) return parsedDate;
+        }
+
+        return Number.isFinite(parseInt(album.id, 10)) ? parseInt(album.id, 10) : 0;
+    };
+
+    const buildReviewDigest = () => {
+        const albums = [...getAlbums()]
+            .filter((album) => album.review && album.review.trim())
+            .sort((left, right) => getAlbumAddedTimestamp(right) - getAlbumAddedTimestamp(left));
+
+        if (!albums.length) {
+            return '<p class="review-digest-entry">No reviews available yet.</p>';
+        }
+
+        return albums
+            .map((album) => {
+                const artistName = escapeHtml(album.artist || "Unknown Artist");
+                const albumTitle = escapeHtml(album.album || "Unknown Album");
+                const releaseYear = escapeHtml(album.year || "Unknown Year");
+                const reviewText = escapeHtml(album.review.trim().replace(/\s+/g, " "));
+                const ratingText = formatDigestRating(album.myScore);
+                return `<p class="review-digest-entry"><strong>${artistName} - ${albumTitle} (${releaseYear}).</strong> ${reviewText} ${ratingText}/10.</p>`;
+            })
+            .join("");
+    };
+
+    window.openReviewDigest = function() {
+        const modal = document.getElementById("reviewDigestModal");
+        const content = document.getElementById("reviewDigestContent");
+        if (!modal || !content) return;
+
+        content.innerHTML = buildReviewDigest();
+        modal.classList.add("is-open");
+        document.body.style.overflow = "hidden";
+    };
+
+    window.closeReviewDigest = function() {
+        const modal = document.getElementById("reviewDigestModal");
+        if (!modal) return;
+
+        modal.classList.remove("is-open");
+        document.body.style.overflow = "";
+    };
+
+    window.handleReviewDigestOverlayClick = function(event) {
+        if (event.target && event.target.id === "reviewDigestModal") {
+            window.closeReviewDigest();
+        }
+    };
+
+    window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            window.closeReviewDigest();
+        }
+    });
+
     window.renderStats = function() {
         const albums = getAlbums();
         const slopG = getSlopGenres();
@@ -405,4 +486,240 @@ export function registerStatsHandlers({
             }, 4000);
         }
     };
+
+    // Navigate to Gallery sorted by Date Added (descending)
+    window.navigateToGalleryByDateAdded = function() {
+        const sortField = document.getElementById("sortField");
+        if (sortField) sortField.value = "id";
+        setSortAsc(false); // Descending order (newest first)
+        window.showPage("library");
+        window.initFilters();
+        window.runFilter();
+    };
+
+    // Navigate to Artists View
+    window.navigateToArtistsView = function() {
+        window.renderArtistsView();
+        window.showPage("stats");
+        const statsDiv = document.getElementById("stats");
+        const statsGrid = statsDiv.querySelector(".stats-grid");
+        const artistsView = document.getElementById("artists-view");
+        if (statsGrid) statsGrid.style.display = "none";
+        if (artistsView) artistsView.style.display = "block";
+    };
+
+    // Navigate to Genres View
+    window.navigateToGenresView = function() {
+        window.renderGenresView();
+        window.showPage("stats");
+        const statsDiv = document.getElementById("stats");
+        const statsGrid = statsDiv.querySelector(".stats-grid");
+        const genresView = document.getElementById("genres-view");
+        if (statsGrid) statsGrid.style.display = "none";
+        if (genresView) genresView.style.display = "block";
+    };
+
+    // Render Artists View with cards
+    window.renderArtistsView = function() {
+        const albums = getAlbums();
+        const artistsMap = {};
+
+        albums.forEach((album) => {
+            const artist = album.artist || "Unknown";
+            if (!artistsMap[artist]) {
+                artistsMap[artist] = { name: artist, count: 0, scores: [] };
+            }
+            artistsMap[artist].count++;
+            const score = parseFloat(album.myScore) || 0;
+            if (score > 0) artistsMap[artist].scores.push(score);
+        });
+
+        let artistsList = Object.values(artistsMap)
+            .map((artist) => ({
+                ...artist,
+                avgRating: artist.scores.length > 0 ? (artist.scores.reduce((a, b) => a + b, 0) / artist.scores.length).toFixed(2) : "N/A"
+            }));
+
+        // Sort artists based on current sort preference
+        artistsList.sort((a, b) => {
+            let comparison = 0;
+            if (artistSortBy === "name") {
+                comparison = a.name.localeCompare(b.name);
+            } else if (artistSortBy === "count") {
+                comparison = a.count - b.count;
+            } else if (artistSortBy === "rating") {
+                const aRating = parseFloat(a.avgRating) || 0;
+                const bRating = parseFloat(b.avgRating) || 0;
+                comparison = aRating - bRating;
+            }
+            return artistSortAsc ? comparison : -comparison;
+        });
+
+        const container = document.getElementById("artistsContainer");
+        if (!container) return;
+
+        container.innerHTML = artistsList
+            .map((artist, idx) => {
+                const avgScore = parseFloat(artist.avgRating);
+                const scoreBg = avgScore && avgScore > 0 ? `hsl(${(Math.max(1, avgScore) - 1) * 13},70%,40%)` : "#555";
+                const encodedName = btoa(unescape(encodeURIComponent(artist.name)));
+                return `
+                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; width: 100%;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'" onclick="handleArtistClick('${encodedName}')">
+                        <div style="flex: 1; overflow: hidden;">
+                            <div style="font-size: 1.1em; font-weight: bold; color: #fff; word-break: break-word;">${escapeHtml(artist.name)}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 30px; margin-left: 15px; flex-shrink: 0;">
+                            <div style="text-align: center;">
+                                <small style="color: var(--accent); text-transform: uppercase; font-size: 0.75em;">Albumok</small>
+                                <div style="font-size: 1.2em; font-weight: bold; color: #fff;">${artist.count}</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <small style="color: var(--accent); text-transform: uppercase; font-size: 0.75em;">Átlag</small>
+                                <div style="background: ${scoreBg}; padding: 6px 10px; border-radius: 3px; font-weight: bold; color: #fff; font-size: 1.1em; min-width: 50px;">${artist.avgRating}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            })
+            .join("");
+
+        updateArtistSortIndicators();
+    };
+
+    // Render Genres View with cards
+    window.renderGenresView = function() {
+        const albums = getAlbums();
+        const genresMap = {};
+
+        albums.forEach((album) => {
+            const genreList = String(album.genre || "").split(",").map((g) => g.trim()).filter((g) => g);
+            genreList.forEach((genre) => {
+                if (!genresMap[genre]) {
+                    genresMap[genre] = { name: genre, count: 0, scores: [] };
+                }
+                genresMap[genre].count++;
+                const score = parseFloat(album.myScore) || 0;
+                if (score > 0) genresMap[genre].scores.push(score);
+            });
+        });
+
+        let genresList = Object.values(genresMap)
+            .map((genre) => ({
+                ...genre,
+                avgRating: genre.scores.length > 0 ? (genre.scores.reduce((a, b) => a + b, 0) / genre.scores.length).toFixed(2) : "N/A"
+            }));
+
+        // Sort genres based on current sort preference
+        genresList.sort((a, b) => {
+            let comparison = 0;
+            if (genreSortBy === "name") {
+                comparison = a.name.localeCompare(b.name);
+            } else if (genreSortBy === "count") {
+                comparison = a.count - b.count;
+            } else if (genreSortBy === "rating") {
+                const aRating = parseFloat(a.avgRating) || 0;
+                const bRating = parseFloat(b.avgRating) || 0;
+                comparison = aRating - bRating;
+            }
+            return genreSortAsc ? comparison : -comparison;
+        });
+
+        const container = document.getElementById("genresContainer");
+        if (!container) return;
+
+        container.innerHTML = genresList
+            .map((genre, idx) => {
+                const avgScore = parseFloat(genre.avgRating);
+                const scoreBg = avgScore && avgScore > 0 ? `hsl(${(Math.max(1, avgScore) - 1) * 13},70%,40%)` : "#555";
+                const encodedName = btoa(unescape(encodeURIComponent(genre.name)));
+                return `
+                    <div style="background: #1e1e1e; border: 1px solid #333; border-radius: 4px; padding: 14px 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; width: 100%;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'" onclick="handleGenreClick('${encodedName}')">
+                        <div style="flex: 1; overflow: hidden;">
+                            <div style="font-size: 1.1em; font-weight: bold; color: #fff; word-break: break-word;">${escapeHtml(genre.name)}</div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 30px; margin-left: 15px; flex-shrink: 0;">
+                            <div style="text-align: center;">
+                                <small style="color: var(--accent); text-transform: uppercase; font-size: 0.75em;">Albumok</small>
+                                <div style="font-size: 1.2em; font-weight: bold; color: #fff;">${genre.count}</div>
+                            </div>
+                            <div style="text-align: center;">
+                                <small style="color: var(--accent); text-transform: uppercase; font-size: 0.75em;">Átlag</small>
+                                <div style="background: ${scoreBg}; padding: 6px 10px; border-radius: 3px; font-weight: bold; color: #fff; font-size: 1.1em; min-width: 50px;">${genre.avgRating}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            })
+            .join("");
+
+        updateGenreSortIndicators();
+    };
+
+    // Add function to go back to main stats view
+    window.backToMainStats = function() {
+        const statsDiv = document.getElementById("stats");
+        const statsGrid = statsDiv.querySelector(".stats-grid");
+        const artistsView = document.getElementById("artists-view");
+        const genresView = document.getElementById("genres-view");
+        if (statsGrid) statsGrid.style.display = "block";
+        if (artistsView) artistsView.style.display = "none";
+        if (genresView) genresView.style.display = "none";
+    };
+
+    // Handle artist card click
+    window.handleArtistClick = function(encodedName) {
+        const decodedName = decodeURIComponent(escape(atob(encodedName)));
+        window.qFilter("a", decodedName);
+    };
+
+    // Handle genre card click
+    window.handleGenreClick = function(encodedName) {
+        const decodedName = decodeURIComponent(escape(atob(encodedName)));
+        window.qFilter("g", decodedName);
+    };
+
+    // Sort functions for artists
+    window.sortArtistsBy = function(sortBy) {
+        if (artistSortBy === sortBy) {
+            artistSortAsc = !artistSortAsc;
+        } else {
+            artistSortBy = sortBy;
+            artistSortAsc = true;
+        }
+        window.renderArtistsView();
+    };
+
+    // Sort functions for genres
+    window.sortGenresBy = function(sortBy) {
+        if (genreSortBy === sortBy) {
+            genreSortAsc = !genreSortAsc;
+        } else {
+            genreSortBy = sortBy;
+            genreSortAsc = true;
+        }
+        window.renderGenresView();
+    };
+
+    // Update sort indicators for artists
+    function updateArtistSortIndicators() {
+        const nameBtn = document.getElementById("artistNameSort");
+        const countBtn = document.getElementById("artistCountSort");
+        const ratingBtn = document.getElementById("artistRatingSort");
+        
+        if (nameBtn) nameBtn.textContent = artistSortBy === "name" ? (artistSortAsc ? "↑" : "↓") : "⇅";
+        if (countBtn) countBtn.textContent = artistSortBy === "count" ? (artistSortAsc ? "↑" : "↓") : "⇅";
+        if (ratingBtn) ratingBtn.textContent = artistSortBy === "rating" ? (artistSortAsc ? "↑" : "↓") : "⇅";
+    }
+
+    // Update sort indicators for genres
+    function updateGenreSortIndicators() {
+        const nameBtn = document.getElementById("genreNameSort");
+        const countBtn = document.getElementById("genreCountSort");
+        const ratingBtn = document.getElementById("genreRatingSort");
+        
+        if (nameBtn) nameBtn.textContent = genreSortBy === "name" ? (genreSortAsc ? "↑" : "↓") : "⇅";
+        if (countBtn) countBtn.textContent = genreSortBy === "count" ? (genreSortAsc ? "↑" : "↓") : "⇅";
+        if (ratingBtn) ratingBtn.textContent = genreSortBy === "rating" ? (genreSortAsc ? "↑" : "↓") : "⇅";
+    }
 }
+

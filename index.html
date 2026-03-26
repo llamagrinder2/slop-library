@@ -251,6 +251,24 @@
 			font-size: 1.3em !important;
 		}
 
+		.stats-summary-item {
+			padding: 10px;
+			border-radius: 4px;
+		}
+
+		.stats-summary-item.is-interactive {
+			transition: background 0.2s;
+		}
+
+		.stats-summary-item.is-interactive:hover {
+			background: #333;
+		}
+
+		.book-cursor,
+		.book-cursor * {
+			cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='21' height='24' rx='2' fill='%23ffffff' stroke='%23161616' stroke-width='2'/%3E%3Cpath d='M11 4v24' stroke='%23161616' stroke-width='2'/%3E%3Cpath d='M14 9h8M14 13h8M14 17h8' stroke='%23ffcc00' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 8 8, pointer;
+		}
+
 		/* Top 10 kártya – egymás alá kerüljenek az oszlopok */
 		.top-grid {
 			grid-template-columns: 1fr !important;
@@ -318,6 +336,96 @@
 		flex-direction: column;
 		border: 1px solid #4a4a4a;
 		background: #1d1d1d;
+	}
+
+	.review-digest-modal {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 4000;
+		background: rgba(0, 0, 0, 0.7);
+		padding: 32px;
+		box-sizing: border-box;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.review-digest-modal.is-open {
+		display: flex;
+	}
+
+	.review-digest-sheet {
+		background: #ffffff;
+		color: #111111;
+		width: min(960px, 100%);
+		height: min(88vh, 100%);
+		border-radius: 8px;
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.review-digest-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 18px 22px;
+		border-bottom: 1px solid #dddddd;
+	}
+
+	.review-digest-header h2 {
+		margin: 0;
+		font-size: 1.2rem;
+		font-weight: 700;
+		color: #111111;
+	}
+
+	.review-digest-close {
+		background: #ffffff;
+		color: #111111;
+		border: 1px solid #cccccc;
+		padding: 10px 14px;
+		border-radius: 6px;
+		cursor: pointer;
+		font-weight: 600;
+	}
+
+	.review-digest-close:hover {
+		border-color: #111111;
+	}
+
+	.review-digest-content {
+		padding: 24px;
+		overflow: auto;
+		background: #ffffff;
+		font-family: Georgia, "Times New Roman", serif;
+		font-size: 1.05rem;
+		line-height: 1.8;
+	}
+
+	.review-digest-entry {
+		margin: 0 0 1.35em;
+	}
+
+	.review-digest-entry:last-child {
+		margin-bottom: 0;
+	}
+
+	.review-digest-entry strong {
+		font-weight: 700;
+	}
+
+	@media (max-width: 640px) {
+		.review-digest-modal {
+			padding: 12px;
+		}
+
+		.review-digest-content {
+			padding: 18px;
+			font-size: 1rem;
+		}
 	}
 
 	.gallery-item.gallery-detailed img {
@@ -1610,27 +1718,27 @@ td[contenteditable="true"]:empty::before {
 
 		   
 			<div class="stat-card full-width stats-summary" style="display: flex; justify-content: space-around; text-align: center; padding: 20px 0; background: #252525; border: 1px solid #333;">
-				<div>
+				<div class="stats-summary-item is-interactive" onclick="navigateToGalleryByDateAdded()" style="cursor: pointer;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Albumok</small>
 					<div id="stat-total-albums" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
 				</div>
-				<div>
+				<div class="stats-summary-item is-interactive" onclick="navigateToArtistsView()" style="cursor: pointer;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Előadók</small>
 					<div id="stat-total-artists" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
 				</div>
-				<div>
+				<div class="stats-summary-item is-interactive" onclick="navigateToGenresView()" style="cursor: pointer;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Műfajok</small>
 					<div id="stat-total-genres" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
 				</div>
-				<div>
+				<div class="stats-summary-item" style="cursor: default;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz Átl.</small>
 					<div id="stat-avg-score" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
 				</div>
-				<div>
+				<div class="stats-summary-item is-interactive book-cursor" onclick="openReviewDigest()" aria-label="Osszes review megnyitasa" title="Osszes review megnyitasa">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz yap</small>
 					<div id="stat-total-yap" style="font-size: 1.6em; font-weight: bold; color: #fff;">0 szó</div>
 				</div>
-				<div>
+				<div class="stats-summary-item" style="cursor: default;">
 					<small style="color:#ff4444; text-transform: uppercase; letter-spacing: 1px;">Hiányos</small>
 					<div id="stat-incomplete" style="font-size: 1.6em; font-weight: bold; color: #ffaaaa;">0</div>
 				</div>
@@ -1696,12 +1804,52 @@ td[contenteditable="true"]:empty::before {
 							<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
 					</div>
 						
-				<div style="text-align: center; margin-top: 30px;">
+					<div style="text-align: center; margin-top: 30px;">
 					<button onclick="captureStats(event)" class="ctrl-btn" style="background: var(--accent); color: #000; max-width: 300px;">
 						STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
 					</button>
 					<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
 				</div>
+		</div>
+
+		<div id="artists-view" style="display:none;">
+			<div style="padding: 20px;">
+				<div style="display: flex; align-items: center; margin-bottom: 20px; gap: 10px;">
+					<button onclick="backToMainStats()" class="ctrl-btn" style="padding: 8px 16px;">← Vissza</button>
+					<h2 style="margin: 0;">Előadók</h2>
+				</div>
+				<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+					<button onclick="sortArtistsBy('name')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Név <span id="artistNameSort">⇅</span></button>
+					<button onclick="sortArtistsBy('count')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Albumok <span id="artistCountSort">⇅</span></button>
+					<button onclick="sortArtistsBy('rating')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Átlag <span id="artistRatingSort">⇅</span></button>
+				</div>
+				<div id="artistsContainer" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
+			</div>
+		</div>
+
+		<div id="genres-view" style="display:none;">
+			<div style="padding: 20px;">
+				<div style="display: flex; align-items: center; margin-bottom: 20px; gap: 10px;">
+					<button onclick="backToMainStats()" class="ctrl-btn" style="padding: 8px 16px;">← Vissza</button>
+					<h2 style="margin: 0;">Műfajok</h2>
+				</div>
+				<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+					<button onclick="sortGenresBy('name')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Név <span id="genreNameSort">⇅</span></button>
+					<button onclick="sortGenresBy('count')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Albumok <span id="genreCountSort">⇅</span></button>
+					<button onclick="sortGenresBy('rating')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Átlag <span id="genreRatingSort">⇅</span></button>
+				</div>
+				<div id="genresContainer" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
+			</div>
+		</div>
+
+		<div id="reviewDigestModal" class="review-digest-modal" onclick="handleReviewDigestOverlayClick(event)">
+			<div class="review-digest-sheet" role="dialog" aria-modal="true" aria-labelledby="reviewDigestTitle">
+				<div class="review-digest-header">
+					<h2 id="reviewDigestTitle">All Reviews</h2>
+					<button type="button" class="review-digest-close" onclick="closeReviewDigest()">Bezárás</button>
+				</div>
+				<div id="reviewDigestContent" class="review-digest-content"></div>
+			</div>
 		</div>
 	</div>
 </div>
