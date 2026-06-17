@@ -163,8 +163,17 @@ export function registerGalleryComponents({
         btn.disabled = true;
 
         const thumbSize = 300;
-        const cols = 5;
-        const rows = Math.ceil(images.length / cols);
+        const count = images.length;
+
+        // --- 16:9 ARÁNY ÉS OSZLOP/SOR SZÁMÍTÁS ---
+        // Kiszámoljuk az optimális oszlopszámot, hogy a végeredmény aránya a legközelebb legyen a 16:9-hez (ami kb. 1.77)
+        let cols = Math.max(1, Math.round(Math.sqrt(count * 1.777)));
+        let rows = Math.ceil(count / cols);
+        
+        // Ha túlbecsültük és maradt egy teljes üres oszlopunk, korrigáljuk
+        if ((rows * (cols - 1)) >= count) {
+            cols--;
+        }
 
         const canvas = document.createElement("canvas");
         canvas.width = cols * thumbSize;
@@ -190,11 +199,18 @@ export function registerGalleryComponents({
                     img.src = imgSrc;
                 });
 
-            for (let i = 0; i < images.length; i++) {
-                const x = (i % cols) * thumbSize;
-                const y = Math.floor(i / cols) * thumbSize;
+            // --- RAJZOLÁS OSZLOPONKÉNT FENTRŐL LEFELÉ ---
+            for (let i = 0; i < count; i++) {
+                // A matematikai trükk: a maradékos osztást megcseréljük,
+                // így először a sorokat töltjük fel lefelé haladva, majd ugrunk a következő oszlopra.
+                const colIndex = Math.floor(i / rows);
+                const rowIndex = i % rows;
+
+                const x = colIndex * thumbSize;
+                const y = rowIndex * thumbSize;
+
                 await loadAndDraw(images[i].src, x, y);
-                btn.innerText = `Rajzolas: ${i + 1} / ${images.length}`;
+                btn.innerText = `Rajzolas: ${i + 1} / ${count}`;
             }
 
             const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
