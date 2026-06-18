@@ -1,3 +1,5 @@
+import { getCountryFlag } from "../core/constants.js";
+
 export function registerListAndTodoComponents({
     getAlbums,
     getTodos,
@@ -99,6 +101,7 @@ export function registerListAndTodoComponents({
                             <div>
                                 <div style="display:flex; align-items:center; gap:10px;">
                                     <h3 class="artist-name" style="margin:0; ${incomplete ? "color:#E86600;" : ""}" onclick="qFilter('a', '${a.artist.replace(/'/g, "\\'")}')">${a.artist}</h3>
+                                    ${getCountryFlag(a.country)}
                                     ${incomplete ? "<span class=\"incomplete-badge\">Hianyos!!</span>" : ""}
                                 </div>
                                 <p style="margin-top:5px;"><strong>${a.album}</strong> (${a.year || "?"})</p>

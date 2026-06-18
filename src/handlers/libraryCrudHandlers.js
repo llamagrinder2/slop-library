@@ -59,12 +59,14 @@ export function registerLibraryCrudHandlers({
         };
 
         const maxId = albums.length > 0 ? Math.max(...albums.map((a) => a.id || 0)) : 0;
+        const countryInput = document.getElementById("inCountry");
         const nextAlbum = {
             id: editIdx > -1 ? albums[editIdx].id : maxId + 1,
             artist: document.getElementById("inArtist").value.trim(),
             album: document.getElementById("inAlbum").value.trim(),
             coverUrl: finalCoverUrl,
             year: document.getElementById("inYear").value,
+            country: countryInput ? countryInput.value.trim().toUpperCase() : "",
             genre: document.getElementById("inGenre").value.trim(),
             recommender: document.getElementById("inRec").value,
             myScore: parseFloat(document.getElementById("inScore").value) || 0,
@@ -339,6 +341,8 @@ export function registerLibraryCrudHandlers({
         document.getElementById("inAlbum").value = a.album;
         document.getElementById("inCover").value = a.coverUrl;
         document.getElementById("inYear").value = a.year;
+        const countryInput = document.getElementById("inCountry");
+        if (countryInput) countryInput.value = a.country || "";
         document.getElementById("inGenre").value = a.genre;
         document.getElementById("inScore").value = a.myScore;
         document.getElementById("inReview").value = a.review || "";

@@ -86,6 +86,7 @@ window.addNewListRow = function() {
         <td contenteditable="true" class="new-val-artist" placeholder="Eloado..." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-album" placeholder="Album..." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-year" placeholder="Ev" style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-country" placeholder="Orsz." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-genre" placeholder="Mufaj" style="background:#222;"></td>
         <td><select class="inline-edit new-val-rec">${buildRecommenderOptions()}</select></td>
         <td contenteditable="true" class="new-val-score" placeholder="Pont" style="background:#222;"></td>
@@ -135,6 +136,7 @@ window.saveInlineNewRow = async function(tr) {
         artist: val("artist"),
         album: val("album"),
         year: val("year") ? Number(val("year")) : "",
+        country: val("country") ? val("country").trim().toUpperCase() : "",
         genre: val("genre"),
         recommender: val("rec"),
         myScore: parseFloat(val("score")) || 0,

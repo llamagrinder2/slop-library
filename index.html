@@ -863,6 +863,7 @@ body.is-admin .btn-del {
 .col-artist { width: 180px; }
 .col-album { width: 220px; }
 .col-year { width: 60px; }
+.col-country { width: 60px; }
 .col-genre { width: 150px; }
 .col-rec { width: 160px; }
 .col-score { width: 60px; }
@@ -1476,6 +1477,7 @@ td[contenteditable="true"]:empty::before {
 			<div id="ratingFields">
 				<div class="form-row">
 					<input type="number" id="inYear" placeholder="Év">
+					<input type="text" id="inCountry" placeholder="Ország (pl. HUN, USA, SWE)" maxlength="3">
 					<input type="text" id="inGenre" placeholder="Műfajok">
 				<label style="display:block; margin-top:10px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
 				<select id="inRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
@@ -1652,6 +1654,7 @@ td[contenteditable="true"]:empty::before {
 						<th class="col-artist" onclick="sortExcelTable(event, 'artist', this)">Előadó</th>
 						<th class="col-album" onclick="sortExcelTable(event, 'album', this)">Album</th>
 						<th class="col-year" onclick="sortExcelTable(event, 'year', this)">Év</th>
+						<th class="col-country" onclick="sortExcelTable(event, 'country', this)">Ország</th>
 						<th class="col-genre" onclick="sortExcelTable(event, 'genre', this)">Műfajok</th>
 						<th class="col-rec" onclick="sortExcelTable(event, 'recommender', this)">Ajánló</th>
 						<th class="col-score" onclick="sortExcelTable(event, 'myScore', this)">Pont</th>
