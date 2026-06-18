@@ -100,6 +100,26 @@ export function registerLibraryCrudHandlers({
             await saveToFirebase();
             renderStats();
             runFilter();
+            toggleMod('add');
+            document.getElementById("inArtist").value = "";
+            document.getElementById("inAlbum").value = "";
+            document.getElementById("inCover").value = "";
+            document.getElementById("fileCover").value = "";
+            document.getElementById("inYear").value = "";
+            document.getElementById("inCountry").value = "";
+            document.getElementById("inGenre").value = "";
+            document.getElementById("inRec").value = "";
+            document.getElementById("inScore").value = "";
+            document.getElementById("inReview").value = "";
+            document.getElementById("inFavSong").value = "";
+            document.getElementById("inSongUrl").value = "";
+            document.getElementById("inDate").value = "";
+            document.getElementById("t_riff").value = "Meh";
+            document.getElementById("t_vox").value = "Meh";
+            document.getElementById("t_dob").value = "Meh";
+            document.getElementById("t_mix").value = "Meh";
+            document.getElementById("t_szoveg").value = "Meh";
+            document.getElementById("t_vibe").value = "Meh";
         } finally {
             if (saveBtn) saveBtn.disabled = false;
             if (saveBtn) saveBtn.innerText = originalSaveText;
