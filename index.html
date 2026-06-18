@@ -1,0 +1,1943 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Slop Library</title>
+	<link rel="icon" type="image/svg+xml" href="favicon.svg">
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+	<style>
+		:root { 
+			--bg-color: #121212; 
+			--card-bg: #1e1e1e; 
+			--text-color: #e0e0e0; 
+			--accent: #ffcc00; 
+			--danger: #ff4444; 
+			--success: #44ff44;
+		}
+		body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text-color); margin: 0; padding-bottom: 50px; }
+		
+		nav { 
+			background: #252525; padding: 10px 30px; display: flex; justify-content: space-between; align-items: center; 
+			border-bottom: 2px solid var(--accent); position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+			transform: translateY(-100%);
+			transition: transform 0.3s ease-in-out;
+		}
+
+		/* Hover zone at top for desktop to reveal header */
+		#nav-hover-zone {
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: 14px;
+			z-index: 999;
+			background: transparent;
+		}
+
+		/* Desktop: show header when hovering top edge or header itself */
+		@media (min-width: 816px) {
+			#nav-hover-zone:hover + nav,
+			nav:hover {
+				transform: translateY(0);
+			}
+		}
+
+		@font-face {
+			font-family: 'gooeyFont';
+			src: url('gooey.ttf') format('truetype');
+			font-weight: normal;
+			font-style: normal;
+			font-display: swap;
+		}
+
+		.slime-text {
+			font-family: 'gooeyFont' !important;
+			font-size: 1.3em; /* A Gooey fontok gyakran vékonyabbak, így nagyobbra vesszük */
+			color: var(--accent);
+			letter-spacing: 1px;
+			vertical-align: middle; /* Hogy szépen illeszkedjen a LIBRARY szóhoz */
+			line-height: 1;
+		}
+
+		.nav-logo span {
+			font-family: 'Segoe UI', sans-serif;
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+
+		.nav-logo { 
+		    color: var(--accent); 
+		    font-size: 1.2em; 
+		    font-weight: 900; 
+		    letter-spacing: 1px; 
+		    text-transform: uppercase;
+		    /* Új szabályok a kép és a szöveg egymás mellé rendezéséhez: */
+		    display: flex;
+		    align-items: center;
+		    gap: 12px;
+		    cursor: pointer;
+		    user-select: none;
+		}
+		
+		.nav-logo img {
+		    height: 40px;        /* Ez a magasság illik a szövegedhez */
+		    width: auto;         
+		    object-fit: contain; 
+		    display: block;
+		}
+		.nav-links { display: flex; gap: 15px; }
+		nav button { background: none; border: 1px solid var(--accent); color: var(--accent); padding: 8px 18px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+		nav button.active { background: var(--accent); color: #000; }
+
+		.mobile-menu-btn,
+		.mobile-sidebar-overlay,
+		.mobile-sidebar {
+			display: none;
+		}
+
+		.container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
+		.page { display: none; }
+		.page.active { display: block; }
+
+		.module-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #444; margin-bottom: 20px; display: none; }
+		.form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+		input, textarea, select { background: #2d2d2d; border: 1px solid #444; color: white; padding: 12px; border-radius: 6px; flex: 1; }
+		.ctrl-btn { padding: 12px; font-weight: bold; border-radius: 8px; border: 1px solid #444; background: #252525; color: white; cursor: pointer; flex: 1; transition: 0.2s; }
+		.ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+		.ctrl-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+		.album-card { display: flex; background: var(--card-bg); border-radius: 10px; overflow: hidden; border: 1px solid #333; margin-bottom: 15px; position: relative; align-items: stretch; transition: all 0.2s ease;}
+		.album-card.drag-over {
+		    border: 2px dashed #ffcc00 !important; 
+		    background: rgba(255, 204, 0, 0.05) !important;
+		    transform: scale(1.01); 
+		}
+		.row-number { background: #333; color: #888; display: flex; align-items: center; justify-content: center; min-width: 40px; font-weight: bold; flex-shrink: 0; }
+		.album-art-container {
+			width: 180px; /* Ugyanaz a szélesség, amit a képnek adtál */
+			min-width: 180px; /* Hogy ne nyomja össze a szöveg */
+			display: flex;
+			align-items: center; /* Függőlegesen középre teszi a képet */
+			justify-content: center; /* Vízszintesen középre teszi a képet */
+			position: relative;
+			overflow: hidden; /* Ez kell majd a homályosított háttérhez */
+			background: #151515; /* Egy sötét alap, amíg tölt a kép */
+		}
+		.album-art-blur {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 120%; /* Kicsit nagyobb, hogy ne látszódjanak a szélei a homályosítás miatt */
+			height: 120%;
+			object-fit: cover;
+			transform: translate(-50%, -50%) scale(1.2); /* Középre teszi és nagyítja */
+			filter: blur(12px) brightness(0.5); /* Itt állíthatod a homályosságot és sötétséget */
+			z-index: 1; /* Alulra kerül */
+			pointer-events: none; /* Ne lehessen rákattintani */
+		}
+		.album-art {
+			width: 160px; /* Kicsit kisebb, mint a konténer, hogy legyen körülötte tér */
+			height: 160px;
+			object-fit: cover;
+			border-radius: 4px;
+			cursor: pointer;
+			z-index: 2;
+			position: relative;
+			box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Egy kis árnyék, hogy elváljon a majdani háttértől */
+		}
+		.album-info { padding: 15px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+		.artist-name { 
+			color: var(--accent); 
+			font-weight: bold; 
+			margin: 0; 
+			transition: 0.2s; 
+			cursor: pointer; 
+			display: inline-block; 
+			white-space: normal; 
+			max-width: 100%; 
+			font-size: clamp(0.9rem, 2.4vw, 1.2rem); 
+		}
+		.artist-name:hover { text-decoration: underline; color: #fff; }
+		.score-badge { position: absolute; top: 15px; right: 15px; padding: 8px 12px; border-radius: 6px; font-weight: bold; color: white; }
+		
+		.review-text { font-size: 0.9em; font-style: italic; color: #bbb; margin-top: 10px; border-left: 2px solid var(--accent); padding-left: 10px; }
+		.song-container { margin-top: 10px; font-size: 0.8em; }
+		.song-label { color: #888; margin-right: 5px; }
+		.fav-song-link { color: var(--accent); font-style: italic; text-decoration: underline; display: inline-block; }
+
+		.btn-del { position: absolute; bottom: 10px; right: 10px; display: none; background: none; border: none; color: var(--accent); font-size: 1em; cursor: pointer; opacity: 0.6; transition: 0.2s; }
+		.btn-del:hover { color: var(--danger); opacity: 1; transform: scale(1.1); }
+		.edit-btn { display: none; }
+		.btn-check { background: none; border: 2px solid var(--success); color: var(--success); font-size: 1.5em; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-top: 10px; }
+
+		.pagination-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+		.page-btns { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+		.page-btn { padding: 8px 14px; background: #252525; border: 1px solid #444; color: #fff; border-radius: 5px; cursor: pointer; font-weight: bold; }
+		.page-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+		.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+		.settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252525; border-radius: 6px; margin-bottom: 5px; }
+
+		.stats-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr; /* Két oszlop */
+			gap: 20px;
+			width: 100%; /* Ez biztosítja, hogy a rács kitöltse a képernyőt */
+			box-sizing: border-box;
+			padding: 10px;
+		}
+		.full-width {
+			grid-column: span 2; /* Az 1. oszloptól indul és 2 oszlopot fog át */
+			width: 100%;
+		}
+		.stat-card { 
+			background: var(--card-bg); 
+			padding: 20px; 
+			border-radius: 12px; 
+			border: 1px solid #444; 
+			min-width: 0;
+			overflow:hidden;			
+		}
+		.clickable-list { list-style: none; padding: 0; }
+		.clickable-list li { background: #252525; margin-bottom: 6px; padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+		.stat-score-pill { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.9em; min-width: 35px; text-align: center; }
+
+
+	@media (max-width: 820px) {
+			.stats-grid {
+				grid-template-columns: 1fr;
+			}
+			.full-width, .stat-card {
+				grid-column: 1 / span 1;
+			}
+	}
+
+	/* Mobil optimalizálás a Statisztikák oldalhoz (≈ 378px széles kijelzőre) */
+	@media (max-width: 420px) {
+		#stats {
+			padding-bottom: 20px;
+		}
+
+		.stats-grid {
+			padding: 5px;
+			gap: 15px;
+		}
+
+		.stat-card {
+			padding: 14px;
+		}
+
+		/* Felső összefoglaló sor: törjön több sorba, ne legyen vízszintes túlcsordulás */
+		.stats-summary {
+			flex-wrap: wrap;
+			row-gap: 10px;
+		}
+
+		.stats-summary > div {
+			min-width: 45%;
+			margin-bottom: 4px;
+		}
+
+		.stats-summary small {
+			font-size: 0.7rem;
+		}
+
+		.stats-summary div[id^="stat-"] {
+			font-size: 1.3em !important;
+		}
+
+		.stats-summary-item {
+			padding: 10px;
+			border-radius: 4px;
+		}
+
+		.stats-summary-item.is-interactive {
+			transition: background 0.2s;
+		}
+
+		.stats-summary-item.is-interactive:hover {
+			background: #333;
+		}
+
+		.book-cursor,
+		.book-cursor * {
+			cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Crect x='5' y='4' width='21' height='24' rx='2' fill='%23ffffff' stroke='%23161616' stroke-width='2'/%3E%3Cpath d='M11 4v24' stroke='%23161616' stroke-width='2'/%3E%3Cpath d='M14 9h8M14 13h8M14 17h8' stroke='%23ffcc00' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 8 8, pointer;
+		}
+
+		/* Top 10 kártya – egymás alá kerüljenek az oszlopok */
+		.top-grid {
+			grid-template-columns: 1fr !important;
+			gap: 16px !important;
+		}
+
+		/* Ritkaság lista: szűkebb oszlopok, de minden látszódjon */
+		#listRare {
+			grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+		}
+
+		/* „Ajánlások adatai” sorai – legyen kicsit szorosabb, hogy ne lógjon ki */
+		#listRecStats li {
+			padding: 8px 10px;
+			gap: 6px;
+		}
+	}
+
+		#lightbox { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; justify-content: center; align-items: center; }
+		#lightbox img { max-width: 90%; max-height: 90%; border: 3px solid var(--accent); }
+	#listRecStats li {
+		display: flex;
+			justify-content: space-between;
+		align-items: center;
+			padding: 10px 15px;
+	}
+
+	/* Gallery Grid Styles */
+	.gallery-container {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+		gap: 8px;
+		padding: 15px;
+		width: 100%;
+		box-sizing: border-box;
+	}
+
+	.gallery-item {
+		position: relative;
+		aspect-ratio: 1;
+		border-radius: 6px;
+		overflow: hidden;
+		cursor: pointer;
+		transition: transform 0.2s, box-shadow 0.2s;
+		border: 1px solid #333;
+		background: #151515;
+	}
+
+	.gallery-item:hover {
+		transform: scale(1.08);
+		box-shadow: 0 6px 15px rgba(255, 204, 0, 0.3);
+		border-color: var(--accent);
+	}
+
+	.gallery-item img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+
+	.gallery-item.gallery-detailed {
+		aspect-ratio: auto;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid #4a4a4a;
+		background: #1d1d1d;
+	}
+
+	.review-digest-modal {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 4000;
+		background: rgba(0, 0, 0, 0.7);
+		padding: 32px;
+		box-sizing: border-box;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.review-digest-modal.is-open {
+		display: flex;
+	}
+
+	.review-digest-sheet {
+		background: #ffffff;
+		color: #111111;
+		width: min(960px, 100%);
+		height: min(88vh, 100%);
+		border-radius: 8px;
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	.review-digest-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 18px 22px;
+		border-bottom: 1px solid #dddddd;
+	}
+
+	.review-digest-header h2 {
+		margin: 0;
+		font-size: 1.2rem;
+		font-weight: 700;
+		color: #111111;
+	}
+
+	.review-digest-close {
+		background: #ffffff;
+		color: #111111;
+		border: 1px solid #cccccc;
+		padding: 10px 14px;
+		border-radius: 6px;
+		cursor: pointer;
+		font-weight: 600;
+	}
+
+	.review-digest-close:hover {
+		border-color: #111111;
+	}
+
+	.review-digest-content {
+		padding: 24px;
+		overflow: auto;
+		background: #ffffff;
+		font-family: Georgia, "Times New Roman", serif;
+		font-size: 1.05rem;
+		line-height: 1.8;
+	}
+
+	.review-digest-entry {
+		margin: 0 0 1.35em;
+	}
+
+	.review-digest-entry:last-child {
+		margin-bottom: 0;
+	}
+
+	.review-digest-entry strong {
+		font-weight: 700;
+	}
+
+	@media (max-width: 640px) {
+		.review-digest-modal {
+			padding: 12px;
+		}
+
+		.review-digest-content {
+			padding: 18px;
+			font-size: 1rem;
+		}
+	}
+
+	.gallery-item.gallery-detailed img {
+		height: 120px;
+		object-fit: cover;
+	}
+
+	.gallery-item.gallery-detailed:hover {
+		transform: translateY(-2px);
+		border-color: var(--accent);
+		box-shadow: 0 6px 15px rgba(255, 204, 0, 0.2);
+	}
+
+	.gallery-details {
+		padding: 8px 8px 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		text-align: center;
+		min-height: 68px;
+	}
+
+	.gallery-details-artist {
+		color: var(--accent);
+		font-size: 0.74em;
+		font-weight: 700;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.gallery-details-album {
+		color: #ddd;
+		font-size: 0.72em;
+		font-weight: 600;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.gallery-details-score {
+		margin: 4px auto 0;
+		padding: 2px 8px;
+		border-radius: 12px;
+		font-size: 0.75em;
+		font-weight: 700;
+		color: #fff;
+		min-width: 40px;
+		text-align: center;
+	}
+
+	.gallery-item .album-overlay {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+		padding: 6px;
+		color: white;
+		opacity: 0;
+		transition: opacity 0.2s;
+		min-height: 40px;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		font-size: 0.75em;
+	}
+
+	.gallery-item:hover .album-overlay {
+		opacity: 1;
+	}
+
+	.album-overlay-title {
+		font-size: 0.8em;
+		font-weight: bold;
+		line-height: 1.1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+
+	.album-overlay-artist {
+		font-size: 0.7em;
+		color: var(--accent);
+		margin-top: 2px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.gallery-empty {
+		grid-column: 1 / -1;
+		text-align: center;
+		padding: 40px 20px;
+		color: #888;
+	}
+
+	.gallery-loading {
+		grid-column: 1 / -1;
+		text-align: center;
+		padding: 40px 20px;
+		color: #aaa;
+		font-weight: 600;
+		letter-spacing: 0.3px;
+	}
+
+	@media (max-width: 820px) {
+		.gallery-container {
+			grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+			gap: 6px;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.gallery-container {
+			grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+			gap: 5px;
+		}
+	}
+
+	/* Ajánló névtábla stílusa */
+.recommender-container {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	margin: 0 15px; /* Távolság a szövegtől és a pontszámtól */
+	min-width: fit-content;
+}
+
+.rec-label {
+	font-size: 0.6rem;
+	color: var(--accent);
+	text-transform: uppercase;
+	font-weight: bold;
+	margin-bottom: 2px;
+}
+
+.recommender-tag {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 4px 10px;
+	border-radius: 6px;
+	border: 1.5px solid;
+	line-height: 1.1;
+	text-align: center;
+	background: rgba(0,0,0,0.3);
+}
+.rec-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; white-space: nowrap; }
+.rec-subtitle { font-size: 0.65rem; font-weight: 400; opacity: 0.9; margin-top: 2px; letter-spacing: -0.3px; display: block; }
+.album-card-right { display: flex; align-items: center; justify-content: flex-end; }
+
+/* --- HIÁNYOS KÁRTYÁK STÍLUSAI --- */
+.album-card.incomplete-card {
+    background: #1e1e1e;
+    border-color: #662222;
+} 
+.row-number.incomplete-row {
+    background: #333;
+    color: #888;
+}
+.incomplete-badge {
+    color: #aaaaaa;
+    font-weight: 900;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: #222;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #444;
+}
+
+.traits-container {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin: 10px 0;
+	padding: 10px;
+	background: rgba(0,0,0,0.2);
+	border-radius: 8px;
+	align-items: center;
+}
+.traits-title {
+	font-size: 12px;
+	font-weight: bold;
+	color: var(--accent);
+	margin-right: 5px;
+	text-transform: uppercase;
+}
+.trait-pill {
+	font-size: 12px;
+	padding: 4px 6px;
+	border-radius: 4px;
+	background: #333;
+	border: 1px solid #444;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	min-width: 50px;
+		line-height: 1.2;
+}
+.trait-name { opacity: 0.7; font-size: 10px; margin-bottom: 1px; }
+/* Színkódok a válaszokhoz */
+.t-igen { color: #44ff44; text-shadow: 0 0 5px rgba(68,255,68,0.3); }
+.t-nem { color: #ff4444; text-shadow: 0 0 5px rgba(255,68,68,0.3); }
+.t-meh { color: #888888; }
+.t-volt {
+    color: #bb88ff;
+    text-shadow: 0 0 5px rgba(187,136,255,0.3);
+    
+    /* Ezek az új sorok: */
+    display: inline-block; /* Ez kell, hogy a transform működjön! */
+    animation: gentleFloat 2s infinite ease-in-out;
+}
+.t-peak { 
+    color: #ffcc00; 
+    font-weight: 900; 
+    border: none !important; /*1px solid #ffcc00 !important; */
+    background: none !important; /* rgba(255, 204, 0, 0.1) !important; */
+    animation: peak-pulsing 2s infinite ease-in-out;
+    transition: all 0.3s;
+}
+.t-poop { 
+    color: #8b4513; /* Barna szín */
+    font-weight: 900; 
+    text-shadow: 0 0 5px rgba(139,69,19,0.3);
+    display: inline-block; /* Fontos, hogy a transform (remegés) működjön rajta */
+    animation: poop-shake 0.3s infinite linear;
+}
+.btn-snap {
+	position: absolute;
+	top: 75px; /* Az X gomb alatt/felett */
+	right: 23px;
+	background: rgba(0,0,0,0.6);
+	border: 1px solid var(--accent);
+	color: var(--accent);
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	transition: all 0.2s;
+	z-index: 10;
+}
+.btn-snap:hover {
+	background: var(--accent);
+	color: #000;
+	}
+/* --- ÚJ: Info gomb és Info oldal stílusai --- */
+.info-btn {
+    border-radius: 50% !important; /* Hogy szép kerek legyen */
+    width: 25px;
+    height: 25px;
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Georgia', serif; /* Egy klasszikus talpas betűtípus az "i" betűnek */
+    font-style: italic;
+    font-size: 0.9em;
+    margin-left: 10px; /* Egy kis távolság a többi gombtól */
+}
+
+.info-content {
+    background: var(--card-bg);
+    padding: 40px;
+    border-radius: 12px;
+    border: 1px solid #444;
+    line-height: 1.6;
+    font-size: 1.1em;
+    max-width: 800px;
+    margin: 0 auto; /* Középre igazítja a dobozt */
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.info-content p {
+    margin-bottom: 15px;
+}	
+
+.external-link-indicator {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(0, 0, 0, 0.7);
+    color: var(--accent); /* Ez az #ffcc00 */
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    pointer-events: none; /* Ne zavarja a kattintást */
+    z-index: 2;
+    border: 1px solid var(--accent);
+	}
+
+	.gallery-external-link-indicator {
+		position: absolute;
+		top: 3px;
+		right: 3px;
+		background: rgba(0, 0, 0, 0.7);
+		color: var(--accent);
+		width: 16px;
+		height: 16px;
+		border-radius: 3px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 10px;
+		pointer-events: none;
+		z-index: 2;
+		border: 1px solid var(--accent);
+	}
+/* 1. Rejtés: Alapértelmezésben az admin-only elemek nem látszódnak */
+.admin-only {
+	display: none !important;
+}
+
+/* 2. Felfedés: Ha be vagyunk jelentkezve (is-admin a body-n) */
+body.is-admin .admin-only,
+body.is-admin #nav-settings, 
+body.is-admin #nav-listView,
+body.is-admin button[onclick="toggleMod('add')"],
+body.is-admin button[onclick="toggleMod('addTodo')"], 
+body.is-admin button[onclick^="editAlbum"], 
+body.is-admin button[onclick^="window.editAlbum"],
+body.is-admin button[onclick^="deleteAlbum"],
+body.is-admin button[onclick^="window.deleteAlbum"],
+body.is-admin button[onclick^="moveToRating"],
+body.is-admin button[onclick^="editTodo"],
+body.is-admin .edit-btn,
+body.is-admin .btn-del {
+    display: inline-block !important;
+}
+
+/* Mobile media query: Also ensure admin buttons show on mobile */
+@media (max-width: 815px) {
+    body.is-admin .btn-del {
+        display: block !important;
+    }
+}
+
+/* Lista nézet */
+.excel-wrapper {
+    width: 170%;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+	
+	overflow-x: auto; /* Ez engedi a vízszintes görgetést */
+    background: #111;
+    border: 1px solid #444;
+    border-radius: 8px;
+    margin-top: 20px;
+    position: relative;
+}
+
+.excel-table {
+	width: 0;
+    min-width: 20%;
+    table-layout: fixed !important; /* kézi átméretezéshez */
+    border-collapse: collapse;
+    font-family: sans-serif;
+    font-size: 13px;
+    color: #ccc;
+}
+/* Oszlopméretező handle  */
+.resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 5px;
+    background: rgba(255, 255, 255, 0.05);
+    cursor: col-resize;
+    user-select: none;
+    z-index: 10;
+}
+
+.resizer:hover {
+    background: var(--accent);
+}
+
+.excel-table th {
+    position: relative;
+    background: #222;
+    color: var(--accent);
+    padding: 10px;
+    border: 1px solid #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+	min-width: 0 !important;
+    box-sizing: border-box !important;
+	cursor: pointer;
+    transition: background 0.2s;
+}
+
+.excel-table th:hover {
+    background: #333; 
+}
+
+.sort-asc::after {
+    content: " ▲";
+    color: var(--accent);
+    font-size: 0.9em;
+}
+
+.sort-desc::after {
+    content: " ▼";
+    color: var(--accent);
+    font-size: 0.9em;
+}
+
+.excel-table td {
+	min-width: 0 !important;
+	box-sizing: border-box !important;
+    padding: 8px;
+    border: 1px solid #222;
+    white-space: nowrap;
+    overflow: hidden !important;
+    text-overflow: ellipsis;
+	padding: 8px 2px !important;
+}
+.col-num { width: 40px; }
+.col-artist { width: 180px; }
+.col-album { width: 220px; }
+.col-year { width: 60px; }
+.col-genre { width: 150px; }
+.col-rec { width: 160px; }
+.col-score { width: 60px; }
+.col-review { width: 220px; }
+.col-trait { width: 70px; }
+.col-favsong { width: 200px; }
+.col-songurl { width: 80px; }
+.col-cover { width: 80px; }
+
+.excel-table th.col-review {
+    text-align: left !important;
+    padding-left: 10px !important; /* Egy kis hely, hogy ne érjen a vonalhoz */
+}
+
+.excel-table tr:nth-child(even) { background: #181818; }
+.excel-table tr:hover { background: #252525; }
+
+/* Komment oszlop korlátozása, hogy ne legyen túl széles a tábla */
+.col-review {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+td[contenteditable="true"]:focus {
+    outline: 2px solid var(--accent);
+    background: #222;
+    cursor: text;
+}
+
+/* Legördülő menük a táblázaton belül (Traits, Ajánló) */
+select.inline-edit {
+    width: 100%;
+    background: transparent;
+    color: inherit;
+    border: none;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+select.inline-edit option {
+    background: #222;
+    color: #fff;
+}
+
+/* CSAK ASZTALI NÉZETBEN LÁTSZÓDIK */
+@media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+@media (max-width: 815px) { /* mobil */
+	nav,
+	#nav-hover-zone {
+		display: none;
+	}
+
+	.mobile-menu-btn {
+		display: flex;
+		position: fixed;
+		top: 12px;
+		right: 12px;
+		width: 42px;
+		height: 42px;
+		align-items: center;
+		justify-content: center;
+		border: 1px solid var(--accent);
+		border-radius: 8px;
+		background: #252525;
+		color: var(--accent);
+		font-size: 22px;
+		font-weight: bold;
+		cursor: pointer;
+		z-index: 1200;
+	}
+
+	.mobile-sidebar-overlay {
+		display: block;
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.55);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.2s ease;
+		z-index: 1190;
+	}
+
+	.mobile-sidebar {
+		display: flex;
+		flex-direction: column;
+		position: fixed;
+		top: 0;
+		right: 0;
+		height: 100vh;
+		width: min(82vw, 320px);
+		padding: 14px 14px 22px;
+		background: #1c1c1c;
+		border-left: 1px solid #3a3a3a;
+		transform: translateX(100%);
+		transition: transform 0.22s ease;
+		z-index: 1200;
+		box-sizing: border-box;
+	}
+
+	.mobile-sidebar-header {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 6px 4px 12px;
+		border-bottom: 1px solid #333;
+		margin-bottom: 12px;
+	}
+
+	.mobile-sidebar-header img {
+		width: 30px;
+		height: 30px;
+	}
+
+	.mobile-sidebar-links {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.mobile-sidebar-links button {
+		width: 100%;
+		text-align: left;
+		background: none;
+		border: 1px solid var(--accent);
+		color: var(--accent);
+		padding: 10px 12px;
+		cursor: pointer;
+		border-radius: 6px;
+		font-weight: bold;
+	}
+
+	.mobile-sidebar-links button.active {
+		background: var(--accent);
+		color: #000;
+	}
+
+	.mobile-sidebar-footer {
+		margin-top: auto;
+		padding-top: 12px;
+		border-top: 1px solid #333;
+	}
+
+	.mobile-sidebar-auth-btn {
+		width: 100%;
+		text-align: center;
+		background: var(--accent);
+		border: 1px solid var(--accent);
+		color: #000;
+		padding: 10px 12px;
+		cursor: pointer;
+		border-radius: 6px;
+		font-weight: bold;
+	}
+
+	body.mobile-menu-open {
+		overflow: hidden;
+	}
+
+	body.mobile-menu-open .mobile-sidebar-overlay {
+		opacity: 1;
+		pointer-events: auto;
+	}
+
+	body.mobile-menu-open .mobile-sidebar {
+		transform: translateX(0);
+	}
+
+    /* 2. Űrlapok: Oszlopba rendezzük */
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .form-row input, .form-row select, .form-row button {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 1.1em; /* Kényelmesebb gépelés mobilon */
+        padding: 15px;
+    }
+
+    /* 3. Teccett-e grid űrlapnál: 2 oszlopos */
+    #traitInputs {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* ==========================================
+       4. ALBUM KÁRTYÁK MOBILON (Banner stílus) 
+       ========================================== */
+    .album-card {
+        flex-direction: column;
+        position: relative;
+    }
+    
+    /* Sorszám a banner bal felső sarkában */
+    .row-number {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 35px;
+        width: 45px;
+        font-size: 1.1em;
+        border-bottom-right-radius: 10px;
+        z-index: 10;
+        background: rgba(0,0,0,0.8);
+        color: var(--accent);
+    }
+
+    /* Fejléc-szerű borító: teljes szélesség, fix 140px magasság (kb 1/3) */
+    .album-art-container {
+        width: 100%;
+        min-width: 100%;
+        height: 180px; /* reduced from 350px to make header shorter */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Elmosott háttér, ami kitölti a bannert */
+    .album-art-blur {
+        position: absolute;
+        width: 110%;
+        height: 110%;
+        object-fit: cover;
+        filter: blur(10px) brightness(0.4); /* Kicsit sötétebb, hogy a borító jobban kiugorjon */
+        z-index: 1;
+    }
+    
+    /* Éles borítókép középen */
+    .album-art {
+        width: 140px;  /* half of previous 280px */
+        height: 140px;
+        object-fit: cover;
+        z-index: 2;
+        border-radius: 6px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+    }
+
+    /* --- Nagyobb betűk és elrendezés az adatoknál --- */
+    .album-info {
+		display: flex !important;
+		flex-direction: column !important;
+		padding: 15px 12px;
+		position: relative;
+		box-sizing: border-box;
+	}
+    
+    .artist-name {
+        display: block;
+        margin-bottom: 4px;
+        max-width: 90%;
+        white-space: normal;
+        font-size: clamp(1rem, 3vw, 1.4rem);
+    }
+    
+    .album-info p {
+        font-size: 1em; 
+        margin: 0 0 8px 0;
+    }
+
+    .album-info p strong {
+        font-size: 0.95em;
+        font-weight: 600;
+    }
+
+    .todo-artist {
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
+        font-weight: 800;
+        white-space: normal;
+    }
+
+    .todo-album {
+        font-size: clamp(1rem, 2.5vw, 1.3rem);
+        font-weight: 700;
+        margin-top: 4px;
+    }
+
+    .todo-album strong {
+        font-size: inherit;
+    }
+    
+	.album-info small {
+        display: block; 
+        font-size: 0.95em;
+        color: #aaa;
+        margin-top: 2px;
+        margin-bottom: 18px; 
+        padding-bottom: 12px; 
+        border-bottom: 1px dashed #444; 
+    }
+
+    .score-badge {
+        position: absolute;
+        top: 20px;
+        right: 15px;
+        font-size: 1.2em;
+        padding: 10px 15px;
+    }
+    
+    .btn-snap {
+        position: absolute;
+        top: 75px;
+        right: 25px;
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+    }
+
+    .review-text {
+        font-size: 1.05em;
+        margin-top: 0px;
+        line-height: 1.5;
+    }
+    
+    /* --- MOBIL 3x2-ES ELRENDEZÉS --- */
+	.traits-container {
+		display: grid !important;
+		/* 3 egyenlő oszlopot hozunk létre */
+		grid-template-columns: repeat(3, 1fr) !important;
+		gap: 10px !important;
+		width: 100% !important;
+		padding: 10px 0 !important;
+		justify-items: center !important;
+	}
+
+	.traits-title {
+		/* A cím elfoglalja mind a 3 oszlopot (széltől szélig) */
+		grid-column: span 3 !important;
+		text-align: center !important;
+		font-size: 0.85em !important;
+		color: var(--accent);
+		width: 100%;
+		letter-spacing: 2px;
+    	margin-bottom: 5px !important;
+	}
+
+	.trait-pill {
+		/* Itt már nem kell margin, a grid intézi a távolságot */
+		margin: 0 !important;
+		width: 100% !important;
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: center !important;
+		justify-content: center !important;
+		padding: 10px 4px !important;
+		background: rgba(255, 255, 255, 0.03); /* Egy leheletnyi háttér a rendezettségért */
+		border-radius: 8px;
+	}
+
+	.trait-name {
+		font-size: 1em !important; /* Kicsit kisebb, hogy elférjenek a hosszú szavak (RIFFEK) */
+		margin-bottom: 2px !important;
+		opacity: 0.8;
+	}
+
+	/* Az értékek (PEAK, MID, stb.) stílusa */
+	.trait-pill span:not(.trait-name) {
+		font-size: 1.5em !important;
+		font-weight: bold;
+		letter-spacing: 0.5px;
+	}
+
+	.song-container {
+		font-size: 1.1em;
+		margin-top: 15px;
+	}
+
+   .recommender-container {
+        position: absolute !important;
+        top: 74px !important;
+        right: 15px !important;
+        width: auto !important;
+        background: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        text-align: right !important;
+        display: block !important;
+        z-index: 5;
+    }
+
+    .rec-label {
+        display: block !important;
+        font-size: 0.6rem !important;
+        text-transform: uppercase;
+        color: #888 !important;
+        line-height: 1;
+        margin-bottom: 2px;
+    }
+
+    .rec-title {
+        display: block !important;
+        font-size: 0.75rem !important;
+        font-weight: bold !important;
+        color: inherit !important;
+        line-height: 1;
+    }
+
+    .rec-subtitle {
+        display: none !important;
+    }
+
+    .btn-snap {
+        position: absolute !important;
+        top: 105px !important; 
+        right: 15px !important;
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 16px !important;
+    }
+
+    /* Törlés gomb (kártya alján egy nagy, kényelmes sáv) */
+    .btn-del {
+        display: none;
+        width: 100%;
+        text-align: center;
+        margin-top: 20px;
+        background: rgba(255, 68, 68, 0.1);
+        padding: 15px;
+        font-size: 1.3em;
+        border-radius: 6px;
+    }
+
+    body.is-admin .btn-del {
+        position: relative;
+        bottom: 0;
+        right: 0;
+        display: block;
+    }
+	.info-btn {
+			width: 25px !important;
+			height: 25px !important;
+			min-width: 25px !important; /* Megakadályozza, hogy összenyomják */
+			flex: 0 0 25px !important;  /* Tiltja a flexbox-os nyúlást */
+			margin: 5px auto !important; /* Középre teszi a sorban, ha szükséges */
+			border-radius: 50% !important;
+			padding: 0 !important;
+			display: flex !important;
+			align-items: center;
+			justify-content: center;
+		}
+
+}
+
+@keyframes peak-pulsing {
+  0% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+	transform: scale(1);
+  }
+  50% { 
+    text-shadow: 0 0 12px rgba(255, 204, 0, 1), 0 0 25px rgba(255, 204, 0, 0.4);
+    transform: scale(1.02); /* Egy picit meg is nő a lüktetésnél */
+  }
+  100% { 
+    text-shadow: 0 0 8px rgba(255, 204, 0, 0.6);
+ 	transform: scale(1);
+  }
+}
+
+@keyframes poop-shake {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(0.7px, 0.7px) rotate(1deg); }
+  50% { transform: translate(-0.7px, -0.7px) rotate(-1deg); }
+  75% { transform: translate(0.7px, -0.7px) rotate(1.5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+.new-entry-row {
+    border: 2px dashed var(--accent);
+    background: #1a261b !important; /* Kicsit zöldes háttér */
+}
+
+td[contenteditable="true"]:empty::before {
+    content: attr(placeholder);
+    color: #555;
+    pointer-events: none;
+    font-style: italic;
+}
+
+.back-to-top-btn {
+	position: fixed;
+	right: 18px;
+	bottom: 18px;
+	width: 36px;
+	height: 36px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	border: 1px solid #444;
+	background: #252525;
+	color: var(--accent);
+	font-size: 18px;
+	font-weight: bold;
+	cursor: pointer;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+	z-index: 950;
+	transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.back-to-top-btn:hover {
+	transform: translateY(-2px);
+	border-color: var(--accent);
+}
+
+	</style>
+</head>
+<body>
+
+<div id="lightbox" onclick="this.style.display='none'"><img id="lb-img" src=""></div>
+
+<button type="button" class="mobile-menu-btn" aria-label="Menü" title="Menü" onclick="window.toggleMobileMenu()">☰</button>
+<div class="mobile-sidebar-overlay" onclick="window.closeMobileMenu()"></div>
+<aside class="mobile-sidebar" aria-label="Mobil menü">
+	<div class="mobile-sidebar-header">
+		<img src="favicon.svg" alt="Logo">
+		<span>
+			<span class="slime-text">Slop</span> Library
+		</span>
+	</div>
+	<div class="mobile-sidebar-links">
+		<button onclick="showPage('library')" data-nav-target="library" class="active">KÖNYVTÁR</button>
+		<button onclick="showPage('gallery')" data-nav-target="gallery">GALÉRIA</button>
+		<button onclick="showPage('listView')" data-nav-target="listView" class="desktop-only">LISTA NÉZET</button>
+		<button onclick="showPage('todo')" data-nav-target="todo">TO-DO</button>
+		<button onclick="showPage('stats')" data-nav-target="stats">STATISZTIKÁK</button>
+		<button onclick="showPage('settings')" data-nav-target="settings" class="admin-only">BEÁLLÍTÁSOK</button>
+		<button type="button" onclick="location.href='./kerekasztal.html'">KEREK</button>
+		<button onclick="showPage('info')" data-nav-target="info" class="info-btn" title="Infó a Könyvtárról">i</button>
+	</div>
+	<div class="mobile-sidebar-footer">
+		<button id="mobileAuthBtn" type="button" class="mobile-sidebar-auth-btn" onclick="window.handleMobileSidebarAuth()">BEJELENTKEZÉS</button>
+	</div>
+</aside>
+
+<div id="nav-hover-zone"></div>
+<nav>
+    <div class="nav-logo" onclick="handleTitleClick()" style="cursor:pointer;">
+        <img src="favicon.svg" alt="Logo">
+        <span>
+            <span class="slime-text">Slop</span> Library
+        </span>
+    </div>
+    <div class="nav-links">
+		<button onclick="showPage('library')" id="nav-library" data-nav-target="library" class="active">KÖNYVTÁR</button>
+		<button onclick="showPage('gallery')" id="nav-gallery" data-nav-target="gallery">GALÉRIA</button>
+		<button onclick="showPage('listView')" id="nav-listView" data-nav-target="listView" class="desktop-only">LISTA NÉZET</button>
+		<button onclick="showPage('todo')" id="nav-todo" data-nav-target="todo">TO-DO</button>
+		<button onclick="showPage('stats')" id="nav-stats" data-nav-target="stats">STATISZTIKÁK</button>
+		<button onclick="showPage('settings')" id="nav-settings" data-nav-target="settings" class="admin-only">BEÁLLÍTÁSOK</button>
+		<button type="button" onclick="location.href='./kerekasztal.html'" id="nav-kerek">KEREK</button>
+		<button onclick="showPage('info')" id="nav-info" data-nav-target="info" class="info-btn" title="Infó a Könyvtárról">i</button>
+	</div>
+</nav>
+
+<div class="container">
+	<div id="library" class="page active">
+		<div class="form-row">
+			<button onclick="toggleMod('add')" class="ctrl-btn admin-only">+ ÚJ BEJEGYZÉS</button>
+			<button onclick="toggleMod('search')" class="ctrl-btn">SZŰRÉS</button>
+			<button onclick="resetFilters()" class="ctrl-btn" style="border-color: #666; color: #aaa;">ALAPHELYZET</button>
+		</div>
+
+		<div id="spotifyModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10001; justify-content:center; align-items:center; padding:20px;">
+			<div style="background:#1a1a1a; padding:25px; border-radius:12px; border:1px solid #1DB954; max-width:500px; width:100%; position:relative;">
+				<span onclick="closeSpotifyModal()" style="position:absolute; top:10px; right:15px; cursor:pointer; color:#888;">✖</span>
+				<h3 id="modalTitle" style="color:#1DB954; margin-top:0;">Spotify Import</h3>
+				
+				<div id="spotifyLinkStep">
+					<p style="font-size:0.9em; color:#aaa;">Másold be az album linkjét:</p>
+					<input type="text" id="spLink" placeholder="https://open.spotify.com/album/..." style="width:100%; padding:12px; background:#111; border:1px solid #444; color:white; border-radius:6px; margin-bottom:15px;">
+					<button onclick="fetchSpotifyAlbum()" class="ctrl-btn" style="width:100%; background:#1DB954; color:white; border:none;">ALBUM KERESÉSE</button>
+				</div>
+
+				<div id="spotifyTrackStep" style="display:none;">
+					<p style="font-size:0.9em; color:#aaa;">Válaszd ki a kedvenc dalodat:</p>
+					<div id="trackList" style="max-height:300px; overflow-y:auto; border:1px solid #333; border-radius:6px; background:#111;">
+						</div>
+				</div>
+			</div>
+		</div>
+		
+		<div id="mod-add" class="module-box">
+			<div style="margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between;">
+				<span style="font-size: 0.8rem; color: #888; font-weight: bold; letter-spacing: 1px;">SPOTIFY ADATKINYERŐ</span>
+				<button id="btn-sp-import" onclick="authSpotify()" class="ctrl-btn" style="background: #1DB954; color: white; border: none; padding: 5px 15px; font-size: 0.75rem; display: flex; align-items: center; gap: 8px;">
+					<img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" style="width:14px;"> 
+					IMPORTÁLÁS
+				</button>
+			</div>
+			<div class="form-row" style="flex-wrap: wrap; gap: 10px;">
+				<input type="text" id="inArtist" placeholder="Előadó">
+				<input type="text" id="inAlbum" placeholder="Album">
+				<input type="text" id="inCover" placeholder="Borító URL">
+				
+				<div style="display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px; border: 1px solid #444; flex: 1; min-width: 200px;">
+					<span style="font-size: 0.8rem; color: #888; margin-right: 10px; white-space: nowrap;">Vagy fájl:</span>
+					<input type="file" id="fileCover" accept="image/*" style="font-size: 0.8rem; background: transparent; border: none; color: #ccc; cursor: pointer;">
+				</div>
+			</div>
+			<div id="ratingFields">
+				<div class="form-row">
+					<input type="number" id="inYear" placeholder="Év">
+					<input type="text" id="inGenre" placeholder="Műfajok">
+				<label style="display:block; margin-top:10px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
+				<select id="inRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
+					<option value="">-- Saját felfedezés --</option>
+				</select>
+					<input type="number" id="inScore" placeholder="Pont" step="0.1">
+				</div>
+				<div class="form-row">
+					<input type="text" id="inFavSong" placeholder="Kiemelt dal címe">
+					<input type="text" id="inSongUrl" placeholder="Link a dalhoz">
+			<label>Hozzáadás dátuma (vagy Ősidőkben, ha üres):</label>
+			<input type="date" id="inDate" style="width:100%; padding:10px; margin-bottom:10px; background:#111; border:1px solid #444; color:white; border-radius:5px;">
+				</div>
+				<textarea id="inReview" placeholder="Vélemény..."></textarea>
+				
+				<div style="margin-top:15px; border-top:1px solid #444; padding-top:10px;">
+					<h4 style="margin:0 0 10px 0; color:var(--accent); font-size:14px;">Teccet-e? (Traits)</h4>
+					<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;" id="traitInputs">
+					<div>
+						<label style="font-size:11px; display:block;">Riffek</label>
+						<select id="t_riff" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Vox</label>
+						<select id="t_vox" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Dobok</label>
+						<select id="t_dob" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Mix</label>
+						<select id="t_mix" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Szöveg</label>
+						<select id="t_szoveg" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+					<div>
+						<label style="font-size:11px; display:block;">Vibe</label>
+						<select id="t_vibe" class="trait-sel">
+							<option value="Volt??">Volt??</option>
+							<option value="Poop">Poop</option>
+							<option value="Nem">Nem</option>
+							<option value="Meh" selected>Meh</option>
+							<option value="Igen">Igen</option>
+							<option value="Peak">Peak</option>
+						</select>
+					</div>
+				</div>
+			</div>
+				
+			</div>
+			<div class="form-row">
+				<input type="hidden" id="inTarget" value="library">
+				<button onclick="saveAlbum()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:2;">MENTÉS A KÖNYVTÁRBA</button>
+			</div>
+		</div>
+
+		<div id="mod-search" class="module-box" style="display:none;">
+			<div class="form-row">
+				<input type="text" id="gSearch" placeholder="Keresés..." oninput="currentPage=1; runFilter()">
+				<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
+				<select id="fYear" onchange="currentPage=1; runFilter()"><option value="">Összes év</option></select>
+				<select id="fGenre" onchange="currentPage=1; runFilter()"><option value="">Minden műfaj</option></select>
+			</div>
+			<div class="form-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
+				<span style="font-size: 0.8em; color: var(--accent); font-weight: bold;">RENDEZÉS:</span>
+				<select id="sortField" onchange="currentPage=1; runFilter()" style="flex: 2;">
+					<option value="id">Hozzáadás sorrendje (Alapértelmezett)</option>
+					<option value="artist">Előadó név</option>
+					<option value="album">Album cím</option>
+					<option value="year">Évszám</option>
+					<option value="genre">Műfaj</option>
+					<option value="score">Pontszám</option>
+				</select>
+				<button onclick="toggleSortOrder()" class="ctrl-btn" style="max-width: 50px;" title="Irány megfordítása">
+					<span id="sortDirIcon">▼</span>
+				</button>
+			</div>
+		</div>
+		<div id="listContainer"></div>
+		<button
+			type="button"
+			class="back-to-top-btn"
+			title="Ugrás az oldal tetejére"
+			aria-label="Ugrás az oldal tetejére"
+			onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+		>
+			↑
+		</button>
+	</div>
+	<div id="gallery" class="page">
+		<div class="form-row" style="margin-bottom: 10px;">
+			<input type="text" id="galleryFilterArtist" placeholder="Előadó neve..." oninput="renderGallery()" style="flex: 1;">
+			<input type="text" id="galleryFilterGenre" placeholder="Műfaj..." oninput="renderGallery()" style="flex: 1;">
+			<select id="galleryFilterRating" onchange="renderGallery()" style="flex: 1;">
+				<option value="">Összes értékelés</option>
+				<option value="1">1</option>
+				<option value="1.5">1.5</option>
+				<option value="2">2</option>
+				<option value="2.5">2.5</option>
+				<option value="3">3</option>
+				<option value="3.5">3.5</option>
+				<option value="4">4</option>
+				<option value="4.5">4.5</option>
+				<option value="5">5</option>
+				<option value="5.5">5.5</option>
+				<option value="6">6</option>
+				<option value="6.5">6.5</option>
+				<option value="7">7</option>
+				<option value="7.5">7.5</option>
+				<option value="8">8</option>
+				<option value="8.5">8.5</option>
+				<option value="9">9</option>
+				<option value="9.5">9.5</option>
+				<option value="10">10</option>
+			</select>
+			<button onclick="document.getElementById('galleryFilterArtist').value=''; document.getElementById('galleryFilterGenre').value=''; document.getElementById('galleryFilterRating').value=''; renderGallery();" class="ctrl-btn" style="max-width: 100px;">RESET</button>
+			<button onclick="window.toggleGalleryDetailsMode()" id="btnGalleryDetails" class="ctrl-btn" style="max-width: 120px;">RÉSZLETEK</button>
+			<button onclick="window.toggleRainbowMode()" id="btnRainbow" class="ctrl-btn" style="max-width: 150px; border: 2px solid; border-image: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet) 1; background: #111; color: #fff;">Szivárvány Rács</button>
+		</div>
+		<div id="galleryContainer" class="gallery-container"></div>
+		<button onclick="downloadGalleryAsImage()" class="ctrl-btn" style="background: #555; color: #fff; margin-top: 20px;">
+		    GALÉRIA MENTÉSE KÉPKÉNT
+		</button>
+	</div>
+	<div id="listView" class="page">
+		<div class="form-row" style="margin-bottom: 15px;">
+			<button onclick="addNewListRow()" class="ctrl-btn admin-only" style="background: var(--accent); color: #000; border: none; max-width: 250px;">
+				+ BEJEGYZÉS
+			</button>
+		</div>
+		<div class="excel-wrapper">
+			<table class="excel-table">
+				<thead>
+					<tr>
+						<th class="col-num" onclick="sortExcelTable(event, 'id', this)">#</th>
+						<th class="col-artist" onclick="sortExcelTable(event, 'artist', this)">Előadó</th>
+						<th class="col-album" onclick="sortExcelTable(event, 'album', this)">Album</th>
+						<th class="col-year" onclick="sortExcelTable(event, 'year', this)">Év</th>
+						<th class="col-genre" onclick="sortExcelTable(event, 'genre', this)">Műfajok</th>
+						<th class="col-rec" onclick="sortExcelTable(event, 'recommender', this)">Ajánló</th>
+						<th class="col-score" onclick="sortExcelTable(event, 'myScore', this)">Pont</th>
+						<th class="col-review" onclick="sortExcelTable(event, 'review', this)">Komment</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.riff', this)">RIFF</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.vox', this)">VOX</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.dob', this)">DOB</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.mix', this)">MIX</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.szoveg', this)">SZÖV</th>
+						<th class="col-trait" onclick="sortExcelTable(event, 'traits.vibe', this)">VIBE</th>
+						<th class="col-favsong" onclick="sortExcelTable(event, 'favSong', this)">Kedvenc Dal</th>
+						<th class="col-songurl" onclick="sortExcelTable(event, 'songUrl', this)">Link</th>
+						<th class="col-cover" onclick="sortExcelTable(event, 'coverUrl', this)">Borító</th>
+					</tr>
+				</thead>
+				<tbody id="excelBody">
+					</tbody>
+			</table>
+		</div>
+	</div>
+	<div id="todo" class="page">
+		<div class="form-row">
+			<button onclick="toggleMod('addTodo')" class="ctrl-btn admin-only" style="margin-bottom: 15px;">+ ÚJ TO-DO</button>
+		</div>
+
+		<div id="mod-addTodo" class="module-box" style="display: none;">
+			<div class="form-row" style="background: rgba(29, 185, 84, 0.1); padding: 10px; border-radius: 6px; border: 1px solid #1DB954; margin-bottom: 15px;">
+		        <input type="text" id="todoSpotifyLink" placeholder="Spotify album link beillesztése ide..." style="flex: 1; border-color: #1DB954; margin-bottom: 0;">
+		        <button onclick="fetchSpotifyForTodo()" class="ctrl-btn" style="background: #1DB954; color: #fff; width: auto; padding: 0 15px; margin-left: 10px;">🎧 BETÖLTÉS</button>
+		    </div>
+			<div class="form-row">
+				<input type="text" id="todoArtist" placeholder="Előadó">
+				<input type="text" id="todoAlbum" placeholder="Album">
+				<input type="text" id="todoCover" placeholder="Borító URL">
+			</div>
+			<div class="form-row">
+				<input type="number" id="todoYear" placeholder="Év">
+				<input type="text" id="todoGenre" placeholder="Műfajok">
+			</div>
+			<div class="form-row">
+				<input type="text" id="todoLink" placeholder="Album link (Bandcamp, YouTube, stb.)">
+			</div>
+			<div class="form-row" style="align-items: flex-end;">
+				<div style="flex: 1;">
+					<label style="display:block; margin-top:5px; font-size:0.8em; color:var(--accent);">AJÁNLOTTA:</label>
+					<select id="todoRec" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;">
+						<option value="">-- Saját felfedezés --</option>
+					</select>
+				</div>
+				<button onclick="saveTodoOnly()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:1; height: 42px;">TO-DO MENTÉSE</button>
+			</div>
+		</div>
+
+		<div id="todoContainer"></div>
+	</div>
+
+	<div id="stats" class="page">
+		<div class="stats-grid">
+
+
+			<div class="stat-card full-width">
+				<h3>Idővonal</h3>
+				<div style="height:300px">
+					<canvas id="cYear"></canvas>
+				</div>
+			</div>
+
+		   
+			<div class="stat-card full-width stats-summary" style="display: flex; justify-content: space-around; text-align: center; padding: 20px 0; background: #252525; border: 1px solid #333;">
+				<div class="stats-summary-item is-interactive" onclick="navigateToGalleryByDateAdded()" style="cursor: pointer;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Albumok</small>
+					<div id="stat-total-albums" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div class="stats-summary-item is-interactive" onclick="navigateToArtistsView()" style="cursor: pointer;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Előadók</small>
+					<div id="stat-total-artists" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div class="stats-summary-item is-interactive" onclick="navigateToGenresView()" style="cursor: pointer;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Műfajok</small>
+					<div id="stat-total-genres" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div class="stats-summary-item" style="cursor: default;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz Átl.</small>
+					<div id="stat-avg-score" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div class="stats-summary-item is-interactive book-cursor" onclick="openReviewDigest()" aria-label="Osszes review megnyitasa" title="Osszes review megnyitasa">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz yap</small>
+					<div id="stat-total-yap" style="font-size: 1.6em; font-weight: bold; color: #fff;">0 szó</div>
+				</div>
+				<div class="stats-summary-item" style="cursor: default;">
+					<small style="color:#ff4444; text-transform: uppercase; letter-spacing: 1px;">Hiányos</small>
+					<div id="stat-incomplete" style="font-size: 1.6em; font-weight: bold; color: #ffaaaa;">0</div>
+				</div>
+			</div>
+
+
+			<div class="stat-card">
+				<h3>Műfajok eloszlása</h3>
+				<div style="height:400px">
+					<canvas id="cGenre"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card">
+				<h3>Slop-O-Meter</h3>
+				<div style="height:350px; width:120px; margin:auto;">
+					<canvas id="cSlop"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card full-width">
+				<h3>Értékelések eloszlása</h3>
+				<div style="height: 220px; width: 97%;">
+					<canvas id="cScoreDist"></canvas>
+				</div>
+			</div>
+
+			<div class="stat-card">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+				<h3 id="topTitle" style="margin: 0;">Top 10</h3>
+					<button onclick="toggleTopSort()" class="ctrl-btn" style="max-width: 40px; padding: 5px; margin: 0; display: flex; align-items: center; justify-content: center;" title="Sorrend megfordítása">
+					<span id="sortIcon">⇅</span>
+					</button>
+				</div>
+				<div class="top-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:25px;">
+					<div>
+						<h4 style="color:var(--accent); border-bottom: 1px solid #333; padding-bottom: 5px;">Műfajok</h4>
+						<ul id="topG" class="clickable-list"></ul>
+					</div>
+					<div>
+						<h4 style="color:var(--accent); border-bottom: 1px solid #333; padding-bottom: 5px;">Évek</h4>
+						<ul id="topY" class="clickable-list"></ul>
+					</div>
+				</div>
+			</div>
+
+
+					<div class="stat-card">
+						<h3>Ajánlások adatai</h3>
+							<ul id="listRecStats" class="clickable-list" style="display: flex; flex-direction: column; gap: 10px;">
+								</ul>
+					</div>
+
+					<div class="stat-card full-width">
+						<h3>Teccett-e?</h3>
+						<div style="height: 300px; position: relative;">
+							<canvas id="chartTraits"></canvas>
+						</div>
+					</div>
+
+					<div class="stat-card full-width">
+							<h3>Ritkaságok</h3>
+							<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
+					</div>
+						
+					<div style="text-align: center; margin-top: 30px;">
+					<button onclick="captureStats(event)" class="ctrl-btn" style="background: var(--accent); color: #000; max-width: 300px;">
+						STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
+					</button>
+					<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
+				</div>
+		</div>
+
+		<div id="artists-view" style="display:none;">
+			<div style="padding: 20px;">
+				<div style="display: flex; align-items: center; margin-bottom: 20px; gap: 10px;">
+					<button onclick="backToMainStats()" class="ctrl-btn" style="padding: 8px 16px;">← Vissza</button>
+					<h2 style="margin: 0;">Előadók</h2>
+				</div>
+				<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+					<button onclick="sortArtistsBy('name')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Név <span id="artistNameSort">⇅</span></button>
+					<button onclick="sortArtistsBy('count')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Albumok <span id="artistCountSort">⇅</span></button>
+					<button onclick="sortArtistsBy('rating')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Átlag <span id="artistRatingSort">⇅</span></button>
+				</div>
+				<div id="artistsContainer" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
+			</div>
+		</div>
+
+		<div id="genres-view" style="display:none;">
+			<div style="padding: 20px;">
+				<div style="display: flex; align-items: center; margin-bottom: 20px; gap: 10px;">
+					<button onclick="backToMainStats()" class="ctrl-btn" style="padding: 8px 16px;">← Vissza</button>
+					<h2 style="margin: 0;">Műfajok</h2>
+				</div>
+				<div style="display: flex; gap: 10px; margin-bottom: 15px;">
+					<button onclick="sortGenresBy('name')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Név <span id="genreNameSort">⇅</span></button>
+					<button onclick="sortGenresBy('count')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Albumok <span id="genreCountSort">⇅</span></button>
+					<button onclick="sortGenresBy('rating')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Átlag <span id="genreRatingSort">⇅</span></button>
+				</div>
+				<div id="genresContainer" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
+			</div>
+		</div>
+
+		<div id="reviewDigestModal" class="review-digest-modal" onclick="handleReviewDigestOverlayClick(event)">
+			<div class="review-digest-sheet" role="dialog" aria-modal="true" aria-labelledby="reviewDigestTitle">
+				<div class="review-digest-header">
+					<h2 id="reviewDigestTitle">All Reviews</h2>
+					<button type="button" class="review-digest-close" onclick="closeReviewDigest()">Bezárás</button>
+				</div>
+				<div id="reviewDigestContent" class="review-digest-content"></div>
+			</div>
+		</div>
+	</div>
+</div>
+
+	<div id="settings" class="page">
+
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Ritkasági küszöb</h3>
+			<div class="form-row">
+				<input type="number" id="setRareLimit" onchange="rareLimit=parseInt(this.value); window.saveToFirebase(); window.renderSettings();">
+				<span>(Ennél kevesebb albummal rendelkező műfajok számítanak ritkának)</span>
+			</div>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Slop műfajok beállítása</h3>
+			<div id="setG" style="max-height:300px; overflow-y:auto; padding-right:10px;"></div>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>CSV Import</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">artist;album;year;genre;score;cover;review;favorite;link</p>
+			<input type="file" id="csvFileInput" accept=".csv" style="margin-bottom: 10px;">
+			<button onclick="handleCSV()" class="ctrl-btn" style="background:var(--accent); color:#000;">IMPORTÁLÁS</button>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Szivárvány Rács (Színek elemzése)</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">Végigmegy az albumokon, és kiszámolja a borítók domináns színét. Ezt csak egyszer kell lefuttatni a már meglévő képeknél!</p>
+			<button id="btnColorHarvester" onclick="runColorHarvester()" class="ctrl-btn" style="background: linear-gradient(to right, #ff4444, #ffcc00, #44ff44, #4444ff); color:#000; border:none; font-weight:bold;">
+				SZÍNEK FELDOLGOZÁSA
+			</button>
+		</div>
+		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
+	</div>
+	<div id="info" class="page">
+    <div class="info-content">
+        <h2 style="color: var(--accent); margin-top: 0; text-transform: uppercase;">A Moslék Könyvtárról</h2>
+        
+        <p>Kedves látogató,</p>
+        
+        <p>Először is, ha nem kerekasztal tag vagy: hogyan a faszba kerültél ide? xddd</p>
+        
+        <p>Másodszor is: Velkám ürdüngök és ürdünginák! 🤘</p>
+        
+        <p>Ez a Slop Library, avagy a Moslék Könyvtáram weboldala, webappja (fogalmam sincsen mi a megfelelő megnevezés), ahol a RYM-el párhuzamosan gyűjtöm és naplózom az általam hallgatott muzsikákat.</p>
+        
+        <p>Minek gyűjtöm? Mert adatok. <strong>ADATOK!!</strong><br>
+        MIért nem elég a RYM? Mert alig ad valami statisztikát az általam értékelt zenékről, valamint egy nyilvános komment vagy hozzászólás nélkül nem lehet kifejteni benne a pontosabb véleményem az adott anyagról.</p>
+        
+        <p>Itt pár szóban - az utókor és önmagam kedvéért - ki tudom fejteni mit gondolok, valamint a hat "Teccett-e" trait-ek osztályozásával gyorsan és érthetően keretbe tudom foglalni az adott zenebona főbb karakterisztikáiról alkotott véleményem. Mindezt egy hosszasan kifejtett kritika írása nélkül, egyszerű vizuális visszajelzésekkel.</p>
+        
+        <p>Mindemellett drága kis társaságom számára könnyebben és stílusosabban meg tudom osztani a véleményem egy vitatott lemezről, enélkül, hogy a RYM oldalán kellene navigálni.</p>
+        
+		<p style="color: var(--accent); font-weight: bold; font-size: 1.2em; margin-top: 30px;">Üdvözlet és Fém!</p>
+		
+		<hr style="border: 0; border-top: 1px solid #444; margin: 30px 0;">
+
+		<p style="font-size: 1.2em; color: #888; text-transform: uppercase; letter-spacing: 1px;">
+			Ez az oldal részben AI segítségével készült!
+		</p>
+
+
+
+		<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px;">
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: var(--accent); font-weight: bold; font-size: 1.2em;">~0.6 kWh</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Elpazarolt Áram</span>
+			</div>
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: #44aaff; font-weight: bold; font-size: 1.2em;">~1 dl</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Szerverhűtő Víz</span>
+			</div>
+			<div style="text-align: center; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid #333;">
+				<span style="display: block; color: var(--success); font-weight: bold; font-size: 1.2em;">~351h</span>
+				<span style="font-size: 1.0rem; color: #888; text-transform: uppercase;">Erre pazarolt munkaóra</span>
+			</div>
+		</div>
+
+		<p style="font-size: 0.8em; font-style: italic; color: #666; margin-top: 15px;">
+			*A becslés 200 komplex fejlesztői prompt és a szerverközpontok átlagos fogyasztása alapján készült.
+		</p>
+		
+    </div>
+</div>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
+
+
+
+
