@@ -1,4 +1,4 @@
-import { getCountryFlag } from "../core/constants.js";
+import { getCountryFlag } from "../core/countries.js";
 
 export function registerListAndTodoComponents({
     getAlbums,

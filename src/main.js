@@ -1,5 +1,6 @@
 import { db, auth, storage, provider, doc, getDoc, setDoc, signInWithPopup, onAuthStateChanged, signOut, ref, uploadBytes, getDownloadURL } from "./core/firebase.js";
 import { TRAIT_VALUES, TRAIT_ORDER, recommenders } from "./core/constants.js";
+import { normalizeCountryCode } from "./core/countries.js";
 import { state } from "./state/appState.js";
 import { initSpotifyService } from "./features/spotifyService.js";
 import { registerCsvImport } from "./features/csvImportService.js";
@@ -53,6 +54,28 @@ window.openMobileMenu = function() {
     document.body.classList.add("mobile-menu-open");
 };
 
+window.normalizeCountryInput = function(inputEl) {
+    if (!inputEl || !inputEl.value.trim()) return;
+    const raw = inputEl.value.trim();
+    if (/^[A-Za-z]{3}$/.test(raw)) {
+        inputEl.value = raw.toUpperCase();
+    } else {
+        const normalized = normalizeCountryCode(raw);
+        if (normalized) inputEl.value = normalized;
+    }
+};
+
+window.normalizeCountryCell = function(cell) {
+    if (!cell || !cell.innerText.trim()) return;
+    const raw = cell.innerText.trim();
+    if (/^[A-Za-z]{3}$/.test(raw)) {
+        cell.innerText = raw.toUpperCase();
+    } else {
+        const normalized = normalizeCountryCode(raw);
+        if (normalized) cell.innerText = normalized;
+    }
+};
+
 window.closeMobileMenu = function() {
     document.body.classList.remove("mobile-menu-open");
 };
@@ -86,7 +109,7 @@ window.addNewListRow = function() {
         <td contenteditable="true" class="new-val-artist" placeholder="Eloado..." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-album" placeholder="Album..." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-year" placeholder="Ev" style="background:#222;"></td>
-        <td contenteditable="true" class="new-val-country" placeholder="Orsz." style="background:#222;"></td>
+        <td contenteditable="true" class="new-val-country" placeholder="Orsz." style="background:#222;" onblur="window.normalizeCountryCell(this)"></td>
         <td contenteditable="true" class="new-val-genre" placeholder="Mufaj" style="background:#222;"></td>
         <td><select class="inline-edit new-val-rec">${buildRecommenderOptions()}</select></td>
         <td contenteditable="true" class="new-val-score" placeholder="Pont" style="background:#222;"></td>
@@ -136,7 +159,12 @@ window.saveInlineNewRow = async function(tr) {
         artist: val("artist"),
         album: val("album"),
         year: val("year") ? Number(val("year")) : "",
-        country: val("country") ? val("country").trim().toUpperCase() : "",
+        country: (() => {
+            const raw = val("country");
+            if (!raw) return "";
+            if (/^[A-Za-z]{3}$/.test(raw)) return raw.toUpperCase();
+            return normalizeCountryCode(raw);
+        })(),
         genre: val("genre"),
         recommender: val("rec"),
         myScore: parseFloat(val("score")) || 0,

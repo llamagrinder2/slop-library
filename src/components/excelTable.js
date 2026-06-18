@@ -1,3 +1,5 @@
+import { normalizeCountryCode } from "../core/countries.js";
+
 export function registerExcelTableHandlers({
     TRAIT_VALUES,
     TRAIT_ORDER,
@@ -90,8 +92,17 @@ export function registerExcelTableHandlers({
     };
 
     window.handleCellEdit = function(cell, albumId, field) {
-        const newValue = cell.innerText.trim();
+        let newValue = cell.innerText.trim();
         const oldValue = (cell.dataset.oldValue || "").trim();
+
+        // Normalize country code if field is 'country'
+        if (field === "country" && newValue) {
+            const normalized = normalizeCountryCode(newValue);
+            if (normalized) {
+                newValue = normalized;
+                cell.innerText = normalized;
+            }
+        }
 
         if (newValue !== oldValue) {
             window.updateAlbumField(albumId, field, newValue);

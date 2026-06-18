@@ -9,38 +9,6 @@ export const TRAIT_ORDER = {
     "Volt??": 0
 };
 
-export const COUNTRY_ALPHA3_TO_ALPHA2 = {
-    HUN: "hu",
-    USA: "us",
-    SWE: "se",
-    FIN: "fi",
-    DEU: "de",
-    GBR: "gb",
-    NOR: "no",
-    FRA: "fr",
-    ITA: "it",
-    CAN: "ca",
-    AUS: "au",
-    JPN: "jp",
-    BRA: "br",
-    POL: "pl",
-    GRC: "gr",
-    UKR: "ua",
-    CZE: "cz",
-    CHE: "ch",
-    AUT: "at",
-    BEL: "be",
-    NLD: "nl"
-};
-
-export function getCountryFlag(countryCode) {
-    if (!countryCode) return "";
-    const code = countryCode.toUpperCase();
-    const alpha2 = COUNTRY_ALPHA3_TO_ALPHA2[code];
-    if (!alpha2) return "";
-    return `<img src="https://flagcdn.com/16x12/${alpha2}.png" width="16" height="12" alt="${code}" style="vertical-align: middle; margin-left: 8px; border-radius: 2px;">`;
-}
-
 export const recommenders = {
     baal: { name1: "The Almighty Baal", name2: "Menace of Bikini Bottom", color: "#FFEB3B" },
     goatlord: { name1: "Goatlord", name2: "Heir to the Black/Speed Throne", color: "#606060", textColor: "#bbb" },

@@ -1,3 +1,5 @@
+import { normalizeCountryCode } from "../core/countries.js";
+
 export function registerLibraryCrudHandlers({
     getAlbums,
     getTodos,
@@ -60,13 +62,23 @@ export function registerLibraryCrudHandlers({
 
         const maxId = albums.length > 0 ? Math.max(...albums.map((a) => a.id || 0)) : 0;
         const countryInput = document.getElementById("inCountry");
+        let countryValue = "";
+        if (countryInput && countryInput.value.trim()) {
+            const rawVal = countryInput.value.trim();
+            if (/^[A-Za-z]{3}$/.test(rawVal)) {
+                countryValue = rawVal.toUpperCase();
+            } else {
+                const normalized = normalizeCountryCode(rawVal);
+                countryValue = normalized;
+            }
+        }
         const nextAlbum = {
             id: editIdx > -1 ? albums[editIdx].id : maxId + 1,
             artist: document.getElementById("inArtist").value.trim(),
             album: document.getElementById("inAlbum").value.trim(),
             coverUrl: finalCoverUrl,
             year: document.getElementById("inYear").value,
-            country: countryInput ? countryInput.value.trim().toUpperCase() : "",
+            country: countryValue,
             genre: document.getElementById("inGenre").value.trim(),
             recommender: document.getElementById("inRec").value,
             myScore: parseFloat(document.getElementById("inScore").value) || 0,
