@@ -9,6 +9,8 @@
 	<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js"></script>
+	<script src="https://d3js.org/d3.v7.min.js"></script>
+	<script src="https://unpkg.com/topojson@3"></script>
 	<style>
 		:root { 
 			--bg-color: #121212; 
@@ -1397,6 +1399,7 @@ td[contenteditable="true"]:empty::before {
 	<div class="mobile-sidebar-links">
 		<button onclick="showPage('library')" data-nav-target="library" class="active">KÖNYVTÁR</button>
 		<button onclick="showPage('gallery')" data-nav-target="gallery">GALÉRIA</button>
+		<button onclick="showPage('map-page')" data-nav-target="map-page">TÉRKÉP</button>
 		<button onclick="showPage('listView')" data-nav-target="listView" class="desktop-only">LISTA NÉZET</button>
 		<button onclick="showPage('todo')" data-nav-target="todo">TO-DO</button>
 		<button onclick="showPage('stats')" data-nav-target="stats">STATISZTIKÁK</button>
@@ -1420,6 +1423,7 @@ td[contenteditable="true"]:empty::before {
     <div class="nav-links">
 		<button onclick="showPage('library')" id="nav-library" data-nav-target="library" class="active">KÖNYVTÁR</button>
 		<button onclick="showPage('gallery')" id="nav-gallery" data-nav-target="gallery">GALÉRIA</button>
+		<button onclick="showPage('map-page')" id="nav-map" data-nav-target="map-page">TÉRKÉP</button>
 		<button onclick="showPage('listView')" id="nav-listView" data-nav-target="listView" class="desktop-only">LISTA NÉZET</button>
 		<button onclick="showPage('todo')" id="nav-todo" data-nav-target="todo">TO-DO</button>
 		<button onclick="showPage('stats')" id="nav-stats" data-nav-target="stats">STATISZTIKÁK</button>
@@ -1640,6 +1644,9 @@ td[contenteditable="true"]:empty::before {
 		    GALÉRIA MENTÉSE KÉPKÉNT
 		</button>
 	</div>
+	<div id="map-page" class="page">
+        <div id="world-map-container" style="width: 100%; height: 600px; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden; position: relative;"></div>
+    </div>
 	<div id="listView" class="page">
 		<div class="form-row" style="margin-bottom: 15px;">
 			<button onclick="addNewListRow()" class="ctrl-btn admin-only" style="background: var(--accent); color: #000; border: none; max-width: 250px;">
@@ -1943,7 +1950,3 @@ td[contenteditable="true"]:empty::before {
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
-
-
-
-

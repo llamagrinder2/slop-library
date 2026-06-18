@@ -222,6 +222,85 @@ window.getRecommenderHTML = function(recKey) {
     return getRecommenderHTML(recommenders, recKey);
 };
 
+async function renderWorldMap() {
+    const container = document.getElementById("world-map-container");
+    container.innerHTML = "";
+
+    const countryCounts = albums.reduce((acc, album) => {
+        const country = album.country;
+        if (country) {
+            acc[country] = (acc[country] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    const maxAlbums = Math.max(...Object.values(countryCounts));
+    const colorScale = d3.scaleLinear().domain([1, maxAlbums]).range(["#444", "#ffcc00"]);
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    const svg = d3.select(container).append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    const projection = d3.geoMercator()
+        .scale(120)
+        .translate([width / 2, height / 1.5]);
+
+    const path = d3.geoPath().projection(projection);
+
+    const zoom = d3.zoom()
+        .scaleExtent([1, 8])
+        .on("zoom", (event) => {
+            svg.selectAll("path").attr("transform", event.transform);
+        });
+
+    svg.call(zoom);
+
+    const tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0)
+        .style("position", "absolute")
+        .style("background", "#333")
+        .style("color", "white")
+        .style("padding", "5px 10px")
+        .style("border-radius", "5px");
+
+    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+
+    svg.append("g")
+        .selectAll("path")
+        .data(topojson.feature(world, world.objects.countries).features)
+        .enter().append("path")
+        .attr("d", path)
+        .attr("fill", d => {
+            const countryCode = d.id;
+            const count = countryCounts[countryCode];
+            return count ? colorScale(count) : "#2a2a2a";
+        })
+        .attr("stroke", "#121212")
+        .on("mouseover", (event, d) => {
+            const countryCode = d.id;
+            const count = countryCounts[countryCode] || 0;
+            tooltip.transition().duration(200).style("opacity", .9);
+            tooltip.html(`${d.properties.name}: ${count} albums`)
+                .style("left", (event.pageX + 5) + "px")
+                .style("top", (event.pageY - 28) + "px");
+        })
+        .on("mouseout", d => {
+            tooltip.transition().duration(500).style("opacity", 0);
+        })
+        .on("click", (event, d) => {
+            const countryCode = d.id;
+            if (countryCounts[countryCode]) {
+                document.getElementById('fCountry').value = countryCode;
+                runFilter();
+                showPage('library');
+            }
+        });
+}
+
 setTimeout(() => {
     const filterIds = ["gSearch", "fArtist", "fYear", "fGenre", "sortField"];
     filterIds.forEach((id) => {
@@ -462,6 +541,7 @@ registerNavigationHandlers({
     renderExcelTable: (data) => window.renderExcelTable(data),
     renderGallery: () => window.renderGallery(),
     renderStats: () => window.renderStats(),
+    renderWorldMap: () => window.renderWorldMap(),
     initFilters: () => window.initFilters(),
     runFilter: () => window.runFilter(),
     renderSettings: () => window.renderSettings(),
