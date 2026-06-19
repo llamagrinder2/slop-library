@@ -1,7 +1,9 @@
+import { getCountryName, getCountryFlag } from "../core/countries.js";
+
 export function registerStatsHandlers({
     getAlbums,
+    getTodos,
     getSlopGenres,
-    getRareLimit,
     getCharts,
     getCatDeath,
     getCatBlack,
@@ -98,8 +100,8 @@ export function registerStatsHandlers({
 
     window.renderStats = function() {
         const albums = getAlbums();
+        const todos = getTodos ? getTodos() : [];
         const slopG = getSlopGenres();
-        const rareLimit = getRareLimit();
         const charts = getCharts();
         const catDeath = getCatDeath();
         const catBlack = getCatBlack();
@@ -238,6 +240,42 @@ export function registerStatsHandlers({
         document.getElementById("stat-avg-score").innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
         document.getElementById("stat-total-yap").innerText = totalWords + " szo";
 
+        // Calculate total album length
+        const parseLength = (lengthStr) => {
+            if (!lengthStr || typeof lengthStr !== "string") return 0;
+            const parts = lengthStr.trim().split(":").map((p) => parseInt(p, 10));
+            if (parts.length === 2) {
+                return parts[0] * 60 + parts[1]; // mm:ss
+            } else if (parts.length === 3) {
+                return parts[0] * 3600 + parts[1] * 60 + parts[2]; // hh:mm:ss
+            }
+            return 0;
+        };
+
+        const formatDuration = (seconds) => {
+            if (seconds === 0) return "-";
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            if (hrs > 0) {
+                return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+            } else {
+                return `${mins}:${String(secs).padStart(2, "0")}`;
+            }
+        };
+
+        let totalDurationSeconds = 0;
+        albums.forEach((a) => {
+            if (a.length) {
+                totalDurationSeconds += parseLength(a.length);
+            }
+        });
+
+        const statTotalLengthEl = document.getElementById("stat-total-length");
+        if (statTotalLengthEl) {
+            statTotalLengthEl.innerText = formatDuration(totalDurationSeconds);
+        }
+
         let incompleteCount = 0;
         albums.forEach((a) => {
             const isInc = isMissing(a.review) || isMissing(a.favSong) || isMissing(a.coverUrl) || isMissing(a.year) || isMissing(a.album) || isMissing(a.genre);
@@ -274,7 +312,246 @@ export function registerStatsHandlers({
         document.getElementById("topG").innerHTML = drawTopList(gScores, "g", gMedian);
         document.getElementById("topY").innerHTML = drawTopList(yScores, "y", yMedian);
 
+        // Country statistics
+        const countryData = {};
+        const cScores = {};
+
+        albums.forEach((a) => {
+            const country = a.country || "";
+            if (country) {
+                countryData[country] = (countryData[country] || 0) + 1;
+                if (!cScores[country]) cScores[country] = [];
+                const score = parseFloat(a.myScore) || 0;
+                if (score > 0) cScores[country].push(score);
+            }
+        });
+
+        // Initialize country sort config
+        if (!window.countrySortConfig) window.countrySortConfig = { field: "count", asc: false };
+
+        const drawCountriesList = () => {
+            const container = document.getElementById("listCountries");
+            if (!container) return;
+
+            let html = `<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">`;
+            const countryList = Object.entries(countryData)
+                .map(([code, count]) => {
+                    const scores = cScores[code] || [];
+                    const avg = scores.length > 0 ? scores.reduce((sum, s) => sum + s, 0) / scores.length : 0;
+                    return { code, count, avg };
+                })
+                .sort((a, b) => {
+                    if (window.countrySortConfig.field === "count") {
+                        return window.countrySortConfig.asc ? a.count - b.count : b.count - a.count;
+                    } else {
+                        return window.countrySortConfig.asc ? a.avg - b.avg : b.avg - a.avg;
+                    }
+                });
+
+            countryList.forEach((c) => {
+                const countryName = getCountryName(c.code);
+                const flagHtml = getCountryFlag(c.code);
+                const percentOfTotal = albums.length > 0 ? ((c.count / albums.length) * 100).toFixed(1) : "0.0";
+                html += `
+                    <div onclick="qFilter('c','${c.code}')" style="cursor:pointer; padding: 10px; border: 1px solid #333; border-radius: 4px; text-align: center; transition: background 0.2s; background:#1a1a1a;" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#1a1a1a'">
+                        <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-bottom:8px; font-size:1.05em; font-weight:bold;">
+                            ${flagHtml}
+                            <span>${countryName}</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-around; align-items:center; gap:15px;">
+                            <div style="text-align:center;">
+                                <div style="font-weight:bold; font-size:1.4em;">${c.count}</div>
+                                <small style="color:#888; font-size:0.75em;">db</small>
+                            </div>
+                            <div style="text-align:center; min-width:58px;">
+                                <div style="font-weight:bold; font-size:1.05em; color:#ddd;">${percentOfTotal}%</div>
+                                <small style="color:#888; font-size:0.75em;">ossz</small>
+                            </div>
+                            <div class="stat-score-pill" style="background:hsl(${(c.avg - 1) * 13},70%,40%); padding: 4px 8px; font-size:1.05em; border-radius:3px; font-weight:bold;">${c.avg.toFixed(1)}</div>
+                        </div>
+                    </div>`;
+            });
+            html += `</div>`;
+            container.innerHTML = html;
+        };
+
+        window.sortCountriesBy = function(field) {
+            if (window.countrySortConfig.field === field) {
+                window.countrySortConfig.asc = !window.countrySortConfig.asc;
+            } else {
+                window.countrySortConfig.field = field;
+                window.countrySortConfig.asc = false;
+            }
+
+            // Update button icons
+            const countBtn = document.getElementById("countriesCountSort");
+            const ratingBtn = document.getElementById("countriesRatingSort");
+            if (countBtn) countBtn.innerText = window.countrySortConfig.field === "count" ? (window.countrySortConfig.asc ? "▲" : "▼") : "⇅";
+            if (ratingBtn) ratingBtn.innerText = window.countrySortConfig.field === "rating" ? (window.countrySortConfig.asc ? "▲" : "▼") : "⇅";
+
+            drawCountriesList();
+        };
+
+        drawCountriesList();
+
         const genreEntries = Object.entries(genres);
+
+        // Timeline chart: cumulative albums added by week, with year-based reset
+        const timelineByYearWeek = {};
+        let baselineCount = 0;
+        const timelineYears = new Set();
+        const CURRENT_YEAR = 2026; // Official start year for the list
+        
+        albums.forEach((a) => {
+            if (!a.addedDate || a.addedDate === "Osidokben" || a.addedDate.toLowerCase() === "ősidőkben") {
+                baselineCount++;
+            } else {
+                try {
+                    const date = new Date(a.addedDate);
+                    if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear();
+                        // If year is before CURRENT_YEAR, treat as baseline
+                        if (year < CURRENT_YEAR) {
+                            baselineCount++;
+                        } else {
+                            // Calculate ISO week number
+                            const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                            const dayNum = d.getUTCDay() || 7;
+                            d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                            const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                            const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+                            const yearWeekKey = `${year}-W${weekNum}`;
+                            timelineByYearWeek[yearWeekKey] = (timelineByYearWeek[yearWeekKey] || 0) + 1;
+                            timelineYears.add(year);
+                        }
+                    }
+                } catch (e) {
+                    // Skip invalid dates
+                }
+            }
+        });
+
+        // Store state for timeline view
+        if (!window.timelineState) {
+            window.timelineState = { view: "all", selectedYear: null };
+        }
+
+        // Create year selector buttons
+        const yearControlsContainer = document.getElementById("timelineYearControls");
+        if (yearControlsContainer) {
+            const sortedYears = Array.from(timelineYears).sort((a, b) => a - b);
+            let controlsHtml = '<button class="ctrl-btn" onclick="window.switchTimelineView(\'all\');" id="timelineViewAllTime" style="padding: 8px 16px;">All Time</button>';
+            sortedYears.forEach((year) => {
+                const isActive = window.timelineState.view === year ? ' style="background: var(--accent); color: #000;"' : '';
+                controlsHtml += `<button class="ctrl-btn" onclick="window.switchTimelineView(${year});" id="timelineView${year}"${isActive} style="padding: 8px 16px;">${year}</button>`;
+            });
+            yearControlsContainer.innerHTML = controlsHtml;
+        }
+
+        // Function to render timeline based on selected view
+        window.renderTimeline = function() {
+            const allSortedWeeks = Object.keys(timelineByYearWeek).sort();
+            let timelineLabels = [];
+            let timelineData = [];
+            let cumulativeSum = 0;
+            let chartLabel = "Kumulatív albumok";
+
+            if (window.timelineState.view === "all") {
+                // All-time cumulative (includes baseline at start)
+                cumulativeSum = baselineCount;
+                timelineLabels = allSortedWeeks.map((_, i) => `Week ${i + 1}`);
+                timelineData = allSortedWeeks.map((week) => {
+                    cumulativeSum += timelineByYearWeek[week];
+                    return cumulativeSum;
+                });
+            } else {
+                // Year-specific cumulative (resets each year)
+                const selectedYear = window.timelineState.view;
+                const yearWeeks = allSortedWeeks.filter((k) => k.startsWith(`${selectedYear}-`));
+                cumulativeSum = baselineCount; // Start with baseline for that view
+                timelineLabels = yearWeeks.map((_, i) => `Week ${i + 1}`);
+                timelineData = yearWeeks.map((week) => {
+                    cumulativeSum += timelineByYearWeek[week];
+                    return cumulativeSum;
+                });
+                chartLabel = `Kumulatív albumok (${selectedYear})`;
+            }
+
+            if (charts.timeline) charts.timeline.destroy();
+            charts.timeline = new Chart(document.getElementById("chartTimeline"), {
+                type: "line",
+                data: {
+                    labels: timelineLabels,
+                    datasets: [
+                        {
+                            label: chartLabel,
+                            data: timelineData,
+                            borderColor: "#ffcc00",
+                            backgroundColor: "rgba(255, 204, 0, 0.1)",
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointBackgroundColor: "#ffcc00",
+                            pointBorderColor: "#ffaa00",
+                            pointBorderWidth: 1,
+                            pointRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    devicePixelRatio: 2,
+                    maintainAspectRatio: false,
+                    layout: { padding: { top: 25, right: 10, bottom: 10 } },
+                    plugins: {
+                        legend: { display: true, labels: { color: "#ccc" } },
+                        datalabels: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: "#333" },
+                            ticks: { color: "#ccc" }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                color: "#ccc",
+                                autoSkip: true,
+                                maxTicksLimit: 10
+                            }
+                        }
+                    }
+                }
+            });
+        };
+
+        // Function to switch timeline view
+        window.switchTimelineView = function(view) {
+            window.timelineState.view = view;
+            
+            // Update button styles
+            const yearControlsContainer = document.getElementById("timelineYearControls");
+            if (yearControlsContainer) {
+                Array.from(yearControlsContainer.querySelectorAll("button")).forEach((btn) => {
+                    btn.style.background = "";
+                    btn.style.color = "";
+                });
+                
+                const activeBtn = view === "all" 
+                    ? yearControlsContainer.querySelector("#timelineViewAllTime")
+                    : yearControlsContainer.querySelector(`#timelineView${view}`);
+                if (activeBtn) {
+                    activeBtn.style.background = "var(--accent)";
+                    activeBtn.style.color = "#000";
+                }
+            }
+
+            window.renderTimeline();
+        };
+
+        // Initial render
+        window.renderTimeline();
+
 
         if (charts.traits) charts.traits.destroy();
         const traitKeys = ["riff", "vox", "dob", "mix", "szoveg", "vibe"];
@@ -336,11 +613,86 @@ export function registerStatsHandlers({
             options: { devicePixelRatio: 2, maintainAspectRatio: false, scales: { x: { stacked: true, display: false }, y: { stacked: true, max: 100, display: false } }, plugins: { datalabels: { color: "#fff", formatter: (v) => v + "%" }, legend: { display: false } } }
         });
 
-        document.getElementById("listRare").innerHTML = genreEntries
-            .filter((e) => e[1] < rareLimit)
-            .sort((a, b) => b[1] - a[1])
-            .map((r) => `<li onclick="qFilter('g','${r[0]}')">${r[0]} <span>${r[1]} db</span></li>`)
-            .join("");
+        const todoGenreCounts = {};
+        todos.forEach((t) => {
+            const tags = String(t.genre || "")
+                .split(",")
+                .map((g) => g.trim())
+                .filter(Boolean);
+            tags.forEach((tag) => {
+                todoGenreCounts[tag] = (todoGenreCounts[tag] || 0) + 1;
+            });
+        });
+
+        if (typeof window.rareTodoAdjustEnabled !== "boolean") {
+            window.rareTodoAdjustEnabled = false;
+        }
+
+        window.toggleRareTodoAdjust = function() {
+            window.rareTodoAdjustEnabled = !window.rareTodoAdjustEnabled;
+            window.renderStats();
+        };
+
+        const rareListEl = document.getElementById("listRare");
+        if (rareListEl) {
+            const rareHtml = genreEntries
+                .filter(([name, baseCount]) => {
+                    // In adjusted mode, keep original rare genres visible even if the sum crosses the median threshold,
+                    // so we can highlight them as "will disappear".
+                    if (window.rareTodoAdjustEnabled) return baseCount < gMedian;
+                    return baseCount < gMedian;
+                })
+                .sort((a, b) => {
+                    const aCount = window.rareTodoAdjustEnabled ? a[1] + (todoGenreCounts[a[0]] || 0) : a[1];
+                    const bCount = window.rareTodoAdjustEnabled ? b[1] + (todoGenreCounts[b[0]] || 0) : b[1];
+                    return bCount - aCount;
+                })
+                .map(([name, baseCount]) => {
+                    const todoCount = todoGenreCounts[name] || 0;
+                    const displayCount = window.rareTodoAdjustEnabled ? baseCount + todoCount : baseCount;
+                    const isModified = window.rareTodoAdjustEnabled && todoCount > 0;
+                    const willDisappear = window.rareTodoAdjustEnabled && displayCount >= gMedian;
+
+                    let liStyle = "";
+                    if (willDisappear) {
+                        liStyle = " style=\"background: rgba(255, 68, 68, 0.18); border: 1px solid rgba(255, 68, 68, 0.45);\"";
+                    } else if (isModified) {
+                        liStyle = " style=\"background: rgba(80, 180, 120, 0.18); border: 1px solid rgba(80, 180, 120, 0.45);\"";
+                    }
+
+                    return `<li onclick="qFilter('g','${name.replace(/'/g, "\\'")}')"${liStyle}>${name} <span>${displayCount} db</span></li>`;
+                })
+                .join("");
+
+            rareListEl.innerHTML = rareHtml;
+        }
+
+        const rareToggleBtn = document.getElementById("btnRareTodoAdjust");
+        if (rareToggleBtn) {
+            if (window.rareTodoAdjustEnabled) {
+                rareToggleBtn.style.background = "rgba(80, 180, 120, 0.9)";
+                rareToggleBtn.style.color = "#001b09";
+                rareToggleBtn.style.border = "1px solid rgba(80, 180, 120, 1)";
+            } else {
+                rareToggleBtn.style.background = "";
+                rareToggleBtn.style.color = "";
+                rareToggleBtn.style.border = "";
+            }
+        }
+
+        const todoGenreEntries = Object.entries(todoGenreCounts).sort((a, b) => b[1] - a[1]);
+        const todoGenreEl = document.getElementById("listTodoGenres");
+        if (todoGenreEl) {
+            todoGenreEl.innerHTML = todoGenreEntries.length
+                                ? `<li style="cursor:default; background:#1a1a1a; border:1px solid #333; font-weight:bold;">Osszes mufaj <span>${todoGenreEntries.length} db</span></li>` +
+                  todoGenreEntries
+                      .map(
+                          ([name, count]) =>
+                              `<li onclick="window.showPage('todo'); window.setTodoGenreFilter('${name.replace(/'/g, "\\'")}')">${name} <span>${count} db</span></li>`
+                      )
+                      .join("")
+                : '<li style="cursor:default;">Nincs ToDo műfaj adat</li>';
+        }
 
         const recStats = Object.keys(recommenders).map((key) => {
             const rData = recommenders[key];

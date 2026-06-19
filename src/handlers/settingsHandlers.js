@@ -1,6 +1,5 @@
 export function registerSettingsHandlers({
     getAlbums,
-    getRareLimit,
     getSlopGenres,
     getCatDeath,
     getCatBlack,
@@ -12,7 +11,6 @@ export function registerSettingsHandlers({
 }) {
     window.renderSettings = function() {
         const albums = getAlbums();
-        const rareLimit = getRareLimit();
         const slopG = getSlopGenres();
         const catDeath = getCatDeath();
         const catBlack = getCatBlack();
@@ -21,7 +19,6 @@ export function registerSettingsHandlers({
         const catEtc = getCatEtc();
         const catNonMetal = getCatNonMetal();
 
-        document.getElementById("setRareLimit").value = rareLimit;
         const gs = new Set();
         albums.forEach((a) => a.genre.split(",").forEach((g) => gs.add(g.trim())));
 

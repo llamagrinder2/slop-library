@@ -8,7 +8,6 @@ export const state = {
     todos: [],
     todoEditIdx: -1,
     slopG: [],
-    rareLimit: 3,
     charts: {},
     editIdx: -1,
     currentPage: 1,

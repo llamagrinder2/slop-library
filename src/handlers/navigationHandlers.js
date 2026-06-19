@@ -46,6 +46,7 @@ export function registerNavigationHandlers({
         }
         if (id === "settings") renderSettings();
         if (id === "todo") renderTodo();
+        if (id === "map-page" && typeof window.renderWorldMap === "function") window.renderWorldMap();
     };
 
     window.toggleMod = function(m) {

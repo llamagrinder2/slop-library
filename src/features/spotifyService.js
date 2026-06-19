@@ -96,6 +96,18 @@ export function initSpotifyService({
             document.getElementById("inYear").value = data.release_date.split("-")[0];
             document.getElementById("inCover").value = data.images[0].url;
 
+            // compute total album length and set input if available
+            if (data.tracks && data.tracks.items) {
+                const totalMs = data.tracks.items.reduce((s, t) => s + (t.duration_ms || 0), 0);
+                const totalSeconds = Math.floor(totalMs / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+                const formatted = hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}` : `${minutes}:${String(seconds).padStart(2, "0")}`;
+                const inLenEl = document.getElementById("inLength");
+                if (inLenEl) inLenEl.value = formatted;
+            }
+
             displayTracks(data.tracks.items);
         } catch (err) {
             console.error(err);

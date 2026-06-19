@@ -67,6 +67,7 @@ export function registerExcelTableHandlers({
                     <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'album')">${a.album}</td>
                     <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'year')">${a.year || ""}</td>
                     <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'country')">${a.country || ""}</td>
+                    <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'length')">${a.length || ""}</td>
                     <td contenteditable="true" onfocus="this.dataset.oldValue=this.innerText" onblur="handleCellEdit(this, '${a.id}', 'genre')">${a.genre || ""}</td>
                     <td>
                         <select class="inline-edit" onchange="updateAlbumField('${a.id}', 'recommender', this.value)">

@@ -66,6 +66,7 @@ export function registerFilterHandlers({
         if (type === "g") document.getElementById("fGenre").value = val;
         if (type === "y") document.getElementById("fYear").value = val;
         if (type === "a") document.getElementById("fArtist").value = val;
+        if (type === "c") document.getElementById("fCountry").value = val;
         setCurrentPage(1);
         window.runFilter();
     };
@@ -84,6 +85,8 @@ export function registerFilterHandlers({
         const gs = new Set();
         albums.forEach((a) => a.genre.split(",").forEach((g) => gs.add(g.trim())));
         fill("fGenre", [...gs], "Minden mufaj");
+
+        fill("fCountry", albums.map((a) => a.country).filter((c) => c), "Minden orszag");
     };
 
     window.runFilter = function(resetPage = false) {
@@ -94,6 +97,7 @@ export function registerFilterHandlers({
         const fA = document.getElementById("fArtist").value;
         const fY = document.getElementById("fYear").value;
         const fG = document.getElementById("fGenre").value;
+        const fC = document.getElementById("fCountry").value;
         const sField = document.getElementById("sortField").value;
 
         let res = albums.filter((a) => {
@@ -123,8 +127,9 @@ export function registerFilterHandlers({
             const mA = !fA || a.artist === fA;
             const mY = !fY || String(a.year) === fY;
             const mG = !fG || a.genre.split(",").map((g) => g.trim().toLowerCase()).includes(fG.toLowerCase());
+            const mC = !fC || a.country === fC;
 
-            return mQ && mA && mY && mG;
+            return mQ && mA && mY && mG && mC;
         });
 
         res.sort((a, b) => {

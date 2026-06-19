@@ -28,7 +28,6 @@ let albums = state.albums;
 let todos = state.todos;
 let todoEditIdx = state.todoEditIdx;
 let slopG = state.slopG;
-let rareLimit = state.rareLimit;
 let charts = state.charts;
 let editIdx = state.editIdx;
 let currentPage = state.currentPage;
@@ -110,6 +109,7 @@ window.addNewListRow = function() {
         <td contenteditable="true" class="new-val-album" placeholder="Album..." style="background:#222;"></td>
         <td contenteditable="true" class="new-val-year" placeholder="Ev" style="background:#222;"></td>
         <td contenteditable="true" class="new-val-country" placeholder="Orsz." style="background:#222;" onblur="window.normalizeCountryCell(this)"></td>
+            <td contenteditable="true" class="new-val-length" placeholder="Hossz (mm:ss)" style="background:#222;"></td>
         <td contenteditable="true" class="new-val-genre" placeholder="Mufaj" style="background:#222;"></td>
         <td><select class="inline-edit new-val-rec">${buildRecommenderOptions()}</select></td>
         <td contenteditable="true" class="new-val-score" placeholder="Pont" style="background:#222;"></td>
@@ -181,6 +181,8 @@ window.saveInlineNewRow = async function(tr) {
         songUrl: val("songUrl"),
         coverUrl: val("coverUrl"),
         addedDate: dateInput
+            ,
+        length: val("length")
     };
 
     albums.push(newAlbum);
@@ -224,81 +226,89 @@ window.getRecommenderHTML = function(recKey) {
 
 async function renderWorldMap() {
     const container = document.getElementById("world-map-container");
+    if (!container) return;
     container.innerHTML = "";
 
-    const countryCounts = albums.reduce((acc, album) => {
-        const country = album.country;
-        if (country) {
-            acc[country] = (acc[country] || 0) + 1;
-        }
+    // Build counts (alpha-3 uppercase), ignore empty/placeholder
+    const countryCounts = (albums || []).reduce((acc, album) => {
+        const raw = album && album.country ? String(album.country).trim().toUpperCase() : "";
+        if (!raw) return acc;
+        if (["UNDEFINED", "NULL", "?"].includes(raw)) return acc;
+        acc[raw] = (acc[raw] || 0) + 1;
         return acc;
     }, {});
 
-    const maxAlbums = Math.max(...Object.values(countryCounts));
-    const colorScale = d3.scaleLinear().domain([1, maxAlbums]).range(["#444", "#ffcc00"]);
+    // Basic SVG setup
+    const width = Math.max(600, container.clientWidth || 800);
+    const height = Math.max(300, container.clientHeight || 400);
+    const svg = d3.select(container).append("svg").attr("width", width).attr("height", height);
 
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-
-    const svg = d3.select(container).append("svg")
-        .attr("width", width)
-        .attr("height", height);
-
-    const projection = d3.geoMercator()
-        .scale(120)
-        .translate([width / 2, height / 1.5]);
-
+    // Projection and path
+    const projection = d3.geoMercator().translate([width / 2, height / 1.5]).scale((width / 800) * 140);
     const path = d3.geoPath().projection(projection);
 
-    const zoom = d3.zoom()
-        .scaleExtent([1, 8])
-        .on("zoom", (event) => {
-            svg.selectAll("path").attr("transform", event.transform);
-        });
+    // Tooltip
+    let tooltip = d3.select("body").select(".worldmap-tooltip");
+    if (tooltip.empty()) {
+        tooltip = d3.select("body").append("div").attr("class", "worldmap-tooltip").style("position", "absolute").style("pointer-events", "none").style("background", "#222").style("color", "#fff").style("padding", "6px 8px").style("border-radius", "4px").style("opacity", 0).style("font-size", "12px");
+    }
 
-    svg.call(zoom);
+    // Color scale
+    const maxCount = Math.max(0, ...Object.values(countryCounts));
+    const color = d3.scaleSequential((t) => d3.interpolateYlOrRd(t)).domain([0, Math.max(1, maxCount)]);
 
-    const tooltip = d3.select("body").append("div")
-        .attr("class", "tooltip")
-        .style("opacity", 0)
-        .style("position", "absolute")
-        .style("background", "#333")
-        .style("color", "white")
-        .style("padding", "5px 10px")
-        .style("border-radius", "5px");
+    // Load topojson and draw
+    try {
+        const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+        const countries = topojson.feature(world, world.objects.countries).features;
 
-    const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
+        svg.append("g").selectAll("path")
+            .data(countries)
+            .enter().append("path")
+            .attr("d", path)
+            .attr("fill", (d) => {
+                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
+                const code = String(rawCode).trim().toUpperCase();
+                const c = countryCounts[code] || 0;
+                return c > 0 ? color(c) : "#2a2a2a";
+            })
+            .attr("stroke", "#111")
+            .on("mousemove", (event, d) => {
+                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
+                const code = String(rawCode).trim().toUpperCase();
+                const count = countryCounts[code] || 0;
+                const name = (d.properties && d.properties.name) || code;
+                tooltip.style("left", (event.pageX + 8) + "px").style("top", (event.pageY + 8) + "px").style("opacity", 1).html(`${name}: ${count} albums`);
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0))
+            .on("click", (event, d) => {
+                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
+                const code = String(rawCode).trim().toUpperCase();
+                if (countryCounts[code]) {
+                    const el = document.getElementById('fCountry');
+                    if (el) el.value = code;
+                    if (typeof runFilter === 'function') runFilter();
+                    if (typeof showPage === 'function') showPage('library');
+                }
+            });
 
-    svg.append("g")
-        .selectAll("path")
-        .data(topojson.feature(world, world.objects.countries).features)
-        .enter().append("path")
-        .attr("d", path)
-        .attr("fill", d => {
-            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
-            const count = countryCounts[countryCode];
-            return count ? colorScale(count) : "#2a2a2a";
-        })
-        .attr("stroke", "#121212")
-        .on("mouseover", (event, d) => {
-            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
-            const count = countryCounts[countryCode] || 0;
-            tooltip.transition().duration(200).style("opacity", .9);
-            tooltip.html(`${d.properties && d.properties.name ? d.properties.name : countryCode}: ${count} albums`)
-                .style("left", (event.pageX + 5) + "px")
-                .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", d => {
-            tooltip.transition().duration(500).style("opacity", 0);
-        })
-        .on("click", (event, d) => {
-            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
-            if (countryCounts[countryCode]) {
-                document.getElementById('fCountry').value = countryCode;
-                runFilter();
-                showPage('library');
-            }
-        });
+        // Legend (simple)
+        const legendWidth = 180;
+        const legend = svg.append("g").attr("transform", `translate(${width - legendWidth - 12}, ${12})`);
+        legend.append("rect").attr("width", legendWidth).attr("height", 36).attr("fill", "rgba(0,0,0,0.25)").attr("rx", 6);
+        legend.append("text").attr("x", 8).attr("y", 14).attr("fill", "#ccc").attr("font-size", 12).text("Albums per country");
+        legend.append("text").attr("x", 8).attr("y", 30).attr("fill", "#ccc").attr("font-size", 11).text(`Max: ${maxCount}`);
+
+        // If no data, show message
+        if (Object.keys(countryCounts).length === 0) {
+            svg.append("text").attr("x", width / 2).attr("y", height / 2).attr("text-anchor", "middle").attr("fill", "#888").text("No map data available");
+        }
+
+    } catch (err) {
+        console.error("World map drawing failed:", err);
+        svg.append("text").attr("x", width / 2).attr("y", height / 2).attr("text-anchor", "middle").attr("fill", "#f88").text("Map load error");
+    }
+
 }
 
 setTimeout(() => {
@@ -320,7 +330,6 @@ async function loadFromFirebase() {
         albums = data.albums || [];
         todos = data.todos || [];
         if (data.slopG !== undefined) slopG = data.slopG;
-        if (data.rareLimit !== undefined) rareLimit = data.rareLimit;
         catDeath = data.catDeath || [];
         catBlack = data.catBlack || [];
         catCore = data.catCore || [];
@@ -331,7 +340,6 @@ async function loadFromFirebase() {
         state.albums = albums;
         state.todos = todos;
         state.slopG = slopG;
-        state.rareLimit = rareLimit;
         state.catDeath = catDeath;
         state.catBlack = catBlack;
         state.catCore = catCore;
@@ -356,9 +364,14 @@ async function loadFromFirebase() {
         }
 
         const docRef = doc(db, "data", "library");
-        const docSnap = await getDoc(docRef);
+        let docSnap;
+        try {
+            docSnap = await getDoc(docRef);
+        } catch (readErr) {
+            console.warn("Firestore read failed (may require auth):", readErr);
+        }
 
-        if (docSnap.exists()) {
+        if (docSnap && docSnap.exists()) {
             const data = docSnap.data();
             applyLibraryData(data);
 
@@ -368,13 +381,35 @@ async function loadFromFirebase() {
                 console.warn("Cache irasi hiba:", cacheWriteErr);
             }
         } else {
-            todos = JSON.parse(localStorage.getItem("slopTodo")) || [];
-            slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
-            rareLimit = parseInt(localStorage.getItem("slopRareLimit"), 10) || 8;
+            // Firestore doc not available (permission or missing). Try public Cloud Storage mirror.
+            try {
+                const publicRef = ref(storage, "public/library.json");
+                const url = await getDownloadURL(publicRef);
+                const resp = await fetch(url);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    applyLibraryData(data);
+                    try {
+                        localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
+                    } catch (cacheWriteErr) {
+                        console.warn("Cache irasi hiba:", cacheWriteErr);
+                    }
+                } else {
+                    // fallback to local cached settings/todos
+                    todos = JSON.parse(localStorage.getItem("slopTodo")) || [];
+                    slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
 
-            state.todos = todos;
-            state.slopG = slopG;
-            state.rareLimit = rareLimit;
+                    state.todos = todos;
+                    state.slopG = slopG;
+                }
+            } catch (publicErr) {
+                console.warn("Public mirror load failed:", publicErr);
+                todos = JSON.parse(localStorage.getItem("slopTodo")) || [];
+                slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
+
+                state.todos = todos;
+                state.slopG = slopG;
+            }
         }
 
         window.showPage("library");
@@ -389,7 +424,6 @@ async function saveToFirebase() {
         const payload = {
             albums,
             todos,
-            rareLimit,
             slopG,
             catDeath,
             catBlack,
@@ -400,6 +434,22 @@ async function saveToFirebase() {
         };
 
         await setDoc(doc(db, "data", "library"), payload);
+
+        // Also update a public JSON mirror in Cloud Storage so unauthenticated users can read latest data.
+        try {
+            const publicRef = ref(storage, "public/library.json");
+            const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+            await uploadBytes(publicRef, blob);
+            // attempt to warm/get URL (may fail for non-public rules)
+            try {
+                const url = await getDownloadURL(publicRef);
+                console.log("Public library mirror updated:", url);
+            } catch (urlErr) {
+                console.warn("Could not obtain public mirror URL:", urlErr);
+            }
+        } catch (mirrorErr) {
+            console.warn("Updating public mirror failed:", mirrorErr);
+        }
 
         try {
             localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: payload }));
@@ -474,8 +524,8 @@ registerFilterHandlers({
 
 registerStatsHandlers({
     getAlbums: () => albums,
+    getTodos: () => todos,
     getSlopGenres: () => slopG,
-    getRareLimit: () => rareLimit,
     getCharts: () => charts,
     getCatDeath: () => catDeath,
     getCatBlack: () => catBlack,
@@ -525,7 +575,6 @@ registerLibraryCrudHandlers({
 
 registerSettingsHandlers({
     getAlbums: () => albums,
-    getRareLimit: () => rareLimit,
     getSlopGenres: () => slopG,
     getCatDeath: () => catDeath,
     getCatBlack: () => catBlack,

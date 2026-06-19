@@ -866,6 +866,7 @@ body.is-admin .btn-del {
 .col-album { width: 220px; }
 .col-year { width: 60px; }
 .col-country { width: 60px; }
+.col-length { width: 90px; }
 .col-genre { width: 150px; }
 .col-rec { width: 160px; }
 .col-score { width: 60px; }
@@ -1472,6 +1473,7 @@ td[contenteditable="true"]:empty::before {
 				<input type="text" id="inArtist" placeholder="Előadó">
 				<input type="text" id="inAlbum" placeholder="Album">
 				<input type="text" id="inCover" placeholder="Borító URL">
+				<input type="text" id="inLength" placeholder="Hossz (mm:ss)">
 				
 				<div style="display: flex; align-items: center; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 4px; border: 1px solid #444; flex: 1; min-width: 200px;">
 					<span style="font-size: 0.8rem; color: #888; margin-right: 10px; white-space: nowrap;">Vagy fájl:</span>
@@ -1582,6 +1584,7 @@ td[contenteditable="true"]:empty::before {
 				<select id="fArtist" onchange="currentPage=1; runFilter()"><option value="">Összes előadó</option></select>
 				<select id="fYear" onchange="currentPage=1; runFilter()"><option value="">Összes év</option></select>
 				<select id="fGenre" onchange="currentPage=1; runFilter()"><option value="">Minden műfaj</option></select>
+				<select id="fCountry" onchange="currentPage=1; runFilter()"><option value="">Minden ország</option></select>
 			</div>
 			<div class="form-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
 				<span style="font-size: 0.8em; color: var(--accent); font-weight: bold;">RENDEZÉS:</span>
@@ -1662,6 +1665,7 @@ td[contenteditable="true"]:empty::before {
 						<th class="col-album" onclick="sortExcelTable(event, 'album', this)">Album</th>
 						<th class="col-year" onclick="sortExcelTable(event, 'year', this)">Év</th>
 						<th class="col-country" onclick="sortExcelTable(event, 'country', this)">Ország</th>
+						<th class="col-length" onclick="sortExcelTable(event, 'length', this)">Hossz</th>
 						<th class="col-genre" onclick="sortExcelTable(event, 'genre', this)">Műfajok</th>
 						<th class="col-rec" onclick="sortExcelTable(event, 'recommender', this)">Ajánló</th>
 						<th class="col-score" onclick="sortExcelTable(event, 'myScore', this)">Pont</th>
@@ -1699,6 +1703,7 @@ td[contenteditable="true"]:empty::before {
 			</div>
 			<div class="form-row">
 				<input type="number" id="todoYear" placeholder="Év">
+				<input type="text" id="todoLength" placeholder="Hossz (mm:ss)">
 				<input type="text" id="todoGenre" placeholder="Műfajok">
 			</div>
 			<div class="form-row">
@@ -1713,6 +1718,11 @@ td[contenteditable="true"]:empty::before {
 				</div>
 				<button onclick="saveTodoOnly()" class="ctrl-btn" style="background:var(--accent); color:#000; border:none; flex:1; height: 42px;">TO-DO MENTÉSE</button>
 			</div>
+		</div>
+
+		<div class="form-row" style="margin-bottom: 12px;">
+			<input type="text" id="todoGenreFilter" placeholder="ToDo szures mufaj alapjan..." oninput="window.setTodoGenreFilter(this.value)">
+			<button onclick="window.clearTodoGenreFilter()" class="ctrl-btn" style="max-width: 110px;">RESET</button>
 		</div>
 
 		<div id="todoContainer"></div>
@@ -1752,6 +1762,10 @@ td[contenteditable="true"]:empty::before {
 					<div id="stat-total-yap" style="font-size: 1.6em; font-weight: bold; color: #fff;">0 szó</div>
 				</div>
 				<div class="stats-summary-item" style="cursor: default;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Össz Idő</small>
+					<div id="stat-total-length" style="font-size: 1.6em; font-weight: bold; color: #fff;">-</div>
+				</div>
+				<div class="stats-summary-item" style="cursor: default;">
 					<small style="color:#ff4444; text-transform: uppercase; letter-spacing: 1px;">Hiányos</small>
 					<div id="stat-incomplete" style="font-size: 1.6em; font-weight: bold; color: #ffaaaa;">0</div>
 				</div>
@@ -1777,6 +1791,17 @@ td[contenteditable="true"]:empty::before {
 				<div style="height: 220px; width: 97%;">
 					<canvas id="cScoreDist"></canvas>
 				</div>
+			</div>
+
+			<div class="stat-card full-width">
+				<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+					<h3 style="margin: 0;">Országok</h3>
+					<div style="display: flex; gap: 10px;">
+						<button onclick="sortCountriesBy('count')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Albumok <span id="countriesCountSort">⇅</span></button>
+						<button onclick="sortCountriesBy('rating')" class="ctrl-btn" style="padding: 8px 12px; font-size: 0.9em;">Átlag <span id="countriesRatingSort">⇅</span></button>
+					</div>
+				</div>
+				<ul id="listCountries" class="clickable-list" style="display: block; list-style: none; padding: 0; margin: 0;"></ul>
 			</div>
 
 			<div class="stat-card">
@@ -1806,6 +1831,14 @@ td[contenteditable="true"]:empty::before {
 					</div>
 
 					<div class="stat-card full-width">
+						<h3>Albumok hozzáadása az idő során</h3>
+						<div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;" id="timelineYearControls"></div>
+						<div style="height: 300px; position: relative;">
+							<canvas id="chartTimeline"></canvas>
+						</div>
+					</div>
+
+					<div class="stat-card full-width">
 						<h3>Teccett-e?</h3>
 						<div style="height: 300px; position: relative;">
 							<canvas id="chartTraits"></canvas>
@@ -1813,8 +1846,16 @@ td[contenteditable="true"]:empty::before {
 					</div>
 
 					<div class="stat-card full-width">
-							<h3>Ritkaságok</h3>
+							<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+								<h3 style="margin:0;">Ritkaságok</h3>
+								<button id="btnRareTodoAdjust" onclick="window.toggleRareTodoAdjust()" class="ctrl-btn" style="max-width: 120px; padding: 6px 10px; margin:0;">ToDo után</button>
+							</div>
 							<ul id="listRare" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
+					</div>
+
+					<div class="stat-card full-width">
+							<h3>ToDo műfajok</h3>
+							<ul id="listTodoGenres" class="clickable-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;"></ul>
 					</div>
 						
 					<div style="text-align: center; margin-top: 30px;">
@@ -1869,13 +1910,6 @@ td[contenteditable="true"]:empty::before {
 
 	<div id="settings" class="page">
 
-		<div class="stat-card" style="margin-bottom:20px;">
-			<h3>Ritkasági küszöb</h3>
-			<div class="form-row">
-				<input type="number" id="setRareLimit" onchange="rareLimit=parseInt(this.value); window.saveToFirebase(); window.renderSettings();">
-				<span>(Ennél kevesebb albummal rendelkező műfajok számítanak ritkának)</span>
-			</div>
-		</div>
 		<div class="stat-card" style="margin-bottom:20px;">
 			<h3>Slop műfajok beállítása</h3>
 			<div id="setG" style="max-height:300px; overflow-y:auto; padding-right:10px;"></div>

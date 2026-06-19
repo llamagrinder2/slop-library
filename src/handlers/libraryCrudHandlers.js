@@ -1,5 +1,15 @@
 import { normalizeCountryCode } from "../core/countries.js";
 
+function formatMs(ms) {
+    if (!ms) return "";
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export function registerLibraryCrudHandlers({
     getAlbums,
     getTodos,
@@ -83,6 +93,7 @@ export function registerLibraryCrudHandlers({
             recommender: document.getElementById("inRec").value,
             myScore: parseFloat(document.getElementById("inScore").value) || 0,
             review: document.getElementById("inReview").value.trim(),
+            length: document.getElementById("inLength").value.trim(),
             favSong: document.getElementById("inFavSong").value.trim(),
             songUrl: document.getElementById("inSongUrl").value.trim(),
             traits,
@@ -113,6 +124,7 @@ export function registerLibraryCrudHandlers({
             document.getElementById("inReview").value = "";
             document.getElementById("inFavSong").value = "";
             document.getElementById("inSongUrl").value = "";
+            document.getElementById("inLength").value = "";
             document.getElementById("inDate").value = "";
             document.getElementById("t_riff").value = "Meh";
             document.getElementById("t_vox").value = "Meh";
@@ -177,6 +189,7 @@ export function registerLibraryCrudHandlers({
             artist,
             album,
             coverUrl: document.getElementById("todoCover").value.trim(),
+            length: document.getElementById("todoLength").value.trim(),
             year: document.getElementById("todoYear").value,
             genre: document.getElementById("todoGenre").value.trim(),
             recommender: document.getElementById("todoRec").value,
@@ -197,6 +210,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("todoAlbum").value = "";
         document.getElementById("todoCover").value = "";
         document.getElementById("todoYear").value = "";
+        document.getElementById("todoLength").value = "";
         document.getElementById("todoGenre").value = "";
         document.getElementById("todoLink").value = "";
         document.getElementById("todoRec").value = "";
@@ -241,6 +255,12 @@ export function registerLibraryCrudHandlers({
             document.getElementById("todoAlbum").value = data.name;
             if (data.release_date) document.getElementById("todoYear").value = data.release_date.split("-")[0];
             if (data.images?.length) document.getElementById("todoCover").value = data.images[0].url;
+            // compute total album length
+            if (data.tracks && data.tracks.items) {
+                const totalMs = data.tracks.items.reduce((s, t) => s + (t.duration_ms || 0), 0);
+                const formatted = formatMs(totalMs);
+                document.getElementById("todoLength").value = formatted;
+            }
             if (data.external_urls?.spotify) document.getElementById("todoLink").value = data.external_urls.spotify;
 
             linkEl.value = "";
@@ -262,6 +282,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("todoArtist").value = t.artist || "";
         document.getElementById("todoAlbum").value = t.album || "";
         document.getElementById("todoCover").value = t.coverUrl || "";
+        document.getElementById("todoLength").value = t.length || "";
         document.getElementById("todoYear").value = t.year || "";
         document.getElementById("todoGenre").value = t.genre || "";
         document.getElementById("todoLink").value = t.albumLink || "";
@@ -333,6 +354,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("inSongUrl").value = "";
         const dateEl = document.getElementById("inDate");
         if (dateEl) dateEl.value = "";
+        document.getElementById("inLength").value = t.length || "";
 
         setEditIdx(-1);
         todos.splice(idx, 1);
@@ -373,6 +395,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("inAlbum").value = a.album;
         document.getElementById("inCover").value = a.coverUrl;
         document.getElementById("inYear").value = a.year;
+        document.getElementById("inLength").value = a.length || "";
         const countryInput = document.getElementById("inCountry");
         if (countryInput) countryInput.value = a.country || "";
         document.getElementById("inGenre").value = a.genre;

@@ -104,7 +104,7 @@ export function registerListAndTodoComponents({
                                     ${getCountryFlag(a.country)}
                                     ${incomplete ? "<span class=\"incomplete-badge\">Hianyos!!</span>" : ""}
                                 </div>
-                                <p style="margin-top:5px;"><strong>${a.album}</strong> (${a.year || "?"})</p>
+                                <p style="margin-top:5px;"><strong>${a.album} ( ${a.length || '-'} )</strong> (${a.year || "?"})</p>
                             </div>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 ${getRecommenderHTML(a.recommender)}
@@ -129,13 +129,40 @@ export function registerListAndTodoComponents({
         window.scrollTo(0, scrollPos);
     };
 
+    window.setTodoGenreFilter = function(genre) {
+        window.todoGenreFilter = (genre || "").trim();
+        const input = document.getElementById("todoGenreFilter");
+        if (input && input.value !== window.todoGenreFilter) input.value = window.todoGenreFilter;
+        window.renderTodo();
+    };
+
+    window.clearTodoGenreFilter = function() {
+        window.setTodoGenreFilter("");
+    };
+
     window.renderTodo = function() {
         const todos = getTodos();
         const container = document.getElementById("todoContainer");
         if (!container) return;
 
+        const filterInput = document.getElementById("todoGenreFilter");
+        const activeFilter = String(window.todoGenreFilter || filterInput?.value || "").trim().toLowerCase();
+        if (filterInput && filterInput.value !== (window.todoGenreFilter || "")) {
+            window.todoGenreFilter = filterInput.value.trim();
+        }
+
+        const indexedTodos = todos.map((t, idx) => ({ t, idx }));
+        const filteredTodos = !activeFilter
+            ? indexedTodos
+            : indexedTodos.filter(({ t }) =>
+                String(t.genre || "")
+                    .split(",")
+                    .map((g) => g.trim().toLowerCase())
+                    .some((g) => g.includes(activeFilter))
+            );
+
         container.innerHTML = "";
-        todos.forEach((t, i) => {
+        filteredTodos.forEach(({ t, idx }, i) => {
             const linkHtml = t.albumLink
                 ? `<p style="margin-top:4px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" style="color:var(--accent); font-size:0.85em; text-decoration: underline;">Album link</a></p>`
                 : "";
@@ -151,18 +178,23 @@ export function registerListAndTodoComponents({
                         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                             <div>
                                 <h3 class="artist-name todo-artist">${t.artist}</h3>
-                                <p class="todo-album"><strong>${t.album}</strong></p>
+                                <p class="todo-album"><strong>${t.album} ( ${t.length || '-'} )</strong></p>
+                                <small>${t.genre || ''}</small>
                                 ${linkHtml}
                             </div>
                             ${getRecommenderHTML(t.recommender)}
                         </div>
                         <div style="margin-top:10px; display:flex; gap:10px;">
-                            <button class="btn-check" onclick="moveToRating(${i})">✓</button>
-                            <button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${i})">✎</button>
+                            <button class="btn-check" onclick="moveToRating(${idx})">✓</button>
+                            <button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${idx})">✎</button>
                         </div>
-                        <button class="btn-del" onclick="deleteAlbum(${i}, 'todo')">✖</button>
+                        <button class="btn-del" onclick="deleteAlbum(${idx}, 'todo')">✖</button>
                     </div>
                 </div>`;
         });
+
+        if (filteredTodos.length === 0) {
+            container.innerHTML = '<div class="module-box" style="text-align:center; color:#aaa;">Nincs talalat ehhez a mufaj szurohoz.</div>';
+        }
     };
 }

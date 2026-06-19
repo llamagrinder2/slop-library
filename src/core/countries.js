@@ -352,3 +352,18 @@ export function getCountryFlag(countryCode) {
     if (!alpha2) return "";
     return `<img src="https://flagcdn.com/16x12/${alpha2}.png" width="16" height="12" alt="${code}" style="vertical-align: middle; margin-left: 8px; border-radius: 2px;">`;
 }
+
+export function getCountryName(countryCode) {
+    if (!countryCode) return countryCode || "";
+    const code = countryCode.toUpperCase();
+    
+    // Create reverse mapping from entries
+    for (const [name, c] of Object.entries(COUNTRY_NAME_TO_CODE)) {
+        if (c === code) {
+            // Return capitalized name (first entry is typically the primary name)
+            return name.charAt(0).toUpperCase() + name.slice(1);
+        }
+    }
+    
+    return code; // Fallback to code if not found
+}
