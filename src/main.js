@@ -1,6 +1,6 @@
 import { db, auth, storage, provider, doc, getDoc, setDoc, signInWithPopup, onAuthStateChanged, signOut, ref, uploadBytes, getDownloadURL } from "./core/firebase.js";
 import { TRAIT_VALUES, TRAIT_ORDER, recommenders } from "./core/constants.js";
-import { normalizeCountryCode } from "./core/countries.js";
+import { COUNTRY_ALPHA3_TO_ALPHA2, normalizeCountryCode } from "./core/countries.js";
 import { state } from "./state/appState.js";
 import { initSpotifyService } from "./features/spotifyService.js";
 import { registerCsvImport } from "./features/csvImportService.js";
@@ -27,6 +27,7 @@ let sortAsc = state.sortAsc;
 let albums = state.albums;
 let todos = state.todos;
 let artistTotals = state.artistTotals || {};
+let latestTodo = null;
 let todoEditIdx = state.todoEditIdx;
 let slopG = state.slopG;
 let charts = state.charts;
@@ -230,6 +231,42 @@ async function renderWorldMap() {
     if (!container) return;
     container.innerHTML = "";
 
+    const alpha2ToAlpha3 = Object.fromEntries(
+        Object.entries(COUNTRY_ALPHA3_TO_ALPHA2).map(([alpha3, alpha2]) => [String(alpha2 || "").toUpperCase(), alpha3])
+    );
+
+    const stripAccents = (value) =>
+        String(value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+
+    const resolveCountryCode = (feature) => {
+        const properties = feature && feature.properties ? feature.properties : {};
+        const rawCodes = [
+            properties.iso_a3,
+            properties.ISO_A3,
+            properties.ISO3,
+            properties.iso_a2,
+            properties.ISO_A2,
+            feature && feature.id
+        ]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean);
+
+        for (const raw of rawCodes) {
+            const upper = raw.toUpperCase();
+            if (countryCounts[upper]) return upper;
+            if (alpha2ToAlpha3[upper] && countryCounts[alpha2ToAlpha3[upper]]) return alpha2ToAlpha3[upper];
+        }
+
+        const name = stripAccents(properties.name || properties.NAME || properties.admin || "");
+        const normalizedNameCode = normalizeCountryCode(name);
+        if (normalizedNameCode && countryCounts[normalizedNameCode]) return normalizedNameCode;
+
+        return normalizedNameCode || rawCodes[0]?.toUpperCase() || "";
+    };
+
     // Build counts (alpha-3 uppercase), ignore empty/placeholder
     const countryCounts = (albums || []).reduce((acc, album) => {
         const raw = album && album.country ? String(album.country).trim().toUpperCase() : "";
@@ -243,10 +280,32 @@ async function renderWorldMap() {
     const width = Math.max(600, container.clientWidth || 800);
     const height = Math.max(300, container.clientHeight || 400);
     const svg = d3.select(container).append("svg").attr("width", width).attr("height", height);
+    svg.style("user-select", "none").style("touch-action", "none").style("cursor", "grab");
+
+    svg.on("contextmenu", (event) => event.preventDefault());
 
     // Projection and path
-    const projection = d3.geoMercator().translate([width / 2, height / 1.5]).scale((width / 800) * 140);
+    const projection = d3.geoNaturalEarth1();
     const path = d3.geoPath().projection(projection);
+
+    const zoomLayer = svg.append("g").attr("class", "worldmap-zoom-layer");
+    const mapGroup = zoomLayer.append("g").attr("class", "worldmap-map-group");
+
+    const zoomBehavior = d3.zoom()
+        .scaleExtent([1, 8])
+        .filter((event) => {
+            if (event.type === "wheel") return true;
+            if (event.type === "mousedown") return event.button === 2;
+            if (event.type === "touchstart") return true;
+            return false;
+        })
+        .on("start", () => svg.style("cursor", "grabbing"))
+        .on("end", () => svg.style("cursor", "grab"))
+        .on("zoom", (event) => {
+            zoomLayer.attr("transform", event.transform);
+        });
+
+    svg.call(zoomBehavior).on("dblclick.zoom", null);
 
     // Tooltip
     let tooltip = d3.select("body").select(".worldmap-tooltip");
@@ -256,40 +315,38 @@ async function renderWorldMap() {
 
     // Color scale
     const maxCount = Math.max(0, ...Object.values(countryCounts));
-    const color = d3.scaleSequential((t) => d3.interpolateYlOrRd(t)).domain([0, Math.max(1, maxCount)]);
+    const color = d3.scaleSequential((t) => d3.interpolateRgb("#4a4a4a", "#ffcc00")(t)).domain([0, Math.max(1, maxCount)]);
 
     // Load topojson and draw
     try {
         const world = await d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json");
         const countries = topojson.feature(world, world.objects.countries).features;
+        projection.fitSize([width, height], { type: "FeatureCollection", features: countries });
 
-        svg.append("g").selectAll("path")
+        mapGroup.selectAll("path")
             .data(countries)
             .enter().append("path")
             .attr("d", path)
             .attr("fill", (d) => {
-                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
-                const code = String(rawCode).trim().toUpperCase();
+                const code = resolveCountryCode(d);
                 const c = countryCounts[code] || 0;
                 return c > 0 ? color(c) : "#2a2a2a";
             })
             .attr("stroke", "#111")
             .on("mousemove", (event, d) => {
-                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
-                const code = String(rawCode).trim().toUpperCase();
+                const code = resolveCountryCode(d);
                 const count = countryCounts[code] || 0;
-                const name = (d.properties && d.properties.name) || code;
+                const name = (d.properties && (d.properties.name || d.properties.NAME || d.properties.admin)) || code;
                 tooltip.style("left", (event.pageX + 8) + "px").style("top", (event.pageY + 8) + "px").style("opacity", 1).html(`${name}: ${count} albums`);
             })
             .on("mouseout", () => tooltip.style("opacity", 0))
             .on("click", (event, d) => {
-                const rawCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id || "";
-                const code = String(rawCode).trim().toUpperCase();
+                const code = resolveCountryCode(d);
                 if (countryCounts[code]) {
+                    if (typeof showPage === 'function') showPage('library');
                     const el = document.getElementById('fCountry');
                     if (el) el.value = code;
                     if (typeof runFilter === 'function') runFilter();
-                    if (typeof showPage === 'function') showPage('library');
                 }
             });
 
@@ -312,6 +369,8 @@ async function renderWorldMap() {
 
 }
 
+window.renderWorldMap = renderWorldMap;
+
 setTimeout(() => {
     const filterIds = ["gSearch", "fArtist", "fYear", "fGenre", "sortField"];
     filterIds.forEach((id) => {
@@ -331,6 +390,7 @@ async function loadFromFirebase() {
         albums = data.albums || [];
         todos = data.todos || [];
         artistTotals = data.artistTotals || {};
+        latestTodo = data.latestTodo || null;
         if (data.slopG !== undefined) slopG = data.slopG;
         catDeath = data.catDeath || [];
         catBlack = data.catBlack || [];
@@ -360,6 +420,7 @@ async function loadFromFirebase() {
                     applyLibraryData(cached.data);
                     window.showPage("library");
                     if (typeof window.renderSettings === "function") window.renderSettings();
+                    if (typeof window.renderLatestTodoBanner === "function") window.renderLatestTodoBanner();
                 }
             }
         } catch (cacheReadErr) {
@@ -417,6 +478,7 @@ async function loadFromFirebase() {
 
         window.showPage("library");
         if (typeof window.renderSettings === "function") window.renderSettings();
+        if (typeof window.renderLatestTodoBanner === "function") window.renderLatestTodoBanner();
         handleDeepLinkFromUrl();
     } catch (e) {
         console.error("Hiba a betoltes soran:", e);
@@ -430,6 +492,7 @@ async function saveToFirebase() {
             albums,
             todos,
             artistTotals,
+            latestTodo: latestTodo || null,
             slopG,
             catDeath,
             catBlack,
@@ -467,6 +530,73 @@ async function saveToFirebase() {
     }
 }
 window.saveToFirebase = saveToFirebase;
+
+window.renderLatestTodoBanner = function() {
+    const banner = document.getElementById("latest-todo-banner");
+    if (!banner) return;
+    if (!latestTodo) {
+        banner.style.display = "none";
+        banner.innerHTML = "";
+        return;
+    }
+    const t = latestTodo;
+    const esc = (s) => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cover = esc(t.coverUrl || "https://via.placeholder.com/120");
+    const artist = esc(t.artist || "");
+    const album = esc(t.album || "");
+    const hasLink = Boolean(t.albumLink);
+    const safeLink = hasLink ? encodeURIComponent(t.albumLink) : "";
+
+    banner.style.display = "block";
+    banner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:14px; background:linear-gradient(90deg,#1a1a1a 0%,#1e1e1e 100%); border:1px solid #333; border-left:4px solid var(--accent); border-radius:10px; padding:10px 14px; overflow:hidden; margin-bottom:15px;">
+            <img src="${cover}" alt="cover" style="width:52px; height:52px; object-fit:cover; border-radius:6px; flex-shrink:0; box-shadow:0 2px 10px rgba(0,0,0,0.6);">
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.68em; color:#888; text-transform:uppercase; letter-spacing:1.2px; margin-bottom:3px;">🎵 Jelenleg hallgatom</div>
+                <div style="font-weight:bold; color:var(--accent); font-size:0.92em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${artist}</div>
+                <div style="font-size:0.82em; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${album}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
+                <button onclick="window.completeLatestTodo()" title="Pipa – áthelyezés a könyvtárba" style="background:none; border:2px solid #44ff44; color:#44ff44; border-radius:50%; width:36px; height:36px; cursor:pointer; font-size:1.1em; display:flex; align-items:center; justify-content:center; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.4)'" onmouseout="this.style.filter='none'">✓</button>
+                ${hasLink ? `<button data-link="${safeLink}" onclick="window.open(decodeURIComponent(this.dataset.link), '_blank', 'noopener,noreferrer')" title="Folytatás – link megnyitása" style="background:none; border:2px solid var(--accent); color:var(--accent); border-radius:50%; width:36px; height:36px; cursor:pointer; font-size:1em; display:flex; align-items:center; justify-content:center; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.4)'" onmouseout="this.style.filter='none'">▶</button>` : ""}
+                <button onclick="window.dismissLatestTodoBanner()" title="Bezárás – csak elrejti a bannert, nem törli a ToDo-ból" style="background:none; border:2px solid #555; color:#888; border-radius:50%; width:36px; height:36px; cursor:pointer; font-size:0.95em; display:flex; align-items:center; justify-content:center; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.4)'" onmouseout="this.style.filter='none'">✖</button>
+            </div>
+        </div>
+    `;
+};
+
+window.setLatestTodo = async function(todoIdx) {
+    const t = todos[todoIdx];
+    if (!t) return;
+    latestTodo = { ...t };
+    await saveToFirebase();
+    window.renderLatestTodoBanner();
+};
+
+window.dismissLatestTodoBanner = async function() {
+    latestTodo = null;
+    await saveToFirebase();
+    window.renderLatestTodoBanner();
+};
+
+window.completeLatestTodo = async function() {
+    if (!latestTodo) return;
+    const t = latestTodo;
+    const idx = todos.findIndex((todo) => todo.artist === t.artist && todo.album === t.album);
+    if (idx === -1) {
+        latestTodo = null;
+        await saveToFirebase();
+        window.renderLatestTodoBanner();
+        return;
+    }
+    const prevLen = todos.length;
+    await window.moveToRating(idx);
+    if (todos.length < prevLen) {
+        latestTodo = null;
+        await saveToFirebase();
+        window.renderLatestTodoBanner();
+    }
+};
 
 function handleDeepLinkFromUrl() {
     try {

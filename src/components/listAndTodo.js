@@ -288,7 +288,7 @@ export function registerListAndTodoComponents({
                 : "";
 
             const linkHtml = t.albumLink
-                ? `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
+                ? `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" onclick="window.setLatestTodo(${idx})" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
                 : "";
 
             container.innerHTML += `

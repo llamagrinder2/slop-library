@@ -54,7 +54,9 @@ export function registerNavigationHandlers({
             }
         }
         if (id === "todo-list-view" && typeof renderTodoListView === "function") renderTodoListView();
-        if (id === "map-page" && typeof window.renderWorldMap === "function") window.renderWorldMap();
+        if (id === "map-page" && typeof window.renderWorldMap === "function") {
+            requestAnimationFrame(() => window.renderWorldMap());
+        }
     };
 
     window.toggleMod = function(m) {
