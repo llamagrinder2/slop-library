@@ -1,4 +1,4 @@
-import { getCountryFlag } from "../core/countries.js";
+import { getCountryFlag, normalizeCountryCode } from "../core/countries.js";
 
 export function registerListAndTodoComponents({
     getAlbums,
@@ -129,8 +129,8 @@ export function registerListAndTodoComponents({
         window.scrollTo(0, scrollPos);
     };
 
-    window.setTodoGenreFilter = function(genre) {
-        window.todoGenreFilter = (genre || "").trim();
+    window.setTodoGenreFilter = function(query) {
+        window.todoGenreFilter = (query || "").trim();
         const input = document.getElementById("todoGenreFilter");
         if (input && input.value !== window.todoGenreFilter) input.value = window.todoGenreFilter;
         window.renderTodo();
@@ -138,6 +138,87 @@ export function registerListAndTodoComponents({
 
     window.clearTodoGenreFilter = function() {
         window.setTodoGenreFilter("");
+    };
+
+    window.updateTodoField = async function(todoIndex, field, value) {
+        const todos = getTodos();
+        if (!todos[todoIndex]) return;
+
+        todos[todoIndex][field] = value;
+
+        if (typeof window.saveToFirebase === "function") {
+            try {
+                await window.saveToFirebase();
+            } catch (e) {
+                console.error("ToDo mentesi hiba:", e);
+            }
+        }
+    };
+
+    window.handleTodoBulkCellEdit = function(cell, todoIndex, field) {
+        let nextValue = (cell.innerText || "").trim();
+        if (field === "country" && nextValue) {
+            nextValue = /^[A-Za-z]{3}$/.test(nextValue) ? nextValue.toUpperCase() : normalizeCountryCode(nextValue);
+            cell.innerText = nextValue || "";
+        }
+        window.updateTodoField(todoIndex, field, nextValue);
+    };
+
+    window.renderTodoListView = function() {
+        const todos = getTodos();
+        const container = document.getElementById("todoListViewContainer");
+        if (!container) return;
+
+        const preferredColumns = ["artist", "album", "year", "country", "length", "genre", "albumLink", "coverUrl", "recommender"];
+        const discoveredColumns = new Set(preferredColumns);
+
+        todos.forEach((t) => {
+            Object.keys(t || {}).forEach((k) => {
+                if (k !== "id") discoveredColumns.add(k);
+            });
+        });
+
+        const cols = [...preferredColumns, ...[...discoveredColumns].filter((c) => !preferredColumns.includes(c))];
+        const head = cols.map((c) => `<th style="padding:8px; border:1px solid #333; text-align:left; white-space:nowrap;">${c}</th>`).join("");
+
+        const rows = todos
+            .map((t, idx) => {
+                const cells = cols
+                    .map((c) => {
+                        const safeVal = String(t[c] ?? "")
+                            .replace(/&/g, "&amp;")
+                            .replace(/</g, "&lt;")
+                            .replace(/>/g, "&gt;");
+                        return `<td contenteditable="true" onblur="window.handleTodoBulkCellEdit(this, ${idx}, '${c}')" style="padding:6px 8px; border:1px solid #2b2b2b; background:#141414; color:#ddd; min-width:120px;">${safeVal}</td>`;
+                    })
+                    .join("");
+
+                return `<tr>
+                    <td style="padding:6px; border:1px solid #2b2b2b; text-align:center; color:#888;">${idx + 1}</td>
+                    ${cells}
+                    <td style="padding:6px; border:1px solid #2b2b2b; text-align:center; white-space:nowrap;">
+                        <button class="btn-check" onclick="moveToRating(${idx}); window.renderTodoListView();" style="width:32px; height:32px; font-size:1em;">✓</button>
+                        <button class="btn-check" style="width:32px; height:32px; font-size:1em; border-color:#888;color:#888;" onclick="editTodo(${idx}); showPage('todo');">✎</button>
+                        <button class="btn-del" onclick="deleteAlbum(${idx}, 'todo'); window.renderTodoListView();" style="position:static; width:32px; height:32px; margin-left:6px;">✖</button>
+                    </td>
+                </tr>`;
+            })
+            .join("");
+
+        container.innerHTML = todos.length
+            ? `<div class="module-box" style="display:block; padding:0; overflow:auto; border:1px solid #333; background:#111;">
+                <table style="width:100%; border-collapse:collapse; min-width:1200px; table-layout:auto;">
+                    <thead style="background:#161616; color:#bbb;">
+                        <tr>
+                            <th style="padding:8px; border:1px solid #333; width:40px;">#</th>
+                            ${head}
+                            <th style="padding:8px; border:1px solid #333; width:130px;">Művelet</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+                </div>`
+                : '<div class="module-box" style="display:block; text-align:center; color:#aaa;">Nincs To-Do adat.</div>';
     };
 
     window.renderTodo = function() {
@@ -154,21 +235,64 @@ export function registerListAndTodoComponents({
         const indexedTodos = todos.map((t, idx) => ({ t, idx }));
         const filteredTodos = !activeFilter
             ? indexedTodos
-            : indexedTodos.filter(({ t }) =>
-                String(t.genre || "")
-                    .split(",")
-                    .map((g) => g.trim().toLowerCase())
-                    .some((g) => g.includes(activeFilter))
-            );
+            : indexedTodos.filter(({ t }) => {
+                const haystack = [
+                    String(t.artist || ""),
+                    String(t.album || ""),
+                    String(t.genre || ""),
+                    String(t.albumLink || "")
+                ]
+                    .join(" ")
+                    .toLowerCase();
+                return haystack.includes(activeFilter);
+            });
 
         container.innerHTML = "";
         filteredTodos.forEach(({ t, idx }, i) => {
+            const link = String(t.albumLink || "").toLowerCase();
+            let platform = "generic";
+            if (link.includes("spotify.com")) platform = "spotify";
+            else if (link.includes("youtube.com") || link.includes("youtu.be")) platform = "youtube";
+            else if (link.includes("bandcamp.com")) platform = "bandcamp";
+
+            const platformStyleByType = {
+                spotify: {
+                    border: "#1DB954",
+                    glow: "rgba(29, 185, 84, 0.22)",
+                    label: "Spotify",
+                    icon: "🎧"
+                },
+                youtube: {
+                    border: "#FF0000",
+                    glow: "rgba(255, 0, 0, 0.2)",
+                    label: "YouTube",
+                    icon: "▶"
+                },
+                bandcamp: {
+                    border: "#1DA1F2",
+                    glow: "rgba(29, 161, 242, 0.2)",
+                    label: "Bandcamp",
+                    icon: "✦"
+                },
+                generic: {
+                    border: "#4b5154",
+                    glow: "rgba(100, 100, 100, 0.14)",
+                    label: "Link",
+                    icon: "🔗"
+                }
+            };
+
+            const platformStyle = platformStyleByType[platform] || platformStyleByType.generic;
+            const cardAccentStyle = t.albumLink
+                ? `border-left: 3px solid ${platformStyle.border}; box-shadow: inset 0 0 0 1px ${platformStyle.glow};`
+                : "";
+
             const linkHtml = t.albumLink
-                ? `<p style="margin-top:4px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" style="color:var(--accent); font-size:0.85em; text-decoration: underline;">Album link</a></p>`
+                ? `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
                 : "";
 
             container.innerHTML += `
-                <div class="album-card">
+                <div class="album-card" style="${cardAccentStyle}">
                     <div class="row-number">${i + 1}</div>
                     <div class="album-art-container">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
@@ -177,7 +301,10 @@ export function registerListAndTodoComponents({
                     <div class="album-info">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                             <div>
-                                <h3 class="artist-name todo-artist">${t.artist}</h3>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <h3 class="artist-name todo-artist">${t.artist}</h3>
+                                    ${getCountryFlag(t.country)}
+                                </div>
                                 <p class="todo-album"><strong>${t.album} ( ${t.length || '-'} )</strong></p>
                                 <small>${t.genre || ''}</small>
                                 ${linkHtml}
@@ -194,7 +321,7 @@ export function registerListAndTodoComponents({
         });
 
         if (filteredTodos.length === 0) {
-            container.innerHTML = '<div class="module-box" style="text-align:center; color:#aaa;">Nincs talalat ehhez a mufaj szurohoz.</div>';
+            container.innerHTML = '<div class="module-box" style="text-align:center; color:#aaa;">Nincs talalat ehhez a szurohoz.</div>';
         }
     };
 }

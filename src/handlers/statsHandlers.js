@@ -3,6 +3,7 @@ import { getCountryName, getCountryFlag } from "../core/countries.js";
 export function registerStatsHandlers({
     getAlbums,
     getTodos,
+    getArtistTotals,
     getSlopGenres,
     getCharts,
     getCatDeath,
@@ -97,6 +98,10 @@ export function registerStatsHandlers({
             window.closeReviewDigest();
         }
     });
+
+    window.openDiscographyPage = function() {
+        window.location.href = "./discography.html";
+    };
 
     window.renderStats = function() {
         const albums = getAlbums();
@@ -236,6 +241,36 @@ export function registerStatsHandlers({
 
         document.getElementById("stat-total-albums").innerText = albums.length;
         document.getElementById("stat-total-artists").innerText = uniqueArtists.size;
+        const artistTotals = (typeof getArtistTotals === "function" ? getArtistTotals() : {}) || {};
+        const libCounts = {};
+        const todoCounts = {};
+
+        albums.forEach((a) => {
+            const artist = String(a.artist || "").trim();
+            if (!artist) return;
+            libCounts[artist] = (libCounts[artist] || 0) + 1;
+        });
+
+        todos.forEach((t) => {
+            const artist = String(t.artist || "").trim();
+            if (!artist) return;
+            todoCounts[artist] = (todoCounts[artist] || 0) + 1;
+        });
+
+        const allArtists = new Set([...Object.keys(libCounts), ...Object.keys(todoCounts), ...Object.keys(artistTotals)]);
+        let completedDiscogs = 0;
+        allArtists.forEach((artist) => {
+            const lib = libCounts[artist] || 0;
+            const todo = todoCounts[artist] || 0;
+            const storedTotal = parseInt(artistTotals[artist], 10);
+            const known = lib + todo;
+            const total = Number.isFinite(storedTotal) && storedTotal >= 0 ? storedTotal : 0;
+            const missing = total > 0 ? Math.max(0, total - known) : 0;
+            if (total > 0 && lib === total && todo === 0 && missing === 0) completedDiscogs++;
+        });
+
+        const statCompletedEl = document.getElementById("stat-complete-discogs");
+        if (statCompletedEl) statCompletedEl.innerText = completedDiscogs;
         document.getElementById("stat-total-genres").innerText = uniqueGenres.size;
         document.getElementById("stat-avg-score").innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
         document.getElementById("stat-total-yap").innerText = totalWords + " szo";

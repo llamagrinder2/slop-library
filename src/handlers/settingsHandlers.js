@@ -1,5 +1,8 @@
+import { normalizeCountryCode } from "../core/countries.js";
+
 export function registerSettingsHandlers({
     getAlbums,
+    getTodos,
     getSlopGenres,
     getCatDeath,
     getCatBlack,
@@ -155,6 +158,94 @@ export function registerSettingsHandlers({
             btn.innerText = "SZINEK FELDOLGOZASA";
             btn.disabled = false;
         }, 4000);
+    };
+
+    window.runCountryMatcher = async function() {
+        const albums = getAlbums();
+        const todos = typeof getTodos === "function" ? getTodos() : [];
+        const btn = document.getElementById("btnCountryMatcher");
+        if (!btn) return;
+
+        btn.disabled = true;
+        const originalText = btn.innerText;
+        btn.innerText = "EGYEZTETÉS...";
+
+        const artistCountryCounts = new Map();
+        const artistKey = (name) => String(name || "").trim().toLowerCase();
+
+        const collectKnownCountries = (items) => {
+            items.forEach((item) => {
+                const key = artistKey(item.artist);
+                if (!key) return;
+                const rawCountry = String(item.country || "").trim();
+                if (!rawCountry) return;
+                const code = normalizeCountryCode(rawCountry);
+                if (!code) return;
+
+                if (!artistCountryCounts.has(key)) artistCountryCounts.set(key, new Map());
+                const countryMap = artistCountryCounts.get(key);
+                countryMap.set(code, (countryMap.get(code) || 0) + 1);
+            });
+        };
+
+        collectKnownCountries(albums);
+        collectKnownCountries(todos);
+
+        const pickBestCountry = (name) => {
+            const key = artistKey(name);
+            const countryMap = artistCountryCounts.get(key);
+            if (!countryMap || countryMap.size === 0) return "";
+
+            let bestCode = "";
+            let bestCount = -1;
+            countryMap.forEach((count, code) => {
+                if (count > bestCount) {
+                    bestCode = code;
+                    bestCount = count;
+                }
+            });
+            return bestCode;
+        };
+
+        let updatedAlbums = 0;
+        let updatedTodos = 0;
+
+        albums.forEach((item) => {
+            const hasCountry = String(item.country || "").trim();
+            if (hasCountry) return;
+            const code = pickBestCountry(item.artist);
+            if (!code) return;
+            item.country = code;
+            updatedAlbums++;
+        });
+
+        todos.forEach((item) => {
+            const hasCountry = String(item.country || "").trim();
+            if (hasCountry) return;
+            const code = pickBestCountry(item.artist);
+            if (!code) return;
+            item.country = code;
+            updatedTodos++;
+        });
+
+        try {
+            if (updatedAlbums + updatedTodos > 0) {
+                await saveToFirebase();
+                if (typeof window.runFilter === "function") window.runFilter();
+                if (typeof window.renderTodo === "function") window.renderTodo();
+                if (typeof window.renderTodoListView === "function") window.renderTodoListView();
+            }
+
+            btn.innerText = `KÉSZ (${updatedAlbums} könyvtár, ${updatedTodos} todo)`;
+        } catch (err) {
+            console.error("Ország egyeztetés hiba:", err);
+            btn.innerText = "HIBA EGYEZTETÉSKOR";
+        }
+
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }, 3500);
     };
 
     window.tSlop = function(g) {

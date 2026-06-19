@@ -10,6 +10,34 @@ function formatMs(ms) {
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function extractSpotifyAlbumId(link) {
+    if (!link) return null;
+    const match = String(link).match(/open\.spotify\.com\/album\/([a-zA-Z0-9]+)/i);
+    return match ? match[1] : null;
+}
+
+function askTrackChoice(tracks) {
+    if (!tracks || !tracks.length) return null;
+
+    const preview = tracks
+        .slice(0, 25)
+        .map((t, i) => `${i + 1}. ${t.name}`)
+        .join("\n");
+
+    const raw = window.prompt(
+        `Valassz kedvenc dalt (ird be a sorszamat).\n\n${preview}\n\n(1-${Math.min(tracks.length, 25)})`,
+        "1"
+    );
+
+    if (raw === null) return null;
+    const idx = Number(raw) - 1;
+    if (!Number.isInteger(idx) || idx < 0 || idx >= tracks.length) {
+        alert("Ervenytelen dal valasztas.");
+        return null;
+    }
+    return tracks[idx];
+}
+
 export function registerLibraryCrudHandlers({
     getAlbums,
     getTodos,
@@ -29,6 +57,62 @@ export function registerLibraryCrudHandlers({
     toggleMod,
     renderTodo
 }) {
+    const normalizeArtistKey = (name) => String(name || "").trim().toLowerCase();
+
+    const findCountryForArtist = (artistName) => {
+        const target = normalizeArtistKey(artistName);
+        if (!target) return "";
+
+        const albums = getAlbums();
+        const todos = getTodos();
+        const counts = new Map();
+
+        const collect = (items) => {
+            items.forEach((item) => {
+                if (normalizeArtistKey(item.artist) !== target) return;
+                const rawCountry = String(item.country || "").trim();
+                if (!rawCountry) return;
+                const normalized = normalizeCountryCode(rawCountry);
+                if (!normalized) return;
+                counts.set(normalized, (counts.get(normalized) || 0) + 1);
+            });
+        };
+
+        collect(albums);
+        collect(todos);
+
+        let best = "";
+        let bestCount = -1;
+        counts.forEach((count, code) => {
+            if (count > bestCount) {
+                best = code;
+                bestCount = count;
+            }
+        });
+        return best;
+    };
+
+    const bindArtistCountryAutofill = (artistInputId, countryInputId) => {
+        const artistEl = document.getElementById(artistInputId);
+        const countryEl = document.getElementById(countryInputId);
+        if (!artistEl || !countryEl) return;
+        if (artistEl.dataset.countryAutofillBound === "1") return;
+
+        const tryAutofill = () => {
+            const currentCountry = String(countryEl.value || "").trim();
+            if (currentCountry) return;
+            const code = findCountryForArtist(artistEl.value);
+            if (code) countryEl.value = code;
+        };
+
+        artistEl.addEventListener("blur", tryAutofill);
+        artistEl.addEventListener("change", tryAutofill);
+        artistEl.dataset.countryAutofillBound = "1";
+    };
+
+    bindArtistCountryAutofill("inArtist", "inCountry");
+    bindArtistCountryAutofill("todoArtist", "todoCountry");
+
     window.saveAlbum = async function() {
         const albums = getAlbums();
         const editIdx = getEditIdx();
@@ -81,6 +165,9 @@ export function registerLibraryCrudHandlers({
                 const normalized = normalizeCountryCode(rawVal);
                 countryValue = normalized;
             }
+        } else {
+            countryValue = findCountryForArtist(document.getElementById("inArtist").value);
+            if (countryInput && countryValue) countryInput.value = countryValue;
         }
         const nextAlbum = {
             id: editIdx > -1 ? albums[editIdx].id : maxId + 1,
@@ -191,6 +278,11 @@ export function registerLibraryCrudHandlers({
             coverUrl: document.getElementById("todoCover").value.trim(),
             length: document.getElementById("todoLength").value.trim(),
             year: document.getElementById("todoYear").value,
+            country: (() => {
+                const raw = String(document.getElementById("todoCountry")?.value || "").trim();
+                if (raw) return /^[A-Za-z]{3}$/.test(raw) ? raw.toUpperCase() : normalizeCountryCode(raw);
+                return findCountryForArtist(artist);
+            })(),
             genre: document.getElementById("todoGenre").value.trim(),
             recommender: document.getElementById("todoRec").value,
             albumLink: document.getElementById("todoLink").value.trim()
@@ -210,6 +302,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("todoAlbum").value = "";
         document.getElementById("todoCover").value = "";
         document.getElementById("todoYear").value = "";
+        document.getElementById("todoCountry").value = "";
         document.getElementById("todoLength").value = "";
         document.getElementById("todoGenre").value = "";
         document.getElementById("todoLink").value = "";
@@ -255,6 +348,11 @@ export function registerLibraryCrudHandlers({
             document.getElementById("todoAlbum").value = data.name;
             if (data.release_date) document.getElementById("todoYear").value = data.release_date.split("-")[0];
             if (data.images?.length) document.getElementById("todoCover").value = data.images[0].url;
+            const todoCountryEl = document.getElementById("todoCountry");
+            if (todoCountryEl && !todoCountryEl.value.trim()) {
+                const guessedCountry = findCountryForArtist(document.getElementById("todoArtist").value);
+                if (guessedCountry) todoCountryEl.value = guessedCountry;
+            }
             // compute total album length
             if (data.tracks && data.tracks.items) {
                 const totalMs = data.tracks.items.reduce((s, t) => s + (t.duration_ms || 0), 0);
@@ -284,6 +382,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("todoCover").value = t.coverUrl || "";
         document.getElementById("todoLength").value = t.length || "";
         document.getElementById("todoYear").value = t.year || "";
+        document.getElementById("todoCountry").value = t.country || "";
         document.getElementById("todoGenre").value = t.genre || "";
         document.getElementById("todoLink").value = t.albumLink || "";
         document.getElementById("todoRec").value = t.recommender || "";
@@ -336,11 +435,57 @@ export function registerLibraryCrudHandlers({
         const t = todos[idx];
         if (!t) return;
 
+        const spotifyAlbumId = extractSpotifyAlbumId(t.albumLink);
+        let pickedTrack = null;
+        if (spotifyAlbumId) {
+            const spotifyToken = getSpotifyToken();
+            if (!spotifyToken) {
+                alert("Spotify bejelentkezes szukseges: kattints a Spotify bejelentkezes gombra, majd probald ujra.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`https://api.spotify.com/v1/albums/${spotifyAlbumId}`, {
+                    headers: { Authorization: `Bearer ${spotifyToken}` }
+                });
+
+                if (response.status === 401) {
+                    alert("Spotify munkamenet lejart vagy nincs bejelentkezve. Jelentkezz be ujra a Spotify API-ba.");
+                    return;
+                }
+                if (!response.ok) throw new Error(`Spotify API hiba: ${response.status}`);
+
+                const data = await response.json();
+                const tracks = (data?.tracks?.items || [])
+                    .map((track) => ({
+                        name: track?.name || "",
+                        url: track?.external_urls?.spotify || ""
+                    }))
+                    .filter((track) => track.name && track.url);
+
+                if (!tracks.length) {
+                    alert("Ehhez az albumhoz nem talalhato valaszthato dal a Spotify-on.");
+                } else {
+                    pickedTrack = askTrackChoice(tracks);
+                    if (!pickedTrack) {
+                        const proceed = confirm("Nem lett kedvenc dal kivalasztva. Folytatod enelkul?");
+                        if (!proceed) return;
+                    }
+                }
+            } catch (err) {
+                console.error("Spotify dal lista hiba:", err);
+                alert("Nem sikerult lekerdezni a Spotify dalokat. Probald ujra kesobb.");
+                return;
+            }
+        }
+
         document.getElementById("inArtist").value = t.artist || "";
         document.getElementById("inAlbum").value = t.album || "";
         document.getElementById("inCover").value = t.coverUrl || "";
         document.getElementById("inRec").value = t.recommender || "";
         document.getElementById("inYear").value = t.year || "";
+        const todoCountry = String(t.country || "").trim();
+        document.getElementById("inCountry").value = todoCountry;
         document.getElementById("inGenre").value = t.genre || "";
 
         ["t_riff", "t_vox", "t_dob", "t_mix", "t_szoveg", "t_vibe"].forEach((id) => {
@@ -350,8 +495,8 @@ export function registerLibraryCrudHandlers({
 
         document.getElementById("inScore").value = "";
         document.getElementById("inReview").value = "";
-        document.getElementById("inFavSong").value = "";
-        document.getElementById("inSongUrl").value = "";
+        document.getElementById("inFavSong").value = pickedTrack?.name || "";
+        document.getElementById("inSongUrl").value = pickedTrack?.url || "";
         const dateEl = document.getElementById("inDate");
         if (dateEl) dateEl.value = "";
         document.getElementById("inLength").value = t.length || "";

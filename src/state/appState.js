@@ -6,6 +6,7 @@ export const state = {
     sortAsc: false,
     albums: [],
     todos: [],
+    artistTotals: {},
     todoEditIdx: -1,
     slopG: [],
     charts: {},

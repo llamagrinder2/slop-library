@@ -26,6 +26,7 @@ let isRainbowMode = state.isRainbowMode;
 let sortAsc = state.sortAsc;
 let albums = state.albums;
 let todos = state.todos;
+let artistTotals = state.artistTotals || {};
 let todoEditIdx = state.todoEditIdx;
 let slopG = state.slopG;
 let charts = state.charts;
@@ -329,6 +330,7 @@ async function loadFromFirebase() {
     const applyLibraryData = (data) => {
         albums = data.albums || [];
         todos = data.todos || [];
+        artistTotals = data.artistTotals || {};
         if (data.slopG !== undefined) slopG = data.slopG;
         catDeath = data.catDeath || [];
         catBlack = data.catBlack || [];
@@ -339,6 +341,7 @@ async function loadFromFirebase() {
 
         state.albums = albums;
         state.todos = todos;
+        state.artistTotals = artistTotals;
         state.slopG = slopG;
         state.catDeath = catDeath;
         state.catBlack = catBlack;
@@ -414,8 +417,10 @@ async function loadFromFirebase() {
 
         window.showPage("library");
         if (typeof window.renderSettings === "function") window.renderSettings();
+        handleDeepLinkFromUrl();
     } catch (e) {
         console.error("Hiba a betoltes soran:", e);
+        handleDeepLinkFromUrl();
     }
 }
 
@@ -424,6 +429,7 @@ async function saveToFirebase() {
         const payload = {
             albums,
             todos,
+            artistTotals,
             slopG,
             catDeath,
             catBlack,
@@ -461,6 +467,68 @@ async function saveToFirebase() {
     }
 }
 window.saveToFirebase = saveToFirebase;
+
+function handleDeepLinkFromUrl() {
+    try {
+        const params = new URLSearchParams(window.location.search);
+        const page = params.get("page");
+        const openAddTodo = params.get("openAddTodo") === "1";
+        const artist = (params.get("artist") || "").trim();
+        const todoQuery = (params.get("todoQuery") || "").trim();
+        const libraryQuery = (params.get("libraryQuery") || "").trim();
+        const libraryArtist = (params.get("libraryArtist") || "").trim();
+        const libraryAlbum = (params.get("libraryAlbum") || "").trim();
+
+        if (page === "library") {
+            window.showPage("library");
+            const searchInput = document.getElementById("gSearch");
+            const artistSelect = document.getElementById("fArtist");
+
+            // New dedicated mode: set artist and album fields separately.
+            if (libraryArtist || libraryAlbum) {
+                if (artistSelect) artistSelect.value = libraryArtist;
+                if (searchInput) searchInput.value = libraryAlbum;
+                if (typeof window.runFilter === "function") window.runFilter(true);
+            } else if (libraryQuery) {
+                // Backward compatibility for old deep links.
+                if (searchInput) searchInput.value = libraryQuery;
+                if (typeof window.runFilter === "function") window.runFilter(true);
+            }
+
+            const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+            window.history.replaceState({}, document.title, cleanUrl);
+            return;
+        }
+
+        if (page === "todo") {
+            window.showPage("todo");
+
+            if (openAddTodo) {
+                const panel = document.getElementById("mod-addTodo");
+                if (panel && panel.style.display !== "block") {
+                    window.toggleMod("addTodo");
+                }
+            }
+
+            if (artist) {
+                const artistInput = document.getElementById("todoArtist");
+                if (artistInput) {
+                    artistInput.value = artist;
+                    artistInput.focus();
+                }
+            }
+
+            if (todoQuery && typeof window.setTodoGenreFilter === "function") {
+                window.setTodoGenreFilter(todoQuery);
+            }
+
+            const cleanUrl = `${window.location.pathname}${window.location.hash || ""}`;
+            window.history.replaceState({}, document.title, cleanUrl);
+        }
+    } catch (err) {
+        console.warn("Deep link parse hiba:", err);
+    }
+}
 
 registerExcelTableHandlers({
     TRAIT_VALUES,
@@ -525,6 +593,7 @@ registerFilterHandlers({
 registerStatsHandlers({
     getAlbums: () => albums,
     getTodos: () => todos,
+    getArtistTotals: () => artistTotals,
     getSlopGenres: () => slopG,
     getCharts: () => charts,
     getCatDeath: () => catDeath,
@@ -575,6 +644,7 @@ registerLibraryCrudHandlers({
 
 registerSettingsHandlers({
     getAlbums: () => albums,
+    getTodos: () => todos,
     getSlopGenres: () => slopG,
     getCatDeath: () => catDeath,
     getCatBlack: () => catBlack,
@@ -595,6 +665,7 @@ registerNavigationHandlers({
     runFilter: () => window.runFilter(),
     renderSettings: () => window.renderSettings(),
     renderTodo: () => window.renderTodo(),
+    renderTodoListView: () => window.renderTodoListView(),
     getSortAsc: () => sortAsc,
     setSortAsc: (next) => {
         sortAsc = next;

@@ -7,6 +7,7 @@ export function registerNavigationHandlers({
     runFilter,
     renderSettings,
     renderTodo,
+    renderTodoListView,
     getSortAsc,
     setSortAsc,
     setCurrentPage,
@@ -45,7 +46,14 @@ export function registerNavigationHandlers({
             runFilter();
         }
         if (id === "settings") renderSettings();
-        if (id === "todo") renderTodo();
+        if (id === "todo") {
+            if (typeof window.clearTodoGenreFilter === "function") {
+                window.clearTodoGenreFilter();
+            } else {
+                renderTodo();
+            }
+        }
+        if (id === "todo-list-view" && typeof renderTodoListView === "function") renderTodoListView();
         if (id === "map-page" && typeof window.renderWorldMap === "function") window.renderWorldMap();
     };
 

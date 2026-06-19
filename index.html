@@ -1703,6 +1703,7 @@ td[contenteditable="true"]:empty::before {
 			</div>
 			<div class="form-row">
 				<input type="number" id="todoYear" placeholder="Év">
+				<input type="text" id="todoCountry" placeholder="Ország (kód vagy név)" onblur="window.normalizeCountryInput(this)">
 				<input type="text" id="todoLength" placeholder="Hossz (mm:ss)">
 				<input type="text" id="todoGenre" placeholder="Műfajok">
 			</div>
@@ -1721,11 +1722,19 @@ td[contenteditable="true"]:empty::before {
 		</div>
 
 		<div class="form-row" style="margin-bottom: 12px;">
-			<input type="text" id="todoGenreFilter" placeholder="ToDo szures mufaj alapjan..." oninput="window.setTodoGenreFilter(this.value)">
+			<input type="text" id="todoGenreFilter" placeholder="ToDo szures eloado / album / mufaj alapjan..." oninput="window.setTodoGenreFilter(this.value)">
 			<button onclick="window.clearTodoGenreFilter()" class="ctrl-btn" style="max-width: 110px;">RESET</button>
+			<button onclick="showPage('todo-list-view')" id="btnTodoBulkView" class="ctrl-btn admin-only" style="max-width: 120px; font-size: 0.82em;">LISTA NÉZET</button>
 		</div>
 
 		<div id="todoContainer"></div>
+	</div>
+
+	<div id="todo-list-view" class="page">
+		<div class="form-row" style="margin-bottom: 12px;">
+			<button onclick="showPage('todo')" class="ctrl-btn" style="max-width: 160px;">← VISSZA A TO-DO-BA</button>
+		</div>
+		<div id="todoListViewContainer"></div>
 	</div>
 
 	<div id="stats" class="page">
@@ -1748,6 +1757,10 @@ td[contenteditable="true"]:empty::before {
 				<div class="stats-summary-item is-interactive" onclick="navigateToArtistsView()" style="cursor: pointer;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Előadók</small>
 					<div id="stat-total-artists" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
+				</div>
+				<div class="stats-summary-item is-interactive" onclick="openDiscographyPage()" style="cursor: pointer;">
+					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Kész Discog.</small>
+					<div id="stat-complete-discogs" style="font-size: 1.6em; font-weight: bold; color: #fff;">0</div>
 				</div>
 				<div class="stats-summary-item is-interactive" onclick="navigateToGenresView()" style="cursor: pointer;">
 					<small style="color:var(--accent); text-transform: uppercase; letter-spacing: 1px;">Műfajok</small>
@@ -1925,6 +1938,13 @@ td[contenteditable="true"]:empty::before {
 			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">Végigmegy az albumokon, és kiszámolja a borítók domináns színét. Ezt csak egyszer kell lefuttatni a már meglévő képeknél!</p>
 			<button id="btnColorHarvester" onclick="runColorHarvester()" class="ctrl-btn" style="background: linear-gradient(to right, #ff4444, #ffcc00, #44ff44, #4444ff); color:#000; border:none; font-weight:bold;">
 				SZÍNEK FELDOLGOZÁSA
+			</button>
+		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Országok automatikus egyeztetése</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">Végigmegy a Könyvtár + ToDo adatokon, és ha egy előadó már rendelkezik országgal, akkor azt a hiányzó rekordokra is ráírja.</p>
+			<button id="btnCountryMatcher" onclick="runCountryMatcher()" class="ctrl-btn" style="background: #2a3f2a; color:#dff7df; border:1px solid #3f6a3f; font-weight:bold;">
+				ORSZÁGOK EGYEZTETÉSE
 			</button>
 		</div>
 		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
