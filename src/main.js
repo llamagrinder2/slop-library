@@ -275,16 +275,16 @@ async function renderWorldMap() {
         .enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
-            const countryCode = d.id;
+            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
             const count = countryCounts[countryCode];
             return count ? colorScale(count) : "#2a2a2a";
         })
         .attr("stroke", "#121212")
         .on("mouseover", (event, d) => {
-            const countryCode = d.id;
+            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
             const count = countryCounts[countryCode] || 0;
             tooltip.transition().duration(200).style("opacity", .9);
-            tooltip.html(`${d.properties.name}: ${count} albums`)
+            tooltip.html(`${d.properties && d.properties.name ? d.properties.name : countryCode}: ${count} albums`)
                 .style("left", (event.pageX + 5) + "px")
                 .style("top", (event.pageY - 28) + "px");
         })
@@ -292,7 +292,7 @@ async function renderWorldMap() {
             tooltip.transition().duration(500).style("opacity", 0);
         })
         .on("click", (event, d) => {
-            const countryCode = d.id;
+            const countryCode = (d.properties && (d.properties.iso_a3 || d.properties.ISO_A3 || d.properties.ISO3)) || d.id;
             if (countryCounts[countryCode]) {
                 document.getElementById('fCountry').value = countryCode;
                 runFilter();
