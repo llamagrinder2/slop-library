@@ -59,6 +59,41 @@
             font-weight: 600;
         }
         .btn:hover { border-color: var(--accent); color: var(--accent); }
+        .btn.active {
+            border-color: var(--accent);
+            color: #111;
+            background: var(--accent);
+        }
+        .filter-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0 14px 0;
+        }
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .filter-group-right {
+            justify-content: flex-end;
+        }
+        .icon-btn {
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-btn img {
+            width: 28px;
+            height: 28px;
+            display: block;
+            filter: brightness(0) saturate(100%) invert(56%) sepia(82%) saturate(368%) hue-rotate(62deg) brightness(95%) contrast(91%);
+        }
         .search {
             background: #1a1a1a;
             border: 1px solid #3a3a3a;
@@ -230,6 +265,8 @@
             .block { min-width: 50px; height: 50px; font-size: 0.72rem; }
             .search { min-width: 180px; }
             .totals-edit { width: 100%; justify-content: flex-start; }
+            .filter-bar { align-items: flex-start; }
+            .filter-group-right { justify-content: flex-start; }
         }
     </style>
 </head>
@@ -245,6 +282,21 @@
         </div>
 
         <div class="hint">Each row combines Library and ToDo by artist. Missing blocks (?) jump back to ToDo add form with artist prefilled.</div>
+        <div class="filter-bar" id="filterBar">
+            <div class="filter-group">
+                <button class="btn active" id="btnFilterAll">All artists</button>
+                <button class="btn" id="btnFilterZero">Total = 0</button>
+                <button class="btn" id="btnFilterIncomplete">Incomplete</button>
+                <button class="btn" id="btnFilterComplete">Complete</button>
+            </div>
+            <div class="filter-group filter-group-right">
+                <button class="btn" id="btnSortTotal">Sort total: Desc</button>
+                <button class="btn" id="btnSortAlpha">Sort alpha: A-Z</button>
+                <button class="btn icon-btn" id="btnPhyllo" title="Frog tracker" aria-label="Frog tracker">
+                    <img src="./froggg.svg" alt="">
+                </button>
+            </div>
+        </div>
         <div class="legend">
             <span><i class="lg-lib"></i>Library</span>
             <span><i class="lg-todo"></i>ToDo</span>
@@ -263,15 +315,22 @@
         const errorBox = document.getElementById("errorBox");
         const metaLine = document.getElementById("metaLine");
         const searchInput = document.getElementById("searchArtist");
+        const filterBar = document.getElementById("filterBar");
+        const PHYLLOMEDUSA_ARTIST = "Phyllomedusa";
         const state = {
             albums: [],
             todos: [],
             artistTotals: {},
-            grouped: []
+            grouped: [],
+            statusFilter: "all",
+            sortTotalsAsc: false,
+            sortAlphaAsc: true,
+            sortMode: "total"
         };
 
         const normalizeArtist = (v) => String(v || "").trim();
         const normalizeAlbum = (v) => String(v || "").trim().toLowerCase();
+        const isPhyllomedusa = (artist) => normalizeArtist(artist).toLowerCase() === PHYLLOMEDUSA_ARTIST.toLowerCase();
         const numericYear = (y) => {
             const n = parseInt(String(y || "").trim(), 10);
             return Number.isFinite(n) ? n : 99999;
@@ -462,13 +521,63 @@
         }
 
         function render() {
-            const q = String(searchInput.value || "").trim().toLowerCase();
-            const rows = q ? state.grouped.filter((g) => g.artist.toLowerCase().includes(q)) : state.grouped;
+            const baseArtists = state.grouped.filter((g) => !isPhyllomedusa(g.artist));
 
-            const completed = state.grouped.filter((g) => g.totalAlbumsCount > 0 && g.libCount === g.totalAlbumsCount && g.todoCount === 0).length;
-            const withMissing = state.grouped.filter((g) => g.missingCount > 0).length;
-            const incomplete = state.grouped.filter((g) => g.isIncomplete).length;
-            metaLine.innerHTML = `Artists: <strong>${state.grouped.length}</strong> | <span class="ok">Completed: ${completed}</span> | <span class="danger">Incomplete: ${incomplete}</span> | <span class="danger">With missing: ${withMissing}</span>`;
+            const q = String(searchInput.value || "").trim().toLowerCase();
+            const filteredByStatus = baseArtists.filter((g) => {
+                if (state.statusFilter === "zero") return g.totalAlbumsCount === 0;
+                if (state.statusFilter === "incomplete") {
+                    if (g.totalAlbumsCount <= 0) return false;
+                    return g.todoCount > 0 || g.libCount < g.totalAlbumsCount || g.missingCount > 0;
+                }
+                if (state.statusFilter === "complete") {
+                    return g.totalAlbumsCount > 0 && g.libCount === g.totalAlbumsCount && g.todoCount === 0 && g.missingCount === 0;
+                }
+                return true;
+            });
+
+            const searchedRows = q ? filteredByStatus.filter((g) => g.artist.toLowerCase().includes(q)) : filteredByStatus;
+            const rows = [...searchedRows].sort((a, b) => {
+                if (state.sortMode === "alpha") {
+                    return state.sortAlphaAsc
+                        ? a.artist.localeCompare(b.artist, "hu")
+                        : b.artist.localeCompare(a.artist, "hu");
+                }
+
+                if (a.totalAlbumsCount === b.totalAlbumsCount) {
+                    return a.artist.localeCompare(b.artist, "hu");
+                }
+                return state.sortTotalsAsc ? a.totalAlbumsCount - b.totalAlbumsCount : b.totalAlbumsCount - a.totalAlbumsCount;
+            });
+            const completed = baseArtists.filter((g) => g.totalAlbumsCount > 0 && g.libCount === g.totalAlbumsCount && g.todoCount === 0).length;
+            const withMissing = baseArtists.filter((g) => g.missingCount > 0).length;
+            const incomplete = baseArtists.filter((g) => g.isIncomplete).length;
+            metaLine.innerHTML = `Artists: <strong>${baseArtists.length}</strong> | <span class="ok">Completed: ${completed}</span> | <span class="danger">Incomplete: ${incomplete}</span> | <span class="danger">With missing: ${withMissing}</span>`;
+
+            if (filterBar) {
+                filterBar.querySelectorAll(".btn[id^='btnFilter']").forEach((btn) => btn.classList.remove("active"));
+                const activeBtnMap = {
+                    all: "btnFilterAll",
+                    zero: "btnFilterZero",
+                    incomplete: "btnFilterIncomplete",
+                    complete: "btnFilterComplete"
+                };
+                const activeId = activeBtnMap[state.statusFilter];
+                const activeBtn = activeId ? document.getElementById(activeId) : null;
+                if (activeBtn) activeBtn.classList.add("active");
+
+                const sortBtn = document.getElementById("btnSortTotal");
+                if (sortBtn) {
+                    sortBtn.innerText = `Sort total: ${state.sortTotalsAsc ? "Asc" : "Desc"}`;
+                    sortBtn.classList.toggle("active", state.sortMode === "total");
+                }
+
+                const alphaBtn = document.getElementById("btnSortAlpha");
+                if (alphaBtn) {
+                    alphaBtn.innerText = `Sort alpha: ${state.sortAlphaAsc ? "A-Z" : "Z-A"}`;
+                    alphaBtn.classList.toggle("active", state.sortMode === "alpha");
+                }
+            }
 
             if (!rows.length) {
                 root.innerHTML = '<div class="row muted">No artist matches the current filter.</div>';
@@ -545,6 +654,42 @@
 
         document.getElementById("btnReload").addEventListener("click", () => {
             loadData();
+        });
+
+        document.getElementById("btnFilterAll").addEventListener("click", () => {
+            state.statusFilter = "all";
+            render();
+        });
+
+        document.getElementById("btnFilterZero").addEventListener("click", () => {
+            state.statusFilter = "zero";
+            render();
+        });
+
+        document.getElementById("btnFilterIncomplete").addEventListener("click", () => {
+            state.statusFilter = "incomplete";
+            render();
+        });
+
+        document.getElementById("btnFilterComplete").addEventListener("click", () => {
+            state.statusFilter = "complete";
+            render();
+        });
+
+        document.getElementById("btnSortTotal").addEventListener("click", () => {
+            state.sortMode = "total";
+            state.sortTotalsAsc = !state.sortTotalsAsc;
+            render();
+        });
+
+        document.getElementById("btnSortAlpha").addEventListener("click", () => {
+            state.sortMode = "alpha";
+            state.sortAlphaAsc = !state.sortAlphaAsc;
+            render();
+        });
+
+        document.getElementById("btnPhyllo").addEventListener("click", () => {
+            window.location.href = "./frog-tracker.html";
         });
 
         searchInput.addEventListener("input", render);
