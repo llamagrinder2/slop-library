@@ -123,6 +123,11 @@
             padding: 12px;
             margin-bottom: 10px;
         }
+        .row.complete {
+            background: linear-gradient(90deg, rgba(255, 204, 0, 0.22) 0%, rgba(255, 204, 0, 0.14) 45%, var(--card) 55%, var(--card) 100%);
+            border-color: rgba(255, 204, 0, 0.7);
+            box-shadow: 0 0 0 1px rgba(255, 204, 0, 0.18) inset;
+        }
         .row-head {
             display: flex;
             justify-content: space-between;
@@ -166,8 +171,10 @@
         }
         .blocks {
             display: flex;
+            flex-wrap: wrap;
             gap: 6px;
-            overflow-x: auto;
+            overflow-x: visible;
+            align-content: flex-start;
             padding-bottom: 2px;
         }
         .block {
@@ -178,7 +185,7 @@
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            border: 1px solid #333;
+            border: 2px solid #333;
             color: #f4f4f4;
             font-size: 0.8rem;
             user-select: none;
@@ -202,6 +209,8 @@
             background-color: #1c2538;
             border-color: #5d78b3;
             color: #d6e4ff;
+            border-style: solid;
+            box-shadow: none;
         }
         .block.todo::after {
             content: "";
@@ -209,6 +218,22 @@
             inset: 0;
             background: repeating-linear-gradient(135deg, rgba(122, 168, 255, 0.24) 0 6px, rgba(60, 80, 130, 0.1) 6px 12px);
             pointer-events: none;
+        }
+        .block.ep {
+            border-style: dashed;
+            border-color: #7f8a95;
+        }
+        .block.demo {
+            border-color: #d97a3a;
+            box-shadow: 0 0 0 1px rgba(217, 122, 58, 0.12) inset;
+        }
+        .block.split::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.00) 0 48%, rgba(0, 0, 0, 0.58) 52% 100%);
+            pointer-events: none;
+            z-index: 1;
         }
         .block.missing {
             background: rgba(90, 90, 90, 0.2);
@@ -258,6 +283,12 @@
         .lg-lib { background: #2a2a2a; }
         .lg-todo { background: repeating-linear-gradient(135deg, rgba(122, 168, 255, 0.26) 0 4px, rgba(60, 80, 130, 0.12) 4px 8px); }
         .lg-miss { background: rgba(90, 90, 90, 0.2); }
+        .lg-ep { background: #1f2226; border-style: dashed; border-color: #7f8a95; }
+        .lg-demo { background: #26190f; border-color: #d97a3a; }
+        .lg-split {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.00) 0 48%, rgba(0, 0, 0, 0.58) 52% 100%), #2a2a2a;
+            border-color: #575757;
+        }
         .muted { color: var(--muted); }
         .ok { color: var(--ok); }
         .danger { color: var(--danger); }
@@ -298,9 +329,12 @@
             </div>
         </div>
         <div class="legend">
-            <span><i class="lg-lib"></i>Library</span>
+            <span><i class="lg-lib"></i>LP</span>
             <span><i class="lg-todo"></i>ToDo</span>
             <span><i class="lg-miss"></i>Missing (?)</span>
+            <span><i class="lg-ep"></i>EP</span>
+            <span><i class="lg-demo"></i>Demo</span>
+            <span><i class="lg-split"></i>Split</span>
         </div>
 
         <div class="msg" id="errorBox"></div>
@@ -379,6 +413,7 @@
 
         function buildGrouped() {
             const byArtist = new Map();
+            const autoExpandedTotals = {};
 
             const pushRecord = (artistRaw, record) => {
                 const artist = normalizeArtist(artistRaw);
@@ -446,7 +481,11 @@
                 const todoCount = known.filter((x) => x.source === "todo").length;
                 const storedTotal = parseInt(state.artistTotals[artist], 10);
                 const knownCount = known.length;
-                const totalAlbumsCount = Number.isFinite(storedTotal) && storedTotal >= 0 ? storedTotal : 0;
+                const baseTotal = Number.isFinite(storedTotal) && storedTotal >= 0 ? storedTotal : 0;
+                const totalAlbumsCount = baseTotal > 0 ? Math.max(baseTotal, knownCount) : 0;
+                if (baseTotal > 0 && totalAlbumsCount > baseTotal) {
+                    autoExpandedTotals[artist] = totalAlbumsCount;
+                }
                 const missingCount = totalAlbumsCount > 0 ? Math.max(0, totalAlbumsCount - knownCount) : 0;
                 const isIncomplete = totalAlbumsCount === 0 || todoCount > 0 || missingCount > 0;
 
@@ -463,12 +502,44 @@
 
             grouped.sort((a, b) => a.artist.localeCompare(b.artist, "hu"));
             state.grouped = grouped;
+
+            const autoKeys = Object.keys(autoExpandedTotals);
+            if (autoKeys.length) {
+                state.artistTotals = {
+                    ...(state.artistTotals || {}),
+                    ...autoExpandedTotals
+                };
+
+                const payload = {
+                    albums: state.albums,
+                    todos: state.todos,
+                    artistTotals: state.artistTotals
+                };
+
+                setDoc(doc(db, "data", "library"), payload, { merge: true }).catch((err) => {
+                    console.error("Could not auto-expand discography totals:", err);
+                });
+            }
         }
 
         function blockTitle(block, idx) {
             if (block.source === "library") return `${idx + 1}. ${block.album || "Unknown"} (${block.year === 99999 ? "?" : block.year}) [Library]`;
             if (block.source === "todo") return `${idx + 1}. ${block.album || "Unknown"} (${block.year === 99999 ? "?" : block.year}) [ToDo]`;
             return `${idx + 1}. Missing album`;
+        }
+
+        function getReleaseKind(albumTitle) {
+            const title = String(albumTitle || "").trim();
+            if (/\(\s*ep\s*\)\s*$/i.test(title)) return "ep";
+            if (/\(\s*demo\s*\)\s*$/i.test(title)) return "demo";
+            if (/\(\s*split\s*\)\s*$/i.test(title)) return "split";
+            return "lp";
+        }
+
+        function cleanReleaseTitle(albumTitle) {
+            return String(albumTitle || "")
+                .replace(/\s*\(\s*(ep|demo|split)\s*\)\s*$/i, "")
+                .trim();
         }
 
         function goToTodoAdd(artist) {
@@ -589,10 +660,13 @@
                     const blocks = [];
                     g.known.forEach((k, i) => {
                         const cls = k.source === "library" ? "library" : "todo";
+                        const releaseKind = getReleaseKind(k.album);
+                        const releaseClass = k.source === "library" && releaseKind !== "lp" ? ` ${releaseKind}` : "";
+                        const cleanedTitle = cleanReleaseTitle(k.album);
                         const coverStyle = k.coverUrl
                             ? `style="background-image: linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), url('${k.coverUrl.replace(/'/g, "%27")}');"`
                             : "";
-                        blocks.push(`<div class="block ${cls} clickable" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle(k, i)}" ${coverStyle}><span class="block-index">${i + 1}</span></div>`);
+                        blocks.push(`<div class="block ${cls}${releaseClass} clickable" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle({ ...k, album: cleanedTitle }, i)}" ${coverStyle}><span class="block-index">${i + 1}</span></div>`);
                     });
                     for (let i = 0; i < g.missingCount; i++) {
                         const idx = g.known.length + i;
@@ -600,10 +674,10 @@
                     }
 
                     return `
-                    <div class="row">
+                    <div class="row ${g.isIncomplete ? "" : "complete"}">
                         <div class="row-head">
                             <div>
-                                <div class="artist">${g.artist} (${g.totalAlbumsCount} albums)</div>
+                                <div class="artist">${g.artist} (${g.totalAlbumsCount} releases)</div>
                                 <div class="artist-meta">Library: ${g.libCount} | ToDo: ${g.todoCount} | Missing: ${g.missingCount} | Status: ${g.isIncomplete ? '<span class="danger">Incomplete</span>' : '<span class="ok">Complete</span>'}</div>
                             </div>
                             <div class="totals-edit">
