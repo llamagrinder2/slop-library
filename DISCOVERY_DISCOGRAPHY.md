@@ -46,10 +46,24 @@ Each artist row contains:
 - Editable totalAlbumsCount input + Save button
 - Visual block strip of albums
 
+Current display updates:
+- Row title now uses "releases" instead of "albums"
+- Complete rows get a gold-tinted highlight and gold border treatment
+- Album blocks wrap onto additional lines when needed so crowded rows grow downward instead of staying a single horizontal strip
+- Release tags are read from the album title suffix and affect only library blocks:
+   - `(EP)` uses a dashed border
+   - `(demo)` uses a reddish-orange border
+   - `(split)` uses a diagonal split overlay
+   - LP entries without a bracket tag remain unchanged
+
 Block types:
 - library block: clickable, jumps to index library page with artist + album deep link
 - todo block: clickable, jumps to index todo page with todoQuery
 - missing block with ?: clickable, jumps to index todo page and opens add-todo module prefilled with artist
+
+Legend updates:
+- `LP` replaces the old library legend label
+- Additional legend entries exist for EP, demo, and split styling
 
 Meta line summary at top:
 - total artists

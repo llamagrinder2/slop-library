@@ -49,6 +49,11 @@ Most actions (add/edit/delete/filter-convert) mutate albums/todos arrays and cal
 - Stats page opens discography via openDiscographyPage
 - ToDo conversion to library uses moveToRating and prefilled add form
 
+## Navigation Notes
+- The desktop hidden nav on index.html now includes `discog. tracker` between To-Do and Statisztikák
+- `KEREK` uses a red-accented button style in the desktop nav
+- `BEÁLLÍTÁSOK` remains in the desktop nav after `LISTA NÉZET`
+
 ## Statistics Page Summary
 The statistics page is a dashboard driven by window.renderStats in src/handlers/statsHandlers.js.
 

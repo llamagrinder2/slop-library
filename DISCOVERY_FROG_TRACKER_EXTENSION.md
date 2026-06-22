@@ -136,6 +136,10 @@ The frog tracker is effectively a scoped extension of the discography pattern:
 - discography = all artists
 - frog tracker = one artist
 
+Important distinction:
+- the newer release styling, card wrapping, gold complete-row treatment, and legend updates belong to `discography.html`
+- `frog-tracker.html` stays focused on the single Phyllomedusa board and does not inherit those discography-specific visuals
+
 They share the same data model, merge logic, and deep-link style, but the frog tracker removes the need to search or browse across every artist.
 
 ## Safe Extension Points
