@@ -113,9 +113,103 @@ export function registerLibraryCrudHandlers({
     bindArtistCountryAutofill("inArtist", "inCountry");
     bindArtistCountryAutofill("todoArtist", "todoCountry");
 
+    let cloudToastTimer = null;
+
+    const getCloudToastEl = () => {
+        let el = document.getElementById("cloudSaveToast");
+        if (el) return el;
+
+        el = document.createElement("div");
+        el.id = "cloudSaveToast";
+        el.style.position = "fixed";
+        el.style.right = "16px";
+        el.style.bottom = "16px";
+        el.style.zIndex = "20000";
+        el.style.minWidth = "240px";
+        el.style.maxWidth = "420px";
+        el.style.padding = "10px 14px";
+        el.style.borderRadius = "8px";
+        el.style.fontSize = "13px";
+        el.style.fontWeight = "600";
+        el.style.color = "#fff";
+        el.style.background = "#2d2d2d";
+        el.style.border = "1px solid #555";
+        el.style.boxShadow = "0 6px 24px rgba(0,0,0,0.35)";
+        el.style.display = "none";
+        document.body.appendChild(el);
+        return el;
+    };
+
+    const showCloudToast = (type, message) => {
+        const el = getCloudToastEl();
+        if (cloudToastTimer) {
+            clearTimeout(cloudToastTimer);
+            cloudToastTimer = null;
+        }
+
+        if (type === "loading") {
+            el.style.background = "#253244";
+            el.style.border = "1px solid #3e5570";
+            el.innerText = `⏳ ${message}`;
+            el.style.display = "block";
+            return;
+        }
+
+        if (type === "success") {
+            el.style.background = "#1f4d2f";
+            el.style.border = "1px solid #2f8a4f";
+            el.innerText = `✓ ${message}`;
+            el.style.display = "block";
+            cloudToastTimer = setTimeout(() => {
+                el.style.display = "none";
+            }, 2200);
+            return;
+        }
+
+        el.style.background = "#5a2323";
+        el.style.border = "1px solid #b45454";
+        el.innerText = `✖ ${message}`;
+        el.style.display = "block";
+        cloudToastTimer = setTimeout(() => {
+            el.style.display = "none";
+        }, 4200);
+    };
+
+    window.__showCloudSaveToast = showCloudToast;
+
+    const getErrorCodeAndMessage = (error) => {
+        const code = error && error.code ? error.code : "unknown";
+        const message = error && error.message ? error.message : String(error);
+        return { code, message };
+    };
+
+    const saveToCloudWithFeedback = async (sourceLabel) => {
+        showCloudToast("loading", "Saving to cloud...");
+
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            console.warn(`[Firestore][${sourceLabel}] Offline detected. Writes may be cached locally instead of server-confirmed immediately.`);
+        }
+
+        try {
+            const result = await saveToFirebase();
+            if (!result || result.ok !== true) {
+                throw (result && result.error) || new Error("Save result did not confirm server write.");
+            }
+            showCloudToast("success", "Successfully saved to server!");
+            return true;
+        } catch (error) {
+            const { code, message } = getErrorCodeAndMessage(error);
+            console.error(`[Firestore][${sourceLabel}] Write failed. code=${code} message=${message}`, error);
+            showCloudToast("error", `Error: Save failed! ${message}`);
+            throw error;
+        }
+    };
+
     window.saveAlbum = async function() {
         const albums = getAlbums();
         const editIdx = getEditIdx();
+        const isEditing = editIdx > -1;
+        const previousAlbum = isEditing ? { ...albums[editIdx] } : null;
 
         const saveBtn = document.querySelector('button[onclick="saveAlbum()"]');
         const originalSaveText = saveBtn ? saveBtn.innerText : "";
@@ -187,15 +281,15 @@ export function registerLibraryCrudHandlers({
             addedDate: dateInput || "Osidokben"
         };
 
-        if (editIdx > -1) {
+        if (isEditing) {
             albums[editIdx] = nextAlbum;
-            setEditIdx(-1);
         } else {
             albums.push(nextAlbum);
         }
 
         try {
-            await saveToFirebase();
+            await saveToCloudWithFeedback("saveAlbum");
+            if (isEditing) setEditIdx(-1);
             renderStats();
             runFilter();
             toggleMod('add');
@@ -219,6 +313,14 @@ export function registerLibraryCrudHandlers({
             document.getElementById("t_mix").value = "Meh";
             document.getElementById("t_szoveg").value = "Meh";
             document.getElementById("t_vibe").value = "Meh";
+        } catch (error) {
+            const { code, message } = getErrorCodeAndMessage(error);
+            if (isEditing && previousAlbum) {
+                albums[editIdx] = previousAlbum;
+            } else if (!isEditing) {
+                albums.pop();
+            }
+            console.error(`[Firestore][saveAlbum] rollback applied. code=${code} message=${message}`, error);
         } finally {
             if (saveBtn) saveBtn.disabled = false;
             if (saveBtn) saveBtn.innerText = originalSaveText;
@@ -241,6 +343,9 @@ export function registerLibraryCrudHandlers({
 
         if (card) card.style.opacity = "0.4";
 
+        const previousCoverUrl = albums[albumIdx] ? albums[albumIdx].coverUrl : "";
+        const previousHue = albums[albumIdx] ? albums[albumIdx].dominantHue : undefined;
+
         try {
             const fileName = Date.now() + "_" + file.name;
             const storageRef = ref(storage, "album_covers/" + fileName);
@@ -251,11 +356,16 @@ export function registerLibraryCrudHandlers({
             albums[albumIdx].coverUrl = finalUrl;
             albums[albumIdx].dominantHue = newHue;
 
-            await saveToFirebase();
+            await saveToCloudWithFeedback("handleDiskDrop");
             renderStats();
             runFilter();
         } catch (error) {
-            console.error("D&D hiba:", error);
+            if (albums[albumIdx]) {
+                albums[albumIdx].coverUrl = previousCoverUrl;
+                albums[albumIdx].dominantHue = previousHue;
+            }
+            const { code, message } = getErrorCodeAndMessage(error);
+            console.error(`[Firestore][handleDiskDrop] D&D hiba. code=${code} message=${message}`, error);
             alert("Hiba tortent a feltoltes soran!");
         } finally {
             if (card) card.style.opacity = "1";
@@ -289,13 +399,26 @@ export function registerLibraryCrudHandlers({
         };
 
         const todoEditIdx = getTodoEditIdx();
+        const isEditingTodo = typeof todoEditIdx === "number" && todoEditIdx >= 0 && !!todos[todoEditIdx];
+        const previousTodo = isEditingTodo ? { ...todos[todoEditIdx] } : null;
         if (typeof todoEditIdx === "number" && todoEditIdx >= 0 && todos[todoEditIdx]) {
             todos[todoEditIdx] = { ...todos[todoEditIdx], ...todoData };
         } else {
             todos.push(todoData);
         }
 
-        await saveToFirebase();
+        try {
+            await saveToCloudWithFeedback("saveTodoOnly");
+        } catch (error) {
+            if (isEditingTodo && previousTodo) {
+                todos[todoEditIdx] = previousTodo;
+            } else {
+                todos.pop();
+            }
+            const { code, message } = getErrorCodeAndMessage(error);
+            console.error(`[Firestore][saveTodoOnly] rollback applied. code=${code} message=${message}`, error);
+            return;
+        }
 
         setTodoEditIdx(-1);
         document.getElementById("todoArtist").value = "";
@@ -502,8 +625,13 @@ export function registerLibraryCrudHandlers({
         document.getElementById("inLength").value = t.length || "";
 
         setEditIdx(-1);
-        todos.splice(idx, 1);
-        await saveToFirebase();
+        const removed = todos.splice(idx, 1)[0];
+        try {
+            await saveToCloudWithFeedback("moveToRating");
+        } catch (error) {
+            todos.splice(idx, 0, removed);
+            return;
+        }
 
         showPage("library");
         const addMod = document.getElementById("mod-add");
@@ -518,14 +646,18 @@ export function registerLibraryCrudHandlers({
 
         if (!confirm("Kukaba a moslekkal?")) return;
 
-        if (type === "lib" || type === "library") albums.splice(i, 1);
-        else todos.splice(i, 1);
+        let removed = null;
+        if (type === "lib" || type === "library") removed = albums.splice(i, 1)[0];
+        else removed = todos.splice(i, 1)[0];
 
         try {
-            await saveToFirebase();
+            await saveToCloudWithFeedback("deleteAlbum");
             location.reload();
         } catch (err) {
-            console.error("Firebase torlesi hiba:", err);
+            if (type === "lib" || type === "library") albums.splice(i, 0, removed);
+            else todos.splice(i, 0, removed);
+            const { code, message } = getErrorCodeAndMessage(err);
+            console.error(`[Firestore][deleteAlbum] torlesi hiba. code=${code} message=${message}`, err);
             alert("Hiba tortent a felhoben valo torleskor!");
         }
     };

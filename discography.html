@@ -43,6 +43,116 @@
             color: var(--accent);
             text-transform: uppercase;
         }
+        .title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .guide-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 999px;
+            border: 1px solid #4a4a4a;
+            background: #181818;
+            color: #cfcfcf;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 700;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+        }
+        .guide-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+        .guide-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(2px);
+        }
+        .guide-modal.open {
+            display: flex;
+        }
+        .guide-dialog {
+            width: min(820px, 100%);
+            max-height: 86vh;
+            background: #161616;
+            border: 1px solid #2f2f2f;
+            border-radius: 12px;
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .guide-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid #2c2c2c;
+            background: #141414;
+        }
+        .guide-title {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--accent);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-family: "Consolas", "Courier New", monospace;
+        }
+        .guide-close {
+            border: 1px solid #3f3f3f;
+            background: #1b1b1b;
+            color: #bdbdbd;
+            border-radius: 8px;
+            min-width: 34px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .guide-close:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .guide-body {
+            padding: 14px 16px 18px 16px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.58;
+            color: #d8d8d8;
+            font-family: "Consolas", "Courier New", monospace;
+        }
+        .guide-body h3 {
+            margin: 0 0 8px 0;
+            font-size: 0.9rem;
+            color: #f2d266;
+            text-transform: uppercase;
+            letter-spacing: 0.25px;
+        }
+        .guide-body ol {
+            margin: 0 0 14px 18px;
+            padding: 0;
+        }
+        .guide-body li {
+            margin-bottom: 8px;
+        }
+        .guide-note {
+            margin: 8px 0 12px 0;
+            padding: 8px 10px;
+            border-left: 2px solid #4b4b4b;
+            background: #1a1a1a;
+            color: #bcbcbc;
+        }
         .top-actions {
             display: flex;
             gap: 10px;
@@ -304,11 +414,59 @@
 <body>
     <div class="wrap">
         <div class="top">
-            <h1>Discography Tracker</h1>
+            <div class="title-group">
+                <h1>Discography Tracker</h1>
+                <button class="guide-btn" id="btnGuide" type="button" aria-label="Discography guide" title="Discography Tracking Guide">i</button>
+            </div>
             <div class="top-actions">
                 <input class="search" id="searchArtist" placeholder="Artist search...">
                 <button class="btn" id="btnReload">Refresh</button>
                 <button class="btn" id="btnBack">Back to app</button>
+            </div>
+        </div>
+
+        <div class="guide-modal" id="guideModal" aria-hidden="true">
+            <div class="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+                <div class="guide-head">
+                    <h2 class="guide-title" id="guideTitle">Discography Tracking Guide</h2>
+                    <button class="guide-close" id="btnGuideClose" type="button" aria-label="Bezárás">x</button>
+                </div>
+                <div class="guide-body">
+                    <h3>I. Alapvetések (Mi számít bele kötelezően?)</h3>
+                    <ol>
+                        <li><strong>Stúdióalbumok (LP-k):</strong> Minden hivatalos nagylemez felvétele és elszámolása kötelező.</li>
+                        <li><strong>Eredeti kiadások prioritása:</strong> Újrakiadások (Reissue) és remasterek érnek, de minden esetben az eredeti kiadási évszám és verzió szerint kell őket felvezetni.</li>
+                    </ol>
+
+                    <h3>II. Demók, EP-k és Kislemezek (Single)</h3>
+                    <ol>
+                        <li><strong>Demók:</strong> Alapesetben nem szükségesek. Kivételt képeznek a zenekar karrierje szempontjából sorsfordító, vagy történelmi kvlt státusszal bíró korai anyagok (pl. <em>Blasphemy, Beherit, Mayhem</em> korai demói).</li>
+                        <li><strong>Kislemezek (Single):</strong> Nem szükségesek, még akkor sem, ha a rajta lévő dal nem jelent meg nagylemezen. Csak akkor vehető fel kivételesen, ha a dal sehol máshol, semmilyen formában nem lelhető fel a diszkográfiában (de a kiszűrésük nagy időbefektetése miatt ez sem kötelező).</li>
+                        <li><strong>Redundáns EP-k:</strong> Nem szükséges olyan EP-k felvezetése, amelyeknek a dalai (egésze vagy döntő többsége) egy korábbi vagy későbbi nagylemezen (LP) már megjelentek.</li>
+                    </ol>
+
+                    <h3>III. Válogatások, Koncertek és Egyéb kiadványok</h3>
+                    <ol>
+                        <li><strong>Válogatáslemezek (Compilation):</strong> Alapesetben nem részei a diszkográfiának. Kivételt képeznek a ritka, különböző korai demókból hivatalosan összefogott és máshol el nem érhető gyűjtemények.</li>
+                        <li><strong>Koncertlemezek (Live):</strong> Nem számítanak bele, kivéve, ha tartalmaznak olyan exkluzív stúdió-/élő anyagot, ami semmilyen más hivatalos kiadványon nem érhető el.</li>
+                        <li><strong>Koncertanyagot tartalmazó EP-k:</strong> Ha egy EP-n vegyesen van stúdió- és élő anyag, az élő számok figyelmen kívül hagyandók. Csak a tiszta stúdióanyag játékidejét kell alapul venni és az alapján értékelni a kiadványt. (Ha egy kiadványon pl. 1 új stúdiódal van és 4 live track, az nem minősül Single-nek, felvezethető az EP/Library listába).</li>
+                        <li><strong>Filmzenék (Soundtrack):</strong> Semmilyen formában nem számítanak bele a diszkográfiába.</li>
+                    </ol>
+
+                    <h3>IV. Kivételek és Mentőövek (A józan ész szabályai)</h3>
+                    <ol>
+                        <li><strong>A Split-lemezek szabálya:</strong> Csak az olyan splitek érnek, amelyek komoly, önálló kiadványként funkcionálnak (nem nagy kiadók által összegereblyézett promóciós anyagok).
+                            <div class="guide-note">A spliteknek csak a kérdéses előadóra eső felét értékeljük.</div>
+                            <div class="guide-note">Az olyan splitek, ahol minden zenekar csupán egy-egy dallal képviselteti magát, automatikusan ki vannak zárva.</div>
+                        </li>
+                        <li><strong>Feldolgozásalbumok (Full Cover LP-k):</strong> Az olyan teljes feldolgozáslemezek, mint pl. a Slayer <em>Undisputed Attitude</em> vagy a Metallica <em>Garage Inc.</em> nem kötelezőek a teljes diszkográfiához, de elismerés (kudos) jár a teljesítésükért.</li>
+                        <li><strong>Anti-Anthrax szabály (A kaotikus életművek védelme):</strong> A 80-as évekbeli, túlbuzgó menedzsmenttel rendelkező bandák túlkomplikált, keszekusza és következetlen módon ontott EP-áradatával nem vagyok hajlandó foglalkozni. Ilyen esetekben kizárólag a hivatalos stúdióalbumok (LP) számítanak hiánynak, az EP-k maximum egyéni kíváncsiságból/ajánlásra hallgathatók meg, de a diszkográfia teljességét nem befolyásolják.</li>
+                        <li><strong>Az Elérhetőség és Idő korlátja:</strong>
+                            <div class="guide-note">Ha egyes demók, EP-k vagy splitek beszerezhetetlenek / túl nehezen hozzáférhetők, azok büntetés nélkül kihagyhatók a teljes diszkográfia mennyiségéből.</div>
+                            <div class="guide-note">Ha egy zenekarnak eleve hatalmas (pl. 15-20+ lemezes) stúdió-diszkográfiája van, a kísérő EP-k, demók és splitek kiírása és követése elengedhető, mivel ennyi idő nincs a Földön.</div>
+                        </li>
+                    </ol>
+                </div>
             </div>
         </div>
 
@@ -350,6 +508,9 @@
         const metaLine = document.getElementById("metaLine");
         const searchInput = document.getElementById("searchArtist");
         const filterBar = document.getElementById("filterBar");
+        const guideModal = document.getElementById("guideModal");
+        const btnGuide = document.getElementById("btnGuide");
+        const btnGuideClose = document.getElementById("btnGuideClose");
         const PHYLLOMEDUSA_ARTIST = "Phyllomedusa";
         const state = {
             albums: [],
@@ -764,6 +925,30 @@
 
         document.getElementById("btnPhyllo").addEventListener("click", () => {
             window.location.href = "./frog-tracker.html";
+        });
+
+        btnGuide.addEventListener("click", () => {
+            guideModal.classList.add("open");
+            guideModal.setAttribute("aria-hidden", "false");
+        });
+
+        btnGuideClose.addEventListener("click", () => {
+            guideModal.classList.remove("open");
+            guideModal.setAttribute("aria-hidden", "true");
+        });
+
+        guideModal.addEventListener("click", (event) => {
+            if (event.target === guideModal) {
+                guideModal.classList.remove("open");
+                guideModal.setAttribute("aria-hidden", "true");
+            }
+        });
+
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && guideModal.classList.contains("open")) {
+                guideModal.classList.remove("open");
+                guideModal.setAttribute("aria-hidden", "true");
+            }
         });
 
         searchInput.addEventListener("input", render);

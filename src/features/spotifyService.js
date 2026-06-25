@@ -1,10 +1,32 @@
 export function initSpotifyService({
     getToken,
     setToken,
-    onTrackPicked
+    onTrackPicked,
+    onTokenAcquired
 }) {
     const clientId = "ed9b786710994376bba52f4ea5ebae64";
     const redirectUri = "https://www.sloplibrary.hu";
+    const AUTH_INTENT_KEY = "spotify_auth_intent";
+
+    const setAuthIntent = (intent) => {
+        try {
+            window.localStorage.setItem(AUTH_INTENT_KEY, intent || "library-import");
+        } catch (e) {
+            console.warn("Spotify auth intent save failed:", e);
+        }
+    };
+
+    const consumeAuthIntent = () => {
+        try {
+            const intent = window.localStorage.getItem(AUTH_INTENT_KEY) || "library-import";
+            window.localStorage.removeItem(AUTH_INTENT_KEY);
+            return intent;
+        } catch {
+            return "library-import";
+        }
+    };
+
+    const shouldOpenImportModal = (intent) => intent === "library-import";
 
     const generateRandomString = (length) => {
         const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -25,7 +47,9 @@ export function initSpotifyService({
             .replace(/=+$/, "");
     };
 
-    window.authSpotify = async function() {
+    window.authSpotify = async function(intent = "library-import") {
+        setAuthIntent(intent);
+
         const codeVerifier = generateRandomString(64);
         const hashed = await sha256(codeVerifier);
         const codeChallenge = base64encode(hashed);
@@ -49,6 +73,23 @@ export function initSpotifyService({
     window.closeSpotifyModal = () => {
         const modal = document.getElementById("spotifyModal");
         if (modal) modal.style.display = "none";
+    };
+
+    window.isSpotifySessionValid = async function() {
+        const token = getToken();
+        if (!token) return false;
+
+        try {
+            const response = await fetch("https://api.spotify.com/v1/me", {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.status === 401) return false;
+            return response.ok;
+        } catch (err) {
+            console.warn("Spotify session check failed:", err);
+            return false;
+        }
     };
 
     function displayTracks(tracks) {
@@ -137,11 +178,26 @@ export function initSpotifyService({
             const response = await body.json();
             if (response.access_token) {
                 setToken(response.access_token);
+                const intent = consumeAuthIntent();
+
+                if (typeof onTokenAcquired === "function") {
+                    try {
+                        await onTokenAcquired({
+                            token: response.access_token,
+                            intent
+                        });
+                    } catch (resumeErr) {
+                        console.warn("Spotify post-auth handler failed:", resumeErr);
+                    }
+                }
+
                 window.history.replaceState({}, document.title, window.location.pathname);
-                const addPanel = document.getElementById("mod-add");
-                const modal = document.getElementById("spotifyModal");
-                if (addPanel) addPanel.style.display = "block";
-                if (modal) modal.style.display = "flex";
+                if (shouldOpenImportModal(intent)) {
+                    const addPanel = document.getElementById("mod-add");
+                    const modal = document.getElementById("spotifyModal");
+                    if (addPanel) addPanel.style.display = "block";
+                    if (modal) modal.style.display = "flex";
+                }
             }
         }
 
@@ -155,9 +211,24 @@ export function initSpotifyService({
 
         if (hash.access_token) {
             setToken(hash.access_token);
+            const intent = consumeAuthIntent();
+
+            if (typeof onTokenAcquired === "function") {
+                try {
+                    await onTokenAcquired({
+                        token: hash.access_token,
+                        intent
+                    });
+                } catch (resumeErr) {
+                    console.warn("Spotify post-auth handler failed:", resumeErr);
+                }
+            }
+
             window.location.hash = "";
-            const modal = document.getElementById("spotifyModal");
-            if (modal) modal.style.display = "flex";
+            if (shouldOpenImportModal(intent)) {
+                const modal = document.getElementById("spotifyModal");
+                if (modal) modal.style.display = "flex";
+            }
         }
     });
 }

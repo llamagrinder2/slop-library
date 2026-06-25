@@ -9,6 +9,107 @@ export function registerListAndTodoComponents({
     getRecommenderHTML,
     isMissing
 }) {
+    let cloudToastTimer = null;
+
+    const getCloudToastEl = () => {
+        let el = document.getElementById("cloudSaveToast");
+        if (el) return el;
+
+        el = document.createElement("div");
+        el.id = "cloudSaveToast";
+        el.style.position = "fixed";
+        el.style.right = "16px";
+        el.style.bottom = "16px";
+        el.style.zIndex = "20000";
+        el.style.minWidth = "240px";
+        el.style.maxWidth = "420px";
+        el.style.padding = "10px 14px";
+        el.style.borderRadius = "8px";
+        el.style.fontSize = "13px";
+        el.style.fontWeight = "600";
+        el.style.color = "#fff";
+        el.style.background = "#2d2d2d";
+        el.style.border = "1px solid #555";
+        el.style.boxShadow = "0 6px 24px rgba(0,0,0,0.35)";
+        el.style.display = "none";
+        document.body.appendChild(el);
+        return el;
+    };
+
+    const showCloudToast = (type, message) => {
+        const injected = typeof window.__showCloudSaveToast === "function" ? window.__showCloudSaveToast : null;
+        if (injected) {
+            injected(type, message);
+            return;
+        }
+
+        const el = getCloudToastEl();
+        if (cloudToastTimer) {
+            clearTimeout(cloudToastTimer);
+            cloudToastTimer = null;
+        }
+
+        if (type === "loading") {
+            el.style.background = "#253244";
+            el.style.border = "1px solid #3e5570";
+            el.innerText = `⏳ ${message}`;
+            el.style.display = "block";
+            return;
+        }
+
+        if (type === "success") {
+            el.style.background = "#1f4d2f";
+            el.style.border = "1px solid #2f8a4f";
+            el.innerText = `✓ ${message}`;
+            el.style.display = "block";
+            cloudToastTimer = setTimeout(() => {
+                el.style.display = "none";
+            }, 2200);
+            return;
+        }
+
+        el.style.background = "#5a2323";
+        el.style.border = "1px solid #b45454";
+        el.innerText = `✖ ${message}`;
+        el.style.display = "block";
+        cloudToastTimer = setTimeout(() => {
+            el.style.display = "none";
+        }, 4200);
+    };
+
+    const getErrorCodeAndMessage = (error) => {
+        const code = error && error.code ? error.code : "unknown";
+        const message = error && error.message ? error.message : String(error);
+        return { code, message };
+    };
+
+    const saveToCloudWithFeedback = async (sourceLabel) => {
+        showCloudToast("loading", "Saving to cloud...");
+
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            console.warn(`[Firestore][${sourceLabel}] Offline detected. Writes may be cached locally instead of server-confirmed immediately.`);
+        }
+
+        try {
+            if (typeof window.saveToFirebase !== "function") {
+                throw new Error("saveToFirebase function is not available.");
+            }
+
+            const result = await window.saveToFirebase();
+            if (!result || result.ok !== true) {
+                throw (result && result.error) || new Error("Save result did not confirm server write.");
+            }
+
+            showCloudToast("success", "Successfully saved to server!");
+            return true;
+        } catch (error) {
+            const { code, message } = getErrorCodeAndMessage(error);
+            console.error(`[Firestore][${sourceLabel}] Write failed. code=${code} message=${message}`, error);
+            showCloudToast("error", `Error: Save failed! ${message}`);
+            throw error;
+        }
+    };
+
     window.renderPagination = function(totalPages, totalItems) {
         const currentPage = getCurrentPage();
         const itemsPerPage = getItemsPerPage();
@@ -144,14 +245,15 @@ export function registerListAndTodoComponents({
         const todos = getTodos();
         if (!todos[todoIndex]) return;
 
+        const previousValue = todos[todoIndex][field];
         todos[todoIndex][field] = value;
 
-        if (typeof window.saveToFirebase === "function") {
-            try {
-                await window.saveToFirebase();
-            } catch (e) {
-                console.error("ToDo mentesi hiba:", e);
-            }
+        try {
+            await saveToCloudWithFeedback("updateTodoField");
+        } catch (e) {
+            todos[todoIndex][field] = previousValue;
+            const { code, message } = getErrorCodeAndMessage(e);
+            console.error(`[Firestore][updateTodoField] rollback applied. code=${code} message=${message}`, e);
         }
     };
 

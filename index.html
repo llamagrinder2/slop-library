@@ -1697,8 +1697,11 @@ td[contenteditable="true"]:empty::before {
 		</div>
 	</div>
 	<div id="todo" class="page">
-		<div class="form-row">
+		<div class="form-row" style="justify-content: space-between; align-items: center;">
 			<button onclick="toggleMod('addTodo')" class="ctrl-btn admin-only" style="margin-bottom: 15px;">+ ÚJ TO-DO</button>
+			<button onclick="authSpotify('todo-login')" class="ctrl-btn" title="Spotify bejelentkezés" style="max-width: 48px; min-width: 48px; height: 40px; padding: 0; margin-bottom: 15px; background: #1DB954; color: #fff; border: none; display: inline-flex; align-items: center; justify-content: center;">
+				<img src="https://upload.wikimedia.org/wikipedia/commons/1/19/Spotify_logo_without_text.svg" alt="Spotify" style="width:16px; height:16px; display:block;">
+			</button>
 		</div>
 
 		<div id="mod-addTodo" class="module-box" style="display: none;">

@@ -44,12 +44,44 @@ let catNonMetal = state.catNonMetal;
 let currentGenreLevel = state.currentGenreLevel;
 let isGalleryDetailsMode = false;
 const LIBRARY_CACHE_KEY = "slopLibraryCacheV1";
+const SPOTIFY_PENDING_ACTION_KEY = "spotify_pending_action";
 
 const isMissing = (val) => {
     if (!val) return true;
     const s = String(val).trim();
     return s === "" || s === "0" || s === "?" || s === "https://via.placeholder.com/120";
 };
+
+function requiresSpotifyForTodo(todoItem) {
+    const link = String(todoItem?.albumLink || "");
+    return /open\.spotify\.com\/album\/[a-zA-Z0-9]+/i.test(link);
+}
+
+function getPendingSpotifyAction() {
+    try {
+        const raw = window.localStorage.getItem(SPOTIFY_PENDING_ACTION_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+function setPendingSpotifyAction(action) {
+    try {
+        window.localStorage.setItem(SPOTIFY_PENDING_ACTION_KEY, JSON.stringify(action));
+    } catch (err) {
+        console.warn("Pending Spotify action save failed:", err);
+    }
+}
+
+function clearPendingSpotifyAction() {
+    try {
+        window.localStorage.removeItem(SPOTIFY_PENDING_ACTION_KEY);
+    } catch (err) {
+        console.warn("Pending Spotify action clear failed:", err);
+    }
+}
 
 window.openMobileMenu = function() {
     document.body.classList.add("mobile-menu-open");
@@ -487,6 +519,11 @@ async function loadFromFirebase() {
 }
 
 async function saveToFirebase() {
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    if (offline) {
+        console.warn("[Firestore] Offline detected. Writes may be cached locally and will sync when connection returns.");
+    }
+
     try {
         const payload = {
             albums,
@@ -525,8 +562,31 @@ async function saveToFirebase() {
         } catch (cacheWriteErr) {
             console.warn("Cache irasi hiba:", cacheWriteErr);
         }
+
+        window.__lastFirebaseSave = {
+            ok: true,
+            error: null,
+            at: Date.now()
+        };
+
+        return { ok: true };
     } catch (e) {
-        console.error("Hiba a mentes soran:", e);
+        const code = e && e.code ? e.code : "unknown";
+        const message = e && e.message ? e.message : String(e);
+
+        console.error(`[Firestore] Save failed. code=${code} message=${message}`, e);
+
+        if (offline) {
+            console.warn("[Firestore] Offline write may be cached locally instead of reaching server immediately.");
+        }
+
+        window.__lastFirebaseSave = {
+            ok: false,
+            error: e,
+            at: Date.now()
+        };
+
+        return { ok: false, error: e };
     }
 }
 window.saveToFirebase = saveToFirebase;
@@ -582,6 +642,33 @@ window.dismissLatestTodoBanner = async function() {
 window.completeLatestTodo = async function() {
     if (!latestTodo) return;
     const t = latestTodo;
+
+    if (requiresSpotifyForTodo(t)) {
+        let isValidSpotifySession = false;
+        if (spotifyToken) {
+            if (typeof window.isSpotifySessionValid === "function") {
+                isValidSpotifySession = await window.isSpotifySessionValid();
+            } else {
+                isValidSpotifySession = true;
+            }
+        }
+
+        if (!isValidSpotifySession) {
+            spotifyToken = null;
+            setPendingSpotifyAction({
+                type: "completeLatestTodo",
+                artist: t.artist || "",
+                album: t.album || "",
+                createdAt: Date.now()
+            });
+
+            if (typeof window.authSpotify === "function") {
+                await window.authSpotify("banner-complete");
+            }
+            return;
+        }
+    }
+
     const idx = todos.findIndex((todo) => todo.artist === t.artist && todo.album === t.album);
     if (idx === -1) {
         latestTodo = null;
@@ -835,6 +922,39 @@ initSpotifyService({
         document.getElementById("inFavSong").value = track.name;
         document.getElementById("inSongUrl").value = track.external_urls.spotify;
         if (document.getElementById("mod-add").style.display === "none") window.toggleMod("add");
+    },
+    onTokenAcquired: async ({ intent }) => {
+        const pendingAction = getPendingSpotifyAction();
+
+        if (intent === "todo-login") {
+            window.showPage("todo");
+            return;
+        }
+
+        if (intent === "banner-complete" || pendingAction?.type === "completeLatestTodo") {
+            const tryResumeBannerComplete = async () => {
+                if (!latestTodo && pendingAction?.artist && pendingAction?.album) {
+                    const found = todos.find((todo) => todo.artist === pendingAction.artist && todo.album === pendingAction.album);
+                    if (found) latestTodo = { ...found };
+                }
+
+                if (!latestTodo) return false;
+
+                await window.completeLatestTodo();
+                return true;
+            };
+
+            const resumedNow = await tryResumeBannerComplete();
+            if (resumedNow) {
+                clearPendingSpotifyAction();
+            } else {
+                // Data may still be loading right after redirect; retry once shortly.
+                window.setTimeout(async () => {
+                    const resumedLater = await tryResumeBannerComplete();
+                    if (resumedLater) clearPendingSpotifyAction();
+                }, 900);
+            }
+        }
     }
 });
 
