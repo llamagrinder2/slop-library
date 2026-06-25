@@ -1736,6 +1736,16 @@ td[contenteditable="true"]:empty::before {
 
 		<div class="form-row" style="margin-bottom: 12px;">
 			<input type="text" id="todoGenreFilter" placeholder="ToDo szures eloado / album / mufaj alapjan..." oninput="window.setTodoGenreFilter(this.value)">
+			<select id="todoLengthFilter" onchange="window.setTodoLengthFilter(this.value)" style="max-width: 170px;">
+				<option value="">Hossz: mind</option>
+				<option value="0-10">0-10:00</option>
+				<option value="10-20">10:01-20:00</option>
+				<option value="20-30">20:01-30:00</option>
+				<option value="30-40">30:01-40:00</option>
+				<option value="40-50">40:01-50:00</option>
+				<option value="50-60">50:01-60:00</option>
+				<option value="60+">60:00 felett</option>
+			</select>
 			<button onclick="window.clearTodoGenreFilter()" class="ctrl-btn" style="max-width: 110px;">RESET</button>
 			<button onclick="showPage('todo-list-view')" id="btnTodoBulkView" class="ctrl-btn admin-only" style="max-width: 120px; font-size: 0.82em;">LISTA NÉZET</button>
 		</div>

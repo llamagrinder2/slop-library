@@ -919,9 +919,13 @@ initSpotifyService({
         spotifyToken = token;
     },
     onTrackPicked: (track) => {
-        document.getElementById("inFavSong").value = track.name;
-        document.getElementById("inSongUrl").value = track.external_urls.spotify;
-        if (document.getElementById("mod-add").style.display === "none") window.toggleMod("add");
+        const favSongInput = document.getElementById("inFavSong");
+        const songUrlInput = document.getElementById("inSongUrl");
+        const addModal = document.getElementById("mod-add");
+
+        if (favSongInput) favSongInput.value = track.name;
+        if (songUrlInput) songUrlInput.value = track.external_urls.spotify;
+        if (addModal && addModal.style.display === "none") window.toggleMod("add");
     },
     onTokenAcquired: async ({ intent }) => {
         const pendingAction = getPendingSpotifyAction();
@@ -971,5 +975,7 @@ initMobileHeaderAutoHide();
 registerHueExtraction();
 loadFromFirebase();
 
-window.initFilters();
-window.runFilter();
+if (document.getElementById("gSearch") && document.getElementById("sortField")) {
+    window.initFilters();
+    window.runFilter();
+}

@@ -481,6 +481,7 @@
             <div class="filter-group filter-group-right">
                 <button class="btn" id="btnSortTotal">Sort total: Desc</button>
                 <button class="btn" id="btnSortAlpha">Sort alpha: A-Z</button>
+                <button class="btn" id="btnSortDuration">Sort time: Desc</button>
                 <button class="btn icon-btn" id="btnPhyllo" title="Frog tracker" aria-label="Frog tracker">
                     <img src="./froggg.svg" alt="">
                 </button>
@@ -520,6 +521,7 @@
             statusFilter: "all",
             sortTotalsAsc: false,
             sortAlphaAsc: true,
+            sortDurationAsc: false,
             sortMode: "total"
         };
 
@@ -529,6 +531,46 @@
         const numericYear = (y) => {
             const n = parseInt(String(y || "").trim(), 10);
             return Number.isFinite(n) ? n : 99999;
+        };
+
+        const parseLengthToSeconds = (value) => {
+            const raw = String(value || "").trim();
+            if (!raw || raw === "?" || raw === "-") return null;
+
+            if (/^\d+$/.test(raw)) {
+                return parseInt(raw, 10) * 60;
+            }
+
+            const parts = raw.split(":").map((p) => p.trim());
+            if (parts.length === 2) {
+                const minutes = parseInt(parts[0], 10);
+                const seconds = parseInt(parts[1], 10);
+                if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds < 0 || seconds > 59) return null;
+                return minutes * 60 + seconds;
+            }
+
+            if (parts.length === 3) {
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                const seconds = parseInt(parts[2], 10);
+                if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null;
+                return hours * 3600 + minutes * 60 + seconds;
+            }
+
+            return null;
+        };
+
+        const formatDuration = (seconds) => {
+            const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+            const hours = Math.floor(s / 3600);
+            const minutes = Math.floor((s % 3600) / 60);
+            const secs = s % 60;
+
+            if (hours > 0) {
+                return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+            }
+
+            return `${minutes}:${String(secs).padStart(2, "0")}`;
         };
 
         function showError(msg) {
@@ -597,7 +639,8 @@
                     source: "library",
                     album: String(a.album || ""),
                     year: numericYear(a.year),
-                    coverUrl: String(a.coverUrl || "")
+                    coverUrl: String(a.coverUrl || ""),
+                    length: String(a.length || "")
                 });
             });
 
@@ -606,7 +649,8 @@
                     source: "todo",
                     album: String(t.album || ""),
                     year: numericYear(t.year),
-                    coverUrl: String(t.coverUrl || "")
+                    coverUrl: String(t.coverUrl || ""),
+                    length: String(t.length || "")
                 });
             });
 
@@ -640,6 +684,15 @@
                 const known = [...dedupe.values()].sort((a, b) => a.year - b.year);
                 const libCount = known.filter((x) => x.source === "library").length;
                 const todoCount = known.filter((x) => x.source === "todo").length;
+                const knownDurationSeconds = known.reduce((sum, item) => {
+                    const parsed = parseLengthToSeconds(item.length);
+                    return parsed === null ? sum : sum + parsed;
+                }, 0);
+                const listenedDurationSeconds = known.reduce((sum, item) => {
+                    if (item.source !== "library") return sum;
+                    const parsed = parseLengthToSeconds(item.length);
+                    return parsed === null ? sum : sum + parsed;
+                }, 0);
                 const storedTotal = parseInt(state.artistTotals[artist], 10);
                 const knownCount = known.length;
                 const baseTotal = Number.isFinite(storedTotal) && storedTotal >= 0 ? storedTotal : 0;
@@ -657,7 +710,9 @@
                     todoCount,
                     totalAlbumsCount,
                     missingCount,
-                    isIncomplete
+                    isIncomplete,
+                    knownDurationSeconds,
+                    listenedDurationSeconds
                 });
             });
 
@@ -776,6 +831,15 @@
                         : b.artist.localeCompare(a.artist, "hu");
                 }
 
+                if (state.sortMode === "duration") {
+                    if (a.knownDurationSeconds === b.knownDurationSeconds) {
+                        return a.artist.localeCompare(b.artist, "hu");
+                    }
+                    return state.sortDurationAsc
+                        ? a.knownDurationSeconds - b.knownDurationSeconds
+                        : b.knownDurationSeconds - a.knownDurationSeconds;
+                }
+
                 if (a.totalAlbumsCount === b.totalAlbumsCount) {
                     return a.artist.localeCompare(b.artist, "hu");
                 }
@@ -809,6 +873,12 @@
                     alphaBtn.innerText = `Sort alpha: ${state.sortAlphaAsc ? "A-Z" : "Z-A"}`;
                     alphaBtn.classList.toggle("active", state.sortMode === "alpha");
                 }
+
+                const durationBtn = document.getElementById("btnSortDuration");
+                if (durationBtn) {
+                    durationBtn.innerText = `Sort time: ${state.sortDurationAsc ? "Asc" : "Desc"}`;
+                    durationBtn.classList.toggle("active", state.sortMode === "duration");
+                }
             }
 
             if (!rows.length) {
@@ -839,6 +909,7 @@
                         <div class="row-head">
                             <div>
                                 <div class="artist">${g.artist} (${g.totalAlbumsCount} releases)</div>
+                                <div class="artist-meta">Time (listened / known): <strong>${formatDuration(g.listenedDurationSeconds)} / ${formatDuration(g.knownDurationSeconds)}</strong></div>
                                 <div class="artist-meta">Library: ${g.libCount} | ToDo: ${g.todoCount} | Missing: ${g.missingCount} | Status: ${g.isIncomplete ? '<span class="danger">Incomplete</span>' : '<span class="ok">Complete</span>'}</div>
                             </div>
                             <div class="totals-edit">
@@ -920,6 +991,12 @@
         document.getElementById("btnSortAlpha").addEventListener("click", () => {
             state.sortMode = "alpha";
             state.sortAlphaAsc = !state.sortAlphaAsc;
+            render();
+        });
+
+        document.getElementById("btnSortDuration").addEventListener("click", () => {
+            state.sortMode = "duration";
+            state.sortDurationAsc = !state.sortDurationAsc;
             render();
         });
 

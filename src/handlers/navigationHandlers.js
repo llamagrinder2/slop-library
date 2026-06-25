@@ -38,6 +38,8 @@ export function registerNavigationHandlers({
 
         if (typeof window.closeMobileMenu === "function") window.closeMobileMenu();
 
+        if (!target) return;
+
         if (id === "listView") renderExcelTable(getAlbums());
         if (id === "gallery") renderGallery();
         if (id === "stats") renderStats();

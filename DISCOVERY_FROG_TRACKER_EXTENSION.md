@@ -137,7 +137,7 @@ The frog tracker is effectively a scoped extension of the discography pattern:
 - frog tracker = one artist
 
 Important distinction:
-- the newer release styling, card wrapping, gold complete-row treatment, and legend updates belong to `discography.html`
+- the newer release styling, card wrapping, gold complete-row treatment, legend updates, guide modal, and listened/known duration coverage belong to `discography.html`
 - `frog-tracker.html` stays focused on the single Phyllomedusa board and does not inherit those discography-specific visuals
 
 They share the same data model, merge logic, and deep-link style, but the frog tracker removes the need to search or browse across every artist.
@@ -177,3 +177,7 @@ Moderate-risk additions:
 4. Move deep-link helpers into a tiny shared URL utility.
 
 This would keep the discography and frog tracker behavior aligned while making future changes easier to test.
+
+## Current Status Note
+- The app currently preserves the original integrated index navigation model (ToDo remains in index.html as an internal page)
+- Stability improvements should be added conservatively so frog tracker behavior remains unchanged while shared deep-link contracts continue to work

@@ -92,13 +92,24 @@ export function registerFilterHandlers({
     window.runFilter = function(resetPage = false) {
         if (resetPage) setCurrentPage(1);
 
+        const gSearchEl = document.getElementById("gSearch");
+        const fArtistEl = document.getElementById("fArtist");
+        const fYearEl = document.getElementById("fYear");
+        const fGenreEl = document.getElementById("fGenre");
+        const fCountryEl = document.getElementById("fCountry");
+        const sortFieldEl = document.getElementById("sortField");
+
+        if (!gSearchEl || !fArtistEl || !fYearEl || !fGenreEl || !fCountryEl || !sortFieldEl) {
+            return;
+        }
+
         const albums = getAlbums();
-        const q = document.getElementById("gSearch").value.trim();
-        const fA = document.getElementById("fArtist").value;
-        const fY = document.getElementById("fYear").value;
-        const fG = document.getElementById("fGenre").value;
-        const fC = document.getElementById("fCountry").value;
-        const sField = document.getElementById("sortField").value;
+        const q = gSearchEl.value.trim();
+        const fA = fArtistEl.value;
+        const fY = fYearEl.value;
+        const fG = fGenreEl.value;
+        const fC = fCountryEl.value;
+        const sField = sortFieldEl.value;
 
         let res = albums.filter((a) => {
             const searchTerm = q.toLowerCase();

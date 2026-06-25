@@ -39,12 +39,18 @@ Per artist computed values:
 - totalAlbumsCount: parsed from artistTotals, default 0
 - missingCount: max(0, totalAlbumsCount - known.length), only if totalAlbumsCount > 0
 - isIncomplete: true when totalAlbumsCount is 0, or todoCount > 0, or missingCount > 0
+- knownDurationSeconds: sum of parseable lengths across known entries
+- listenedDurationSeconds: sum of parseable lengths across known entries where source is library
 
 ## Rendering Rules
 Each artist row contains:
 - Artist header with status summary
 - Editable totalAlbumsCount input + Save button
 - Visual block strip of albums
+
+Additional header controls:
+- Info/guide icon next to page title opens a modal Discography Tracking Guide
+- Guide modal is dark themed, vertically scrollable, and closable via close button, overlay click, or Escape
 
 Current display updates:
 - Row title now uses "releases" instead of "albums"
@@ -55,6 +61,7 @@ Current display updates:
    - `(demo)` uses a reddish-orange border
    - `(split)` uses a diagonal split overlay
    - LP entries without a bracket tag remain unchanged
+- Artist row also shows duration coverage in listened / known format using only parseable length values
 
 Block types:
 - library block: clickable, jumps to index library page with artist + album deep link
@@ -74,6 +81,11 @@ Meta line summary at top:
 Search behavior:
 - local filter by artist name only
 - does not filter by album title
+
+Sort behavior:
+- Sort total (asc/desc)
+- Sort alpha (A-Z / Z-A)
+- Sort time by known duration coverage (asc/desc)
 
 ## Cross-Page Deep Links Consumed by index page
 Handled in src/main.js handleDeepLinkFromUrl:

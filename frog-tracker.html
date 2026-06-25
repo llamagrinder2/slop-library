@@ -304,6 +304,46 @@
             return Number.isFinite(n) ? n : 99999;
         };
 
+        const parseLengthToSeconds = (value) => {
+            const raw = String(value || "").trim();
+            if (!raw || raw === "?" || raw === "-") return null;
+
+            if (/^\d+$/.test(raw)) {
+                return parseInt(raw, 10) * 60;
+            }
+
+            const parts = raw.split(":").map((p) => p.trim());
+            if (parts.length === 2) {
+                const minutes = parseInt(parts[0], 10);
+                const seconds = parseInt(parts[1], 10);
+                if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds < 0 || seconds > 59) return null;
+                return minutes * 60 + seconds;
+            }
+
+            if (parts.length === 3) {
+                const hours = parseInt(parts[0], 10);
+                const minutes = parseInt(parts[1], 10);
+                const seconds = parseInt(parts[2], 10);
+                if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null;
+                return hours * 3600 + minutes * 60 + seconds;
+            }
+
+            return null;
+        };
+
+        const formatDuration = (seconds) => {
+            const s = Number.isFinite(seconds) && seconds > 0 ? Math.floor(seconds) : 0;
+            const hours = Math.floor(s / 3600);
+            const minutes = Math.floor((s % 3600) / 60);
+            const secs = s % 60;
+
+            if (hours > 0) {
+                return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+            }
+
+            return `${minutes}:${String(secs).padStart(2, "0")}`;
+        };
+
         function isPhyllomedusa(artist) {
             return normalizeArtist(artist).toLowerCase() === PHYLLOMEDUSA_ARTIST.toLowerCase();
         }
@@ -356,7 +396,8 @@
                     source: "library",
                     album: String(a.album || ""),
                     year: numericYear(a.year),
-                    coverUrl: String(a.coverUrl || "")
+                    coverUrl: String(a.coverUrl || ""),
+                    length: String(a.length || "")
                 }));
 
             const todo = state.todos
@@ -365,7 +406,8 @@
                     source: "todo",
                     album: String(t.album || ""),
                     year: numericYear(t.year),
-                    coverUrl: String(t.coverUrl || "")
+                    coverUrl: String(t.coverUrl || ""),
+                    length: String(t.length || "")
                 }));
 
             const dedupe = new Map();
@@ -381,6 +423,15 @@
             const known = [...dedupe.values()].sort((a, b) => a.year - b.year);
             const libCount = known.filter((x) => x.source === "library").length;
             const todoCount = known.filter((x) => x.source === "todo").length;
+            const knownDurationSeconds = known.reduce((sum, item) => {
+                const parsed = parseLengthToSeconds(item.length);
+                return parsed === null ? sum : sum + parsed;
+            }, 0);
+            const listenedDurationSeconds = known.reduce((sum, item) => {
+                if (item.source !== "library") return sum;
+                const parsed = parseLengthToSeconds(item.length);
+                return parsed === null ? sum : sum + parsed;
+            }, 0);
             const storedTotal = parseInt(state.artistTotals[PHYLLOMEDUSA_ARTIST], 10);
             const totalAlbumsCount = Number.isFinite(storedTotal) && storedTotal >= 0 ? storedTotal : 0;
             const missingCount = totalAlbumsCount > 0 ? Math.max(0, totalAlbumsCount - known.length) : 0;
@@ -393,7 +444,9 @@
                 todoCount,
                 totalAlbumsCount,
                 missingCount,
-                isIncomplete
+                isIncomplete,
+                knownDurationSeconds,
+                listenedDurationSeconds
             };
         }
 
@@ -481,6 +534,7 @@
                     <div class="row-head">
                         <div>
                             <div class="artist">${g.artist} (${g.totalAlbumsCount} albums)</div>
+                            <div class="artist-meta">Time (listened / known): <strong>${formatDuration(g.listenedDurationSeconds)} / ${formatDuration(g.knownDurationSeconds)}</strong></div>
                             <div class="artist-meta">Library: ${g.libCount} | ToDo: ${g.todoCount} | Missing: ${g.missingCount} | Status: ${g.isIncomplete ? '<span class="danger">Incomplete</span>' : '<span class="ok">Complete</span>'}</div>
                         </div>
                         <div class="totals-edit">

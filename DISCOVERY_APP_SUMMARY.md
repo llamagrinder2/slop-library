@@ -54,6 +54,20 @@ Most actions (add/edit/delete/filter-convert) mutate albums/todos arrays and cal
 - `KEREK` uses a red-accented button style in the desktop nav
 - `BEÁLLÍTÁSOK` remains in the desktop nav after `LISTA NÉZET`
 
+## Recent Validated Enhancements
+- ToDo page has a compact Spotify login button and Spotify auth intent support for smoother re-login flow
+- ToDo page includes a duration-bucket dropdown filter next to reset (10-minute buckets + 60:00 felett)
+- Discography page has an info/guide modal with the custom Discography Tracking Guide
+- Discography rows show listened/known duration coverage and include duration-based sorting
+
+## Stability Hardening Applied
+- Safe DOM guards added for Spotify track-pick callback in main bootstrap
+- Initial filter bootstrap now runs only when required filter controls exist
+- Global showPage handler now early-returns if the requested page id is missing
+- runFilter now early-returns when required library filter controls are missing
+
+These hardening changes are intentionally conservative and keep original behavior unchanged when expected DOM elements are present.
+
 ## Statistics Page Summary
 The statistics page is a dashboard driven by window.renderStats in src/handlers/statsHandlers.js.
 

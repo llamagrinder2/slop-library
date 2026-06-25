@@ -237,8 +237,68 @@ export function registerListAndTodoComponents({
         window.renderTodo();
     };
 
+    window.setTodoLengthFilter = function(range) {
+        window.todoLengthFilter = String(range || "").trim();
+        const select = document.getElementById("todoLengthFilter");
+        if (select && select.value !== window.todoLengthFilter) select.value = window.todoLengthFilter;
+        window.renderTodo();
+    };
+
     window.clearTodoGenreFilter = function() {
-        window.setTodoGenreFilter("");
+        window.todoGenreFilter = "";
+        window.todoLengthFilter = "";
+
+        const input = document.getElementById("todoGenreFilter");
+        if (input) input.value = "";
+
+        const select = document.getElementById("todoLengthFilter");
+        if (select) select.value = "";
+
+        window.renderTodo();
+    };
+
+    const parseLengthToSeconds = (lengthValue) => {
+        const raw = String(lengthValue || "").trim();
+        if (!raw) return null;
+
+        if (/^\d+$/.test(raw)) {
+            return parseInt(raw, 10) * 60;
+        }
+
+        const parts = raw.split(":").map((p) => p.trim());
+        if (parts.length === 2) {
+            const minutes = parseInt(parts[0], 10);
+            const seconds = parseInt(parts[1], 10);
+            if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || seconds < 0 || seconds > 59) return null;
+            return minutes * 60 + seconds;
+        }
+
+        if (parts.length === 3) {
+            const hours = parseInt(parts[0], 10);
+            const minutes = parseInt(parts[1], 10);
+            const seconds = parseInt(parts[2], 10);
+            if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || minutes > 59 || seconds < 0 || seconds > 59) return null;
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        return null;
+    };
+
+    const matchesLengthFilter = (lengthValue, activeLengthFilter) => {
+        if (!activeLengthFilter) return true;
+
+        const seconds = parseLengthToSeconds(lengthValue);
+        if (seconds === null) return false;
+
+        if (activeLengthFilter === "0-10") return seconds >= 0 && seconds <= 600;
+        if (activeLengthFilter === "10-20") return seconds >= 601 && seconds <= 1200;
+        if (activeLengthFilter === "20-30") return seconds >= 1201 && seconds <= 1800;
+        if (activeLengthFilter === "30-40") return seconds >= 1801 && seconds <= 2400;
+        if (activeLengthFilter === "40-50") return seconds >= 2401 && seconds <= 3000;
+        if (activeLengthFilter === "50-60") return seconds >= 3001 && seconds <= 3600;
+        if (activeLengthFilter === "60+") return seconds > 3600;
+
+        return true;
     };
 
     window.updateTodoField = async function(todoIndex, field, value) {
@@ -329,15 +389,19 @@ export function registerListAndTodoComponents({
         if (!container) return;
 
         const filterInput = document.getElementById("todoGenreFilter");
+        const lengthSelect = document.getElementById("todoLengthFilter");
         const activeFilter = String(window.todoGenreFilter || filterInput?.value || "").trim().toLowerCase();
+        const activeLengthFilter = String(window.todoLengthFilter || lengthSelect?.value || "").trim();
         if (filterInput && filterInput.value !== (window.todoGenreFilter || "")) {
             window.todoGenreFilter = filterInput.value.trim();
         }
+        if (lengthSelect && lengthSelect.value !== (window.todoLengthFilter || "")) {
+            window.todoLengthFilter = lengthSelect.value;
+        }
 
         const indexedTodos = todos.map((t, idx) => ({ t, idx }));
-        const filteredTodos = !activeFilter
-            ? indexedTodos
-            : indexedTodos.filter(({ t }) => {
+        const filteredTodos = indexedTodos.filter(({ t }) => {
+            const textMatches = !activeFilter || (() => {
                 const haystack = [
                     String(t.artist || ""),
                     String(t.album || ""),
@@ -347,7 +411,11 @@ export function registerListAndTodoComponents({
                     .join(" ")
                     .toLowerCase();
                 return haystack.includes(activeFilter);
-            });
+            })();
+
+            const lengthMatches = matchesLengthFilter(t.length, activeLengthFilter);
+            return textMatches && lengthMatches;
+        });
 
         container.innerHTML = "";
         filteredTodos.forEach(({ t, idx }, i) => {
