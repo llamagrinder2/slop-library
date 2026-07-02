@@ -396,7 +396,7 @@
                     source: "library",
                     album: String(a.album || ""),
                     year: numericYear(a.year),
-                    coverUrl: String(a.coverUrl || ""),
+                    coverUrl: String(a.thumbnailUrl || a.coverUrl || ""),
                     length: String(a.length || "")
                 }));
 
@@ -406,7 +406,7 @@
                     source: "todo",
                     album: String(t.album || ""),
                     year: numericYear(t.year),
-                    coverUrl: String(t.coverUrl || ""),
+                    coverUrl: String(t.thumbnailUrl || t.coverUrl || ""),
                     length: String(t.length || "")
                 }));
 

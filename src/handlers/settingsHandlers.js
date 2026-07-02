@@ -1,4 +1,5 @@
 import { normalizeCountryCode } from "../core/countries.js";
+import { loadImageToResizedCanvasFromUrl, canvasToJpegBlob } from "../features/imageProcessing.js";
 
 export function registerSettingsHandlers({
     getAlbums,
@@ -10,8 +11,51 @@ export function registerSettingsHandlers({
     getCatHeavy,
     getCatEtc,
     getCatNonMetal,
-    saveToFirebase
+    saveToFirebase,
+    storage,
+    ref,
+    uploadBytes,
+    getDownloadURL
 }) {
+    const sanitizePathSegment = (value) =>
+        String(value || "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+            .slice(0, 64) || "album";
+
+    const cloneValue = (value) => {
+        if (value === undefined) return undefined;
+        if (typeof structuredClone === "function") {
+            try {
+                return structuredClone(value);
+            } catch {
+                // fall through to JSON clone
+            }
+        }
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch {
+            return value;
+        }
+    };
+
+    const getAlbumColorData = (album) => {
+        if (album && album.colorData !== undefined) return cloneValue(album.colorData);
+        if (album && album.dominantHue !== undefined) return cloneValue(album.dominantHue);
+        return null;
+    };
+
+    const uploadProcessedBlob = async (album, blob, folder) => {
+        const idPart = album && album.id !== undefined ? String(album.id) : `${Date.now()}`;
+        const artistPart = sanitizePathSegment(album?.artist || "artist");
+        const albumPart = sanitizePathSegment(album?.album || "release");
+        const path = `${folder}/${artistPart}_${albumPart}_${idPart}.jpg`;
+        const storageRef = ref(storage, path);
+        await uploadBytes(storageRef, blob, { contentType: "image/jpeg" });
+        return getDownloadURL(storageRef);
+    };
+
     window.renderSettings = function() {
         const albums = getAlbums();
         const slopG = getSlopGenres();
@@ -52,6 +96,122 @@ export function registerSettingsHandlers({
                 </div>`;
             })
             .join("");
+    };
+
+    window.runCoverResize640 = async function() {
+        const albums = getAlbums();
+        const btn = document.getElementById("btnResizeCovers640");
+        if (!btn) return;
+
+        const originalText = btn.innerText;
+        btn.disabled = true;
+
+        let processed = 0;
+        let resized = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        try {
+            for (const album of albums) {
+                if (!album || !album.coverUrl) {
+                    skipped++;
+                    continue;
+                }
+
+                processed++;
+                btn.innerText = `Feldolgozas: ${processed}/${albums.length}`;
+
+                try {
+                    const resizedCanvasData = await loadImageToResizedCanvasFromUrl(album.coverUrl, { maxSide: 640 });
+                    if (!resizedCanvasData.changed) {
+                        skipped++;
+                        console.log("[Resize640] Skipped (already <= 640):", album.artist, album.album);
+                        continue;
+                    }
+
+                    const blob = await canvasToJpegBlob(resizedCanvasData.canvas, 0.9);
+                    const newCoverUrl = await uploadProcessedBlob(album, blob, "covers_640");
+                    album.coverUrl = newCoverUrl;
+                    resized++;
+
+                    console.log("[Resize640] Updated:", album.artist, album.album, `${resizedCanvasData.originalWidth}x${resizedCanvasData.originalHeight} -> ${resizedCanvasData.width}x${resizedCanvasData.height}`);
+                } catch (err) {
+                    failed++;
+                    console.error("[Resize640] Failed for album:", album, err);
+                }
+            }
+
+            if (resized > 0) {
+                btn.innerText = "Mentes a felhobe...";
+                await saveToFirebase();
+            }
+
+            btn.innerText = `Kesz! Frissitve: ${resized}, kihagyva: ${skipped}, hiba: ${failed}`;
+        } catch (err) {
+            console.error("[Resize640] Batch failed:", err);
+            btn.innerText = "Hiba a batch kozben";
+        } finally {
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 4500);
+        }
+    };
+
+    window.runGenerateThumbnails = async function() {
+        const albums = getAlbums();
+        const btn = document.getElementById("btnGenerateThumbnails");
+        if (!btn) return;
+
+        const originalText = btn.innerText;
+        btn.disabled = true;
+
+        let processed = 0;
+        let generated = 0;
+        let skipped = 0;
+        let failed = 0;
+
+        try {
+            for (const album of albums) {
+                if (!album || !album.coverUrl) {
+                    skipped++;
+                    continue;
+                }
+
+                processed++;
+                btn.innerText = `Feldolgozas: ${processed}/${albums.length}`;
+
+                try {
+                    const thumbCanvasData = await loadImageToResizedCanvasFromUrl(album.coverUrl, { maxSide: 150 });
+                    const blob = await canvasToJpegBlob(thumbCanvasData.canvas, 0.82);
+                    const thumbnailUrl = await uploadProcessedBlob(album, blob, "thumbnails");
+
+                    album.thumbnailUrl = thumbnailUrl;
+                    album.thumbnailColorData = getAlbumColorData(album);
+
+                    generated++;
+                    console.log("[Thumbnails] Generated:", album.artist, album.album, `${thumbCanvasData.width}x${thumbCanvasData.height}`);
+                } catch (err) {
+                    failed++;
+                    console.error("[Thumbnails] Failed for album:", album, err);
+                }
+            }
+
+            if (generated > 0) {
+                btn.innerText = "Mentes a felhobe...";
+                await saveToFirebase();
+            }
+
+            btn.innerText = `Kesz! Uj thumb: ${generated}, kihagyva: ${skipped}, hiba: ${failed}`;
+        } catch (err) {
+            console.error("[Thumbnails] Batch failed:", err);
+            btn.innerText = "Hiba a batch kozben";
+        } finally {
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 4500);
+        }
     };
 
     window.runColorHarvester = async function() {

@@ -88,7 +88,10 @@ export function registerGalleryComponents({
             return;
         }
 
-        let albumsWithCover = albums.filter((a) => a.coverUrl && a.coverUrl.trim());
+        let albumsWithCover = albums.filter((a) => {
+            const candidate = (a.thumbnailUrl || a.coverUrl || "").trim();
+            return Boolean(candidate);
+        });
 
         if (getIsRainbowMode() && !getIsGalleryDetailsMode()) {
             albumsWithCover = albumsWithCover.filter((a) => a.dominantHue !== undefined);
@@ -118,17 +121,21 @@ export function registerGalleryComponents({
         container.innerHTML = "<div class=\"gallery-loading\">Borítók betöltése...</div>";
 
         const preloadedAlbums = await Promise.all(
-            albumsWithCover.map(async (album) => ({
+            albumsWithCover.map(async (album) => {
+                const preferredCover = (album.thumbnailUrl || album.coverUrl || "").trim();
+                return {
                 ...album,
-                _resolvedCover: await preloadCover(album.coverUrl)
-            }))
+                _displayCover: preferredCover,
+                _resolvedCover: await preloadCover(preferredCover)
+                };
+            })
         );
 
         if (requestId !== renderRequestId) return;
 
         container.innerHTML = preloadedAlbums
             .map((album) => {
-                const isExternal = album.coverUrl && !album.coverUrl.includes("firebasestorage");
+                const isExternal = album._displayCover && !album._displayCover.includes("firebasestorage");
                 const detailsMode = getIsGalleryDetailsMode();
                 const safeScore = Number.isFinite(parseFloat(album.myScore)) ? parseFloat(album.myScore) : 0;
                 const scoreBg = `hsl(${(Math.max(1, safeScore) - 1) * 13},70%,40%)`;

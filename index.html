@@ -1979,6 +1979,18 @@ td[contenteditable="true"]:empty::before {
 				ORSZÁGOK EGYEZTETÉSE
 			</button>
 		</div>
+		<div class="stat-card" style="margin-bottom:20px;">
+			<h3>Borítóképek optimalizálása</h3>
+			<p style="font-size: 0.8em; color: #888; margin-bottom: 10px;">A túl nagy borítóképeket 640px max oldalhosszra kicsinyíti, majd visszatölti Storage-be, és frissíti a coverUrl mezőket.</p>
+			<div class="form-row" style="margin: 0; gap: 10px;">
+				<button id="btnResizeCovers640" onclick="runCoverResize640()" class="ctrl-btn" style="background:#23394f; color:#d9edff; border:1px solid #3b6186; font-weight:bold; flex:1;">
+					BORÍTÓKÉPEK MAX 640PX-RE CSÖKKENTÉSE
+				</button>
+				<button id="btnGenerateThumbnails" onclick="runGenerateThumbnails()" class="ctrl-btn" style="background:#2d3b24; color:#e6f7d8; border:1px solid #54713f; font-weight:bold; flex:1;">
+					THUMBNAILEK LEGENERÁLÁSA
+				</button>
+			</div>
+		</div>
 		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
 	</div>
 	<div id="info" class="page">

@@ -303,6 +303,7 @@
             overflow: hidden;
             background-size: cover;
             background-position: center;
+            transition: all 0.3s ease;
         }
         .block.clickable {
             cursor: pointer;
@@ -315,12 +316,44 @@
             background-color: #222;
             border-color: #575757;
         }
+        .block.completed[data-type="lp"] {
+            border-width: 3px;
+            border-style: solid;
+            border-color: #1DB954;
+        }
+        .block.completed[data-type="ep"] {
+            border-width: 3px;
+            border-style: dashed;
+            border-color: #1DB954;
+        }
+        .block.completed[data-type="split"] {
+            border-width: 3px;
+            border-style: solid;
+            border-color: #1DB954 #2f2f2f #2f2f2f #1DB954;
+        }
         .block.todo {
             background-color: #1c2538;
             border-color: #5d78b3;
             color: #d6e4ff;
             border-style: solid;
             box-shadow: none;
+        }
+        .block.completed::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(241, 196, 15, 0.08);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+        .block.completed.clickable:hover {
+            border-color: #F1C40F !important;
+            box-shadow: 0 0 0 1px rgba(241, 196, 15, 0.42) inset;
+        }
+        .block.completed.clickable:hover::after {
+            opacity: 1;
         }
         .block.todo::after {
             content: "";
@@ -367,6 +400,7 @@
             border: 1px solid rgba(255, 255, 255, 0.18);
             color: #f0f0f0;
             z-index: 2;
+            transition: all 0.3s ease;
         }
         .block-symbol {
             position: relative;
@@ -638,7 +672,7 @@
                     source: "library",
                     album: String(a.album || ""),
                     year: numericYear(a.year),
-                    coverUrl: String(a.coverUrl || ""),
+                    coverUrl: String(a.thumbnailUrl || a.coverUrl || ""),
                     length: String(a.length || "")
                 });
             });
@@ -648,7 +682,7 @@
                     source: "todo",
                     album: String(t.album || ""),
                     year: numericYear(t.year),
-                    coverUrl: String(t.coverUrl || ""),
+                    coverUrl: String(t.thumbnailUrl || t.coverUrl || ""),
                     length: String(t.length || "")
                 });
             });
@@ -892,11 +926,12 @@
                         const cls = k.source === "library" ? "library" : "todo";
                         const releaseKind = getReleaseKind(k.album);
                         const releaseClass = k.source === "library" && releaseKind !== "lp" ? ` ${releaseKind}` : "";
+                        const completedClass = k.source === "library" ? " completed" : "";
                         const cleanedTitle = cleanReleaseTitle(k.album);
                         const coverStyle = k.coverUrl
                             ? `style="background-image: linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), url('${k.coverUrl.replace(/'/g, "%27")}');"`
                             : "";
-                        blocks.push(`<div class="block ${cls}${releaseClass} clickable" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle({ ...k, album: cleanedTitle }, i)}" ${coverStyle}><span class="block-index">${i + 1}</span></div>`);
+                        blocks.push(`<div class="block ${cls}${releaseClass}${completedClass} clickable" data-type="${releaseKind}" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle({ ...k, album: cleanedTitle }, i)}" ${coverStyle}><span class="block-index">${i + 1}</span></div>`);
                     });
                     for (let i = 0; i < g.missingCount; i++) {
                         const idx = g.known.length + i;

@@ -869,7 +869,11 @@ registerSettingsHandlers({
     getCatHeavy: () => catHeavy,
     getCatEtc: () => catEtc,
     getCatNonMetal: () => catNonMetal,
-    saveToFirebase
+    saveToFirebase,
+    storage,
+    ref,
+    uploadBytes,
+    getDownloadURL
 });
 
 registerNavigationHandlers({
