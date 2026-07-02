@@ -263,11 +263,15 @@ export function registerLibraryCrudHandlers({
             countryValue = findCountryForArtist(document.getElementById("inArtist").value);
             if (countryInput && countryValue) countryInput.value = countryValue;
         }
+        const coverChanged = isEditing && finalCoverUrl !== (previousAlbum?.coverUrl || "");
         const nextAlbum = {
+            ...(isEditing ? albums[editIdx] : {}),
             id: editIdx > -1 ? albums[editIdx].id : maxId + 1,
             artist: document.getElementById("inArtist").value.trim(),
             album: document.getElementById("inAlbum").value.trim(),
             coverUrl: finalCoverUrl,
+            cover640Url: isEditing && !coverChanged ? (albums[editIdx].cover640Url || "") : "",
+            thumbnailUrl: isEditing && !coverChanged ? (albums[editIdx].thumbnailUrl || "") : "",
             year: document.getElementById("inYear").value,
             country: countryValue,
             genre: document.getElementById("inGenre").value.trim(),
@@ -344,6 +348,8 @@ export function registerLibraryCrudHandlers({
         if (card) card.style.opacity = "0.4";
 
         const previousCoverUrl = albums[albumIdx] ? albums[albumIdx].coverUrl : "";
+    const previousCover640Url = albums[albumIdx] ? albums[albumIdx].cover640Url : "";
+    const previousThumbnailUrl = albums[albumIdx] ? albums[albumIdx].thumbnailUrl : "";
         const previousHue = albums[albumIdx] ? albums[albumIdx].dominantHue : undefined;
 
         try {
@@ -354,6 +360,8 @@ export function registerLibraryCrudHandlers({
             const newHue = await window.extractHueFromFile(file);
 
             albums[albumIdx].coverUrl = finalUrl;
+            albums[albumIdx].cover640Url = "";
+            albums[albumIdx].thumbnailUrl = "";
             albums[albumIdx].dominantHue = newHue;
 
             await saveToCloudWithFeedback("handleDiskDrop");
@@ -362,6 +370,8 @@ export function registerLibraryCrudHandlers({
         } catch (error) {
             if (albums[albumIdx]) {
                 albums[albumIdx].coverUrl = previousCoverUrl;
+                albums[albumIdx].cover640Url = previousCover640Url;
+                albums[albumIdx].thumbnailUrl = previousThumbnailUrl;
                 albums[albumIdx].dominantHue = previousHue;
             }
             const { code, message } = getErrorCodeAndMessage(error);
@@ -404,7 +414,7 @@ export function registerLibraryCrudHandlers({
         if (typeof todoEditIdx === "number" && todoEditIdx >= 0 && todos[todoEditIdx]) {
             todos[todoEditIdx] = { ...todos[todoEditIdx], ...todoData };
         } else {
-            todos.push(todoData);
+            todos.push({ ...todoData, isPrioritized: false });
         }
 
         try {

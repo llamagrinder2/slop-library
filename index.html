@@ -184,6 +184,18 @@
 		.btn-del:hover { color: var(--danger); opacity: 1; transform: scale(1.1); }
 		.edit-btn { display: none; }
 		.btn-check { background: none; border: 2px solid var(--success); color: var(--success); font-size: 1.5em; border-radius: 50%; width: 45px; height: 45px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; margin-top: 10px; }
+		.todo-priority-btn {
+			border-color: #F1C40F;
+			color: #F1C40F;
+		}
+		.todo-priority-btn.active {
+			border-color: #7F8C8D;
+			color: #7F8C8D;
+		}
+		.album-card.todo-prioritized {
+			border: 2px solid #F1C40F;
+			background: linear-gradient(90deg, rgba(241, 196, 15, 0.16) 0%, rgba(241, 196, 15, 0.07) 32%, var(--card-bg) 100%);
+		}
 
 		.pagination-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; background: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
 		.page-btns { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
@@ -1991,7 +2003,6 @@ td[contenteditable="true"]:empty::before {
 				</button>
 			</div>
 		</div>
-		<button onclick="if(confirm('Törölsz mindent?')) {localStorage.clear(); location.reload();}" class="ctrl-btn" style="background:var(--danger); margin-top:20px;">ADATOK TÖRLÉSE</button>
 	</div>
 	<div id="info" class="page">
     <div class="info-content">

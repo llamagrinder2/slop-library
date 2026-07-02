@@ -1,4 +1,4 @@
-import { db, auth, storage, provider, doc, getDoc, setDoc, signInWithPopup, onAuthStateChanged, signOut, ref, uploadBytes, getDownloadURL } from "./core/firebase.js";
+import { db, auth, storage, provider, doc, getDoc, setDoc, onSnapshot, signInWithPopup, onAuthStateChanged, signOut, ref, uploadBytes, getDownloadURL } from "./core/firebase.js";
 import { TRAIT_VALUES, TRAIT_ORDER, recommenders } from "./core/constants.js";
 import { COUNTRY_ALPHA3_TO_ALPHA2, normalizeCountryCode } from "./core/countries.js";
 import { state } from "./state/appState.js";
@@ -45,12 +45,20 @@ let currentGenreLevel = state.currentGenreLevel;
 let isGalleryDetailsMode = false;
 const LIBRARY_CACHE_KEY = "slopLibraryCacheV1";
 const SPOTIFY_PENDING_ACTION_KEY = "spotify_pending_action";
+let libraryRealtimeUnsub = null;
 
 const isMissing = (val) => {
     if (!val) return true;
     const s = String(val).trim();
     return s === "" || s === "0" || s === "?" || s === "https://via.placeholder.com/120";
 };
+
+function normalizeTodoItem(todo) {
+    return {
+        ...(todo || {}),
+        isPrioritized: Boolean(todo && todo.isPrioritized)
+    };
+}
 
 function requiresSpotifyForTodo(todoItem) {
     const link = String(todoItem?.albumLink || "");
@@ -420,7 +428,7 @@ setTimeout(() => {
 async function loadFromFirebase() {
     const applyLibraryData = (data) => {
         albums = data.albums || [];
-        todos = data.todos || [];
+        todos = (data.todos || []).map(normalizeTodoItem);
         artistTotals = data.artistTotals || {};
         latestTodo = data.latestTodo || null;
         if (data.slopG !== undefined) slopG = data.slopG;
@@ -441,6 +449,52 @@ async function loadFromFirebase() {
         state.catHeavy = catHeavy;
         state.catEtc = catEtc;
         state.catNonMetal = catNonMetal;
+    };
+
+    const applyRealtimeUiRefresh = () => {
+        const activePage = document.querySelector(".page.active");
+        const activePageId = activePage ? activePage.id : "";
+
+        if (activePageId === "library" && typeof window.runFilter === "function") {
+            window.runFilter();
+        }
+        if (activePageId === "todo" && typeof window.renderTodo === "function") {
+            window.renderTodo();
+        }
+        if (activePageId === "todo-list-view" && typeof window.renderTodoListView === "function") {
+            window.renderTodoListView();
+        }
+        if (activePageId === "stats" && typeof window.renderStats === "function") {
+            window.renderStats();
+        }
+        if (activePageId === "gallery" && typeof window.renderGallery === "function") {
+            window.renderGallery();
+        }
+        if (typeof window.renderLatestTodoBanner === "function") {
+            window.renderLatestTodoBanner();
+        }
+    };
+
+    const startRealtimeLibrarySync = () => {
+        if (libraryRealtimeUnsub) return;
+
+        const docRef = doc(db, "data", "library");
+        libraryRealtimeUnsub = onSnapshot(docRef, (snap) => {
+            if (!snap.exists()) return;
+
+            const data = snap.data() || {};
+            applyLibraryData(data);
+
+            try {
+                localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
+            } catch (cacheWriteErr) {
+                console.warn("Realtime cache irasi hiba:", cacheWriteErr);
+            }
+
+            applyRealtimeUiRefresh();
+        }, (err) => {
+            console.warn("Realtime library sync hiba:", err);
+        });
     };
 
     try {
@@ -492,7 +546,7 @@ async function loadFromFirebase() {
                     }
                 } else {
                     // fallback to local cached settings/todos
-                    todos = JSON.parse(localStorage.getItem("slopTodo")) || [];
+                    todos = (JSON.parse(localStorage.getItem("slopTodo")) || []).map(normalizeTodoItem);
                     slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
 
                     state.todos = todos;
@@ -500,7 +554,7 @@ async function loadFromFirebase() {
                 }
             } catch (publicErr) {
                 console.warn("Public mirror load failed:", publicErr);
-                todos = JSON.parse(localStorage.getItem("slopTodo")) || [];
+                todos = (JSON.parse(localStorage.getItem("slopTodo")) || []).map(normalizeTodoItem);
                 slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
 
                 state.todos = todos;
@@ -511,9 +565,11 @@ async function loadFromFirebase() {
         window.showPage("library");
         if (typeof window.renderSettings === "function") window.renderSettings();
         if (typeof window.renderLatestTodoBanner === "function") window.renderLatestTodoBanner();
+        startRealtimeLibrarySync();
         handleDeepLinkFromUrl();
     } catch (e) {
         console.error("Hiba a betoltes soran:", e);
+        startRealtimeLibrarySync();
         handleDeepLinkFromUrl();
     }
 }

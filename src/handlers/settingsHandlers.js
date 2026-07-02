@@ -131,7 +131,7 @@ export function registerSettingsHandlers({
 
                     const blob = await canvasToJpegBlob(resizedCanvasData.canvas, 0.9);
                     const newCoverUrl = await uploadProcessedBlob(album, blob, "covers_640");
-                    album.coverUrl = newCoverUrl;
+                    album.cover640Url = newCoverUrl;
                     resized++;
 
                     console.log("[Resize640] Updated:", album.artist, album.album, `${resizedCanvasData.originalWidth}x${resizedCanvasData.originalHeight} -> ${resizedCanvasData.width}x${resizedCanvasData.height}`);

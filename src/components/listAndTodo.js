@@ -164,7 +164,13 @@ export function registerListAndTodoComponents({
 
         paginatedData.forEach((a) => {
             const idx = albums.indexOf(a);
-            const isExternal = a.coverUrl && !a.coverUrl.includes("firebasestorage");
+            const resizedCover = String(a.cover640Url || "").trim();
+            const originalCover = String(a.coverUrl || "").trim();
+            const displayCover = resizedCover || originalCover || "https://via.placeholder.com/120";
+            const fallbackCover = originalCover || "https://via.placeholder.com/120";
+            const safeFallbackCover = fallbackCover.replace(/'/g, "\\'");
+            const safeLightboxCover = String(a.coverUrl || displayCover).replace(/'/g, "\\'");
+            const isExternal = displayCover && !displayCover.includes("firebasestorage");
             const incomplete = isMissing(a.review) || isMissing(a.favSong) || isMissing(a.coverUrl) || isMissing(a.year) || isMissing(a.album) || isMissing(a.genre);
 
             const songLabel = a.myScore > 4.5 ? "Kiemelkedo dal:" : "Legkevesbe rossz dal:";
@@ -194,8 +200,8 @@ export function registerListAndTodoComponents({
                     <div class="row-number ${incomplete ? "incomplete-row" : ""}">#${a.id || "?"}</div>
                     <div class="album-art-container">
                         ${isExternal ? "<div class=\"external-link-indicator\" title=\"Kulso hivatkozas\">🔗</div>" : ""}
-                        <img src="${a.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
-                        <img src="${a.coverUrl || "https://via.placeholder.com/120"}" class="album-art" onclick="openLB('${a.coverUrl}')">
+                        <img src="${displayCover}" class="album-art-blur" onerror="if(this.dataset.fallbackApplied==='1') return; this.dataset.fallbackApplied='1'; this.src='${safeFallbackCover}'">
+                        <img src="${displayCover}" class="album-art" onclick="openLB('${safeLightboxCover}')" onerror="if(this.dataset.fallbackApplied==='1') return; this.dataset.fallbackApplied='1'; this.src='${safeFallbackCover}'">
                     </div>
                     <div class="album-info">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -317,6 +323,34 @@ export function registerListAndTodoComponents({
         }
     };
 
+    window.toggleTodoPriority = async function(todoIndex) {
+        const todos = getTodos();
+        const target = todos[todoIndex];
+        if (!target) return;
+
+        const nextValue = !Boolean(target.isPrioritized);
+        if (nextValue) {
+            const prioritizedCount = todos.reduce((sum, item) => sum + (item && item.isPrioritized ? 1 : 0), 0);
+            if (prioritizedCount >= 10) {
+                showCloudToast("error", "Maximum 10 albumot jelölhetsz meg prioritásként egyszerre!");
+                return;
+            }
+        }
+
+        const previousValue = Boolean(target.isPrioritized);
+        target.isPrioritized = nextValue;
+
+        try {
+            await saveToCloudWithFeedback("toggleTodoPriority");
+            window.renderTodo();
+        } catch (error) {
+            target.isPrioritized = previousValue;
+            const { code, message } = getErrorCodeAndMessage(error);
+            console.error(`[Firestore][toggleTodoPriority] rollback applied. code=${code} message=${message}`, error);
+            window.renderTodo();
+        }
+    };
+
     window.handleTodoBulkCellEdit = function(cell, todoIndex, field) {
         let nextValue = (cell.innerText || "").trim();
         if (field === "country" && nextValue) {
@@ -417,11 +451,24 @@ export function registerListAndTodoComponents({
             return textMatches && lengthMatches;
         });
 
+        // Prioritized albums always render first, preserving original chronological order within each group.
+        const prioritizedTodos = [];
+        const regularTodos = [];
+        filteredTodos.forEach((entry) => {
+            if (entry.t && entry.t.isPrioritized) prioritizedTodos.push(entry);
+            else regularTodos.push(entry);
+        });
+        const sortedTodos = [...prioritizedTodos, ...regularTodos];
+
         container.innerHTML = "";
-        filteredTodos.forEach(({ t, idx }, i) => {
-            const link = String(t.albumLink || "").toLowerCase();
+        sortedTodos.forEach(({ t, idx }, i) => {
+            const rawLink = String(t.albumLink || "");
+            const normalizedLink = rawLink.trim().toLowerCase();
+            const isTorrentTag = normalizedLink === "torrent";
+            const link = normalizedLink;
             let platform = "generic";
-            if (link.includes("spotify.com")) platform = "spotify";
+            if (isTorrentTag) platform = "torrent";
+            else if (link.includes("spotify.com")) platform = "spotify";
             else if (link.includes("youtube.com") || link.includes("youtu.be")) platform = "youtube";
             else if (link.includes("bandcamp.com")) platform = "bandcamp";
 
@@ -444,6 +491,12 @@ export function registerListAndTodoComponents({
                     label: "Bandcamp",
                     icon: "✦"
                 },
+                torrent: {
+                    border: "#9B59B6",
+                    glow: "rgba(155, 89, 182, 0.26)",
+                    label: "TORENT",
+                    icon: "⬇"
+                },
                 generic: {
                     border: "#4b5154",
                     glow: "rgba(100, 100, 100, 0.14)",
@@ -454,16 +507,19 @@ export function registerListAndTodoComponents({
 
             const platformStyle = platformStyleByType[platform] || platformStyleByType.generic;
             const cardAccentStyle = t.albumLink
-                ? `border-left: 3px solid ${platformStyle.border}; box-shadow: inset 0 0 0 1px ${platformStyle.glow};`
+                ? `border-left: 3px solid ${platformStyle.border}; box-shadow: inset 0 0 0 1px ${platformStyle.glow};${isTorrentTag ? " background: linear-gradient(90deg, rgba(155, 89, 182, 0.16) 0%, rgba(155, 89, 182, 0.08) 35%, rgba(34, 34, 34, 1) 100%);" : ""}`
                 : "";
+            const prioritizedClass = t.isPrioritized ? " todo-prioritized" : "";
 
             const linkHtml = t.albumLink
-                ? `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" onclick="window.setLatestTodo(${idx})" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
+                ? isTorrentTag
+                    ? `<p style="margin-top:6px;"><span style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; cursor:default;">${platformStyle.icon} ${platformStyle.label}</span></p>`
+                    : `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" onclick="window.setLatestTodo(${idx})" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
                 : "";
 
             container.innerHTML += `
-                <div class="album-card" style="${cardAccentStyle}">
-                    <div class="row-number">${i + 1}</div>
+                <div class="album-card${prioritizedClass}" style="${cardAccentStyle}">
+                    <div class="row-number">${idx + 1}</div>
                     <div class="album-art-container">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art">
@@ -483,6 +539,7 @@ export function registerListAndTodoComponents({
                         </div>
                         <div style="margin-top:10px; display:flex; gap:10px;">
                             <button class="btn-check" onclick="moveToRating(${idx})">✓</button>
+                            <button class="btn-check todo-priority-btn ${t.isPrioritized ? "active" : ""}" title="Prioritás" onclick="window.toggleTodoPriority(${idx})">★</button>
                             <button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${idx})">✎</button>
                         </div>
                         <button class="btn-del" onclick="deleteAlbum(${idx}, 'todo')">✖</button>
@@ -490,7 +547,7 @@ export function registerListAndTodoComponents({
                 </div>`;
         });
 
-        if (filteredTodos.length === 0) {
+        if (sortedTodos.length === 0) {
             container.innerHTML = '<div class="module-box" style="text-align:center; color:#aaa;">Nincs talalat ehhez a szurohoz.</div>';
         }
     };

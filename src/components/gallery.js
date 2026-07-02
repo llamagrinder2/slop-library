@@ -77,6 +77,36 @@ export function registerGalleryComponents({
         window.renderGallery();
     };
 
+    const getFilteredGalleryAlbums = () => {
+        const albums = getAlbums();
+        if (!albums || albums.length === 0) return [];
+
+        let albumsWithCover = albums.filter((a) => {
+            const candidate = (a.thumbnailUrl || a.coverUrl || "").trim();
+            return Boolean(candidate);
+        });
+
+        if (getIsRainbowMode() && !getIsGalleryDetailsMode()) {
+            albumsWithCover = albumsWithCover.filter((a) => a.dominantHue !== undefined);
+            albumsWithCover.sort((a, b) => a.dominantHue - b.dominantHue);
+            return albumsWithCover;
+        }
+
+        const filterArtist = document.getElementById("galleryFilterArtist")?.value.toLowerCase().trim() || "";
+        const filterGenre = document.getElementById("galleryFilterGenre")?.value.toLowerCase().trim() || "";
+        const filterRating = document.getElementById("galleryFilterRating")?.value;
+
+        if (!filterArtist && !filterGenre && !filterRating) return albumsWithCover;
+
+        return albumsWithCover.filter((album) => {
+            let matches = true;
+            if (filterArtist) matches = matches && album.artist.toLowerCase().includes(filterArtist);
+            if (filterGenre) matches = matches && (album.genre || "").toLowerCase().includes(filterGenre);
+            if (filterRating) matches = matches && parseFloat(album.myScore) === parseFloat(filterRating);
+            return matches;
+        });
+    };
+
     window.renderGallery = async function() {
         const container = document.getElementById("galleryContainer");
         if (!container) return;
@@ -88,29 +118,7 @@ export function registerGalleryComponents({
             return;
         }
 
-        let albumsWithCover = albums.filter((a) => {
-            const candidate = (a.thumbnailUrl || a.coverUrl || "").trim();
-            return Boolean(candidate);
-        });
-
-        if (getIsRainbowMode() && !getIsGalleryDetailsMode()) {
-            albumsWithCover = albumsWithCover.filter((a) => a.dominantHue !== undefined);
-            albumsWithCover.sort((a, b) => a.dominantHue - b.dominantHue);
-        } else {
-            const filterArtist = document.getElementById("galleryFilterArtist")?.value.toLowerCase().trim() || "";
-            const filterGenre = document.getElementById("galleryFilterGenre")?.value.toLowerCase().trim() || "";
-            const filterRating = document.getElementById("galleryFilterRating")?.value;
-
-            if (filterArtist || filterGenre || filterRating) {
-                albumsWithCover = albumsWithCover.filter((album) => {
-                    let matches = true;
-                    if (filterArtist) matches = matches && album.artist.toLowerCase().includes(filterArtist);
-                    if (filterGenre) matches = matches && (album.genre || "").toLowerCase().includes(filterGenre);
-                    if (filterRating) matches = matches && parseFloat(album.myScore) === parseFloat(filterRating);
-                    return matches;
-                });
-            }
-        }
+        const albumsWithCover = getFilteredGalleryAlbums();
 
         if (albumsWithCover.length === 0) {
             container.innerHTML = "<div class=\"gallery-empty\">Nincs olyan album, amely megfelel a szuro felteteleknek</div>";
@@ -160,9 +168,12 @@ export function registerGalleryComponents({
     };
 
     window.downloadGalleryAsImage = async function() {
-        const container = document.getElementById("galleryContainer");
-        const images = container?.querySelectorAll("img") || [];
-        if (!images.length) return alert("Nincs mit menteni!");
+        const albumsForExport = getFilteredGalleryAlbums();
+        const imageSources = albumsForExport
+            .map((album) => String(album.thumbnailUrl || album.coverUrl || "").trim())
+            .filter(Boolean);
+
+        if (!imageSources.length) return alert("Nincs mit menteni!");
 
         const btn = document.querySelector('button[onclick="downloadGalleryAsImage()"]');
         const origText = btn.innerText;
@@ -170,7 +181,7 @@ export function registerGalleryComponents({
         btn.disabled = true;
 
         const thumbSize = 300;
-        const count = images.length;
+        const count = imageSources.length;
 
         // --- 16:9 ARÁNY ÉS OSZLOP/SOR SZÁMÍTÁS ---
         // Kiszámoljuk az optimális oszlopszámot, hogy a végeredmény aránya a legközelebb legyen a 16:9-hez (ami kb. 1.77)
@@ -216,7 +227,7 @@ export function registerGalleryComponents({
                 const x = colIndex * thumbSize;
                 const y = rowIndex * thumbSize;
 
-                await loadAndDraw(images[i].src, x, y);
+                await loadAndDraw(imageSources[i], x, y);
                 btn.innerText = `Rajzolas: ${i + 1} / ${count}`;
             }
 
