@@ -1,4 +1,4 @@
-import { getCountryName, getCountryFlag } from "../core/countries.js";
+import { getCountryName, getCountryFlag, normalizeCountryCode } from "../core/countries.js";
 
 export function registerStatsHandlers({
     getAlbums,
@@ -352,7 +352,7 @@ export function registerStatsHandlers({
         const cScores = {};
 
         albums.forEach((a) => {
-            const country = a.country || "";
+            const country = normalizeCountryCode(a.country) || String(a.country || "").trim().toUpperCase();
             if (country) {
                 countryData[country] = (countryData[country] || 0) + 1;
                 if (!cScores[country]) cScores[country] = [];

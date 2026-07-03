@@ -1,3 +1,5 @@
+import { normalizeCountryCode } from "../core/countries.js";
+
 export function registerFilterHandlers({
     getAlbums,
     getSortAsc,
@@ -86,7 +88,17 @@ export function registerFilterHandlers({
         albums.forEach((a) => a.genre.split(",").forEach((g) => gs.add(g.trim())));
         fill("fGenre", [...gs], "Minden mufaj");
 
-        fill("fCountry", albums.map((a) => a.country).filter((c) => c), "Minden orszag");
+        fill(
+            "fCountry",
+            albums
+                .map((a) => {
+                    const raw = String(a.country || "").trim();
+                    if (!raw) return "";
+                    return normalizeCountryCode(raw) || raw.toUpperCase();
+                })
+                .filter((c) => c),
+            "Minden orszag"
+        );
     };
 
     window.runFilter = function(resetPage = false) {
@@ -138,7 +150,8 @@ export function registerFilterHandlers({
             const mA = !fA || a.artist === fA;
             const mY = !fY || String(a.year) === fY;
             const mG = !fG || a.genre.split(",").map((g) => g.trim().toLowerCase()).includes(fG.toLowerCase());
-            const mC = !fC || a.country === fC;
+            const normalizedCountry = normalizeCountryCode(a.country) || String(a.country || "").trim().toUpperCase();
+            const mC = !fC || normalizedCountry === fC;
 
             return mQ && mA && mY && mG && mC;
         });

@@ -313,27 +313,77 @@ export const COUNTRY_NAME_TO_CODE = {
     "papua new guinea": "PNG"
 };
 
-export function normalizeCountryCode(input) {
-    if (!input) return "";
-    const trimmed = input.trim();
-    if (trimmed.length === 0) return "";
+export const USA_STATE_CODE_TO_NAME = {
+    AL: "Alabama",
+    AK: "Alaska",
+    AZ: "Arizona",
+    AR: "Arkansas",
+    CA: "California",
+    CO: "Colorado",
+    CT: "Connecticut",
+    DE: "Delaware",
+    FL: "Florida",
+    GA: "Georgia",
+    HI: "Hawaii",
+    ID: "Idaho",
+    IL: "Illinois",
+    IN: "Indiana",
+    IA: "Iowa",
+    KS: "Kansas",
+    KY: "Kentucky",
+    LA: "Louisiana",
+    ME: "Maine",
+    MD: "Maryland",
+    MA: "Massachusetts",
+    MI: "Michigan",
+    MN: "Minnesota",
+    MS: "Mississippi",
+    MO: "Missouri",
+    MT: "Montana",
+    NE: "Nebraska",
+    NV: "Nevada",
+    NH: "New Hampshire",
+    NJ: "New Jersey",
+    NM: "New Mexico",
+    NY: "New York",
+    NC: "North Carolina",
+    ND: "North Dakota",
+    OH: "Ohio",
+    OK: "Oklahoma",
+    OR: "Oregon",
+    PA: "Pennsylvania",
+    RI: "Rhode Island",
+    SC: "South Carolina",
+    SD: "South Dakota",
+    TN: "Tennessee",
+    TX: "Texas",
+    UT: "Utah",
+    VT: "Vermont",
+    VA: "Virginia",
+    WA: "Washington",
+    WV: "West Virginia",
+    WI: "Wisconsin",
+    WY: "Wyoming"
+};
 
-    // If already 3-letter code, return uppercase
+const USA_STATE_NAME_TO_CODE = Object.fromEntries(
+    Object.entries(USA_STATE_CODE_TO_NAME).map(([code, name]) => [name.toLowerCase(), code])
+);
+
+const normalizeBaseCountryCode = (input) => {
+    if (!input) return "";
+    const trimmed = String(input).trim();
+    if (!trimmed) return "";
+
     if (/^[A-Za-z]{3}$/.test(trimmed)) {
-        const upper = trimmed.toUpperCase();
-        if (COUNTRY_ALPHA3_TO_ALPHA2[upper]) {
-            return upper;
-        }
-        return upper;
+        return trimmed.toUpperCase();
     }
 
-    // Try to match country name
     const lower = trimmed.toLowerCase();
     if (COUNTRY_NAME_TO_CODE[lower]) {
         return COUNTRY_NAME_TO_CODE[lower];
     }
 
-    // Try partial match for longer inputs
     if (trimmed.length >= 3) {
         for (const [name, code] of Object.entries(COUNTRY_NAME_TO_CODE)) {
             if (name.startsWith(lower)) {
@@ -343,11 +393,71 @@ export function normalizeCountryCode(input) {
     }
 
     return "";
+};
+
+const normalizeUsStateCode = (input) => {
+    if (!input) return "";
+    const trimmed = String(input).trim();
+    if (!trimmed) return "";
+
+    if (/^[A-Za-z]{2}$/.test(trimmed)) {
+        const upper = trimmed.toUpperCase();
+        if (USA_STATE_CODE_TO_NAME[upper]) return upper;
+    }
+
+    const normalizedName = trimmed
+        .toLowerCase()
+        .replace(/\./g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    return USA_STATE_NAME_TO_CODE[normalizedName] || "";
+};
+
+export function parseCountryCodeParts(input) {
+    const raw = String(input || "").trim();
+    if (!raw) return { countryCode: "", regionCode: "", canonical: "" };
+
+    let baseRaw = raw;
+    let regionRaw = "";
+
+    const commaIdx = raw.indexOf(",");
+    if (commaIdx >= 0) {
+        baseRaw = raw.slice(0, commaIdx).trim();
+        regionRaw = raw.slice(commaIdx + 1).trim();
+    } else {
+        const usaInlineMatch = raw.match(/^(usa|us|united states(?: of america)?|america)\s+(.+)$/i);
+        if (usaInlineMatch) {
+            baseRaw = usaInlineMatch[1];
+            regionRaw = usaInlineMatch[2];
+        }
+    }
+
+    const countryCode = normalizeBaseCountryCode(baseRaw);
+    if (countryCode !== "USA") {
+        return {
+            countryCode,
+            regionCode: "",
+            canonical: countryCode
+        };
+    }
+
+    const regionCode = normalizeUsStateCode(regionRaw);
+    return {
+        countryCode,
+        regionCode,
+        canonical: regionCode ? `USA, ${regionCode}` : "USA"
+    };
+}
+
+export function normalizeCountryCode(input) {
+    const parsed = parseCountryCodeParts(input);
+    return parsed.canonical || "";
 }
 
 export function getCountryFlag(countryCode) {
     if (!countryCode) return "";
-    const code = countryCode.toUpperCase();
+    const parsed = parseCountryCodeParts(countryCode);
+    const code = (parsed.countryCode || String(countryCode || "").trim().toUpperCase());
     const alpha2 = COUNTRY_ALPHA3_TO_ALPHA2[code];
     if (!alpha2) return "";
     return `<img src="https://flagcdn.com/16x12/${alpha2}.png" width="16" height="12" alt="${code}" style="vertical-align: middle; margin-left: 8px; border-radius: 2px;">`;
@@ -355,7 +465,12 @@ export function getCountryFlag(countryCode) {
 
 export function getCountryName(countryCode) {
     if (!countryCode) return countryCode || "";
-    const code = countryCode.toUpperCase();
+    const parsed = parseCountryCodeParts(countryCode);
+    const code = parsed.countryCode || String(countryCode || "").trim().toUpperCase();
+
+    if (code === "USA" && parsed.regionCode) {
+        return `USA, ${parsed.regionCode}`;
+    }
     
     // Create reverse mapping from entries
     for (const [name, c] of Object.entries(COUNTRY_NAME_TO_CODE)) {
@@ -365,5 +480,5 @@ export function getCountryName(countryCode) {
         }
     }
     
-    return code; // Fallback to code if not found
+    return String(countryCode).trim().toUpperCase(); // Fallback keeps custom labels like "USA, TX"
 }

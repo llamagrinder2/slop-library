@@ -110,8 +110,39 @@ export function registerLibraryCrudHandlers({
         artistEl.dataset.countryAutofillBound = "1";
     };
 
+    const capitalizeGenreWords = (value) =>
+        String(value || "").replace(/(^|[\s,;\/\-()])([a-zA-ZÀ-ÿ])/g, (match, sep, firstChar) => {
+            return `${sep}${firstChar.toUpperCase()}`;
+        });
+
+    const bindGenreAutoCapitalize = (inputId) => {
+        const inputEl = document.getElementById(inputId);
+        if (!inputEl) return;
+        if (inputEl.dataset.genreAutoCapBound === "1") return;
+
+        const applyCapitalize = () => {
+            const current = String(inputEl.value || "");
+            const next = capitalizeGenreWords(current);
+            if (next === current) return;
+
+            const cursorStart = inputEl.selectionStart;
+            const cursorEnd = inputEl.selectionEnd;
+            inputEl.value = next;
+
+            if (typeof cursorStart === "number" && typeof cursorEnd === "number") {
+                inputEl.setSelectionRange(cursorStart, cursorEnd);
+            }
+        };
+
+        inputEl.addEventListener("input", applyCapitalize);
+        inputEl.addEventListener("blur", applyCapitalize);
+        inputEl.dataset.genreAutoCapBound = "1";
+    };
+
     bindArtistCountryAutofill("inArtist", "inCountry");
     bindArtistCountryAutofill("todoArtist", "todoCountry");
+    bindGenreAutoCapitalize("inGenre");
+    bindGenreAutoCapitalize("todoGenre");
 
     let cloudToastTimer = null;
 

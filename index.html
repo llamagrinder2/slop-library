@@ -113,6 +113,22 @@
 		.container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
 		.page { display: none; }
 		.page.active { display: block; }
+		#map-page {
+			position: fixed;
+			inset: 0;
+			width: 100vw;
+			height: 100vh;
+			margin: 0;
+			padding: 0;
+			z-index: 50;
+			background: #111;
+		}
+		#map-page #world-map-container {
+			width: 100%;
+			height: 100%;
+			border-radius: 0;
+			border: none;
+		}
 
 		.module-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #444; margin-bottom: 20px; display: none; }
 		.form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
@@ -1670,7 +1686,7 @@ td[contenteditable="true"]:empty::before {
 		</button>
 	</div>
 	<div id="map-page" class="page">
-        <div id="world-map-container" style="width: 100%; height: 600px; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden; position: relative;"></div>
+        <div id="world-map-container" style="background: #1a1a1a; overflow: hidden; position: relative;"></div>
     </div>
 	<div id="listView" class="page">
 		<div class="form-row" style="margin-bottom: 15px;">

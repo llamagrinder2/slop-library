@@ -1,6 +1,6 @@
 import { db, auth, storage, provider, doc, getDoc, setDoc, onSnapshot, signInWithPopup, onAuthStateChanged, signOut, ref, uploadBytes, getDownloadURL } from "./core/firebase.js";
 import { TRAIT_VALUES, TRAIT_ORDER, recommenders } from "./core/constants.js";
-import { COUNTRY_ALPHA3_TO_ALPHA2, normalizeCountryCode } from "./core/countries.js";
+import { COUNTRY_ALPHA3_TO_ALPHA2, USA_STATE_CODE_TO_NAME, normalizeCountryCode, parseCountryCodeParts } from "./core/countries.js";
 import { state } from "./state/appState.js";
 import { initSpotifyService } from "./features/spotifyService.js";
 import { registerCsvImport } from "./features/csvImportService.js";
@@ -307,14 +307,27 @@ async function renderWorldMap() {
         return normalizedNameCode || rawCodes[0]?.toUpperCase() || "";
     };
 
-    // Build counts (alpha-3 uppercase), ignore empty/placeholder
-    const countryCounts = (albums || []).reduce((acc, album) => {
-        const raw = album && album.country ? String(album.country).trim().toUpperCase() : "";
-        if (!raw) return acc;
-        if (["UNDEFINED", "NULL", "?"].includes(raw)) return acc;
-        acc[raw] = (acc[raw] || 0) + 1;
-        return acc;
-    }, {});
+    const countryCounts = {};
+    const usStateCounts = {};
+
+    (albums || []).forEach((album) => {
+        const raw = album && album.country ? String(album.country).trim() : "";
+        if (!raw) return;
+        if (["UNDEFINED", "NULL", "?"].includes(raw.toUpperCase())) return;
+
+        const parsed = parseCountryCodeParts(raw);
+        if (parsed.countryCode === "USA" && parsed.regionCode) {
+            usStateCounts[parsed.regionCode] = (usStateCounts[parsed.regionCode] || 0) + 1;
+            return;
+        }
+        if (parsed.countryCode === "USA" && !parsed.regionCode) {
+            // Plain USA records are intentionally excluded from heatmap counts.
+            return;
+        }
+
+        const normalized = parsed.canonical || normalizeCountryCode(raw) || raw.toUpperCase();
+        countryCounts[normalized] = (countryCounts[normalized] || 0) + 1;
+    });
 
     // Basic SVG setup
     const width = Math.max(600, container.clientWidth || 800);
@@ -354,8 +367,18 @@ async function renderWorldMap() {
     }
 
     // Color scale
-    const maxCount = Math.max(0, ...Object.values(countryCounts));
+    const maxCount = Math.max(0, ...Object.values(countryCounts), ...Object.values(usStateCounts));
     const color = d3.scaleSequential((t) => d3.interpolateRgb("#4a4a4a", "#ffcc00")(t)).domain([0, Math.max(1, maxCount)]);
+
+    const US_STATE_FIPS_TO_CODE = {
+        "01": "AL", "02": "AK", "04": "AZ", "05": "AR", "06": "CA", "08": "CO", "09": "CT", "10": "DE",
+        "12": "FL", "13": "GA", "15": "HI", "16": "ID", "17": "IL", "18": "IN", "19": "IA", "20": "KS",
+        "21": "KY", "22": "LA", "23": "ME", "24": "MD", "25": "MA", "26": "MI", "27": "MN", "28": "MS",
+        "29": "MO", "30": "MT", "31": "NE", "32": "NV", "33": "NH", "34": "NJ", "35": "NM", "36": "NY",
+        "37": "NC", "38": "ND", "39": "OH", "40": "OK", "41": "OR", "42": "PA", "44": "RI", "45": "SC",
+        "46": "SD", "47": "TN", "48": "TX", "49": "UT", "50": "VT", "51": "VA", "53": "WA", "54": "WV",
+        "55": "WI", "56": "WY"
+    };
 
     // Load topojson and draw
     try {
@@ -390,11 +413,53 @@ async function renderWorldMap() {
                 }
             });
 
+        const usStatesTopo = await d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json");
+        const usStateFeatures = topojson.feature(usStatesTopo, usStatesTopo.objects.states).features;
+
+        mapGroup.append("g")
+            .attr("class", "us-state-layer")
+            .selectAll("path")
+            .data(usStateFeatures)
+            .enter()
+            .append("path")
+            .attr("d", path)
+            .attr("fill", (d) => {
+                const fips = String(d.id || "").padStart(2, "0");
+                const stateCode = US_STATE_FIPS_TO_CODE[fips];
+                const count = stateCode ? (usStateCounts[stateCode] || 0) : 0;
+                return count > 0 ? color(count) : "none";
+            })
+            .attr("stroke", "#1b1b1b")
+            .attr("stroke-width", 0.8)
+            .on("mousemove", (event, d) => {
+                const fips = String(d.id || "").padStart(2, "0");
+                const stateCode = US_STATE_FIPS_TO_CODE[fips];
+                if (!stateCode) return;
+                const stateName = USA_STATE_CODE_TO_NAME[stateCode] || stateCode;
+                const count = usStateCounts[stateCode] || 0;
+                tooltip
+                    .style("left", (event.pageX + 8) + "px")
+                    .style("top", (event.pageY + 8) + "px")
+                    .style("opacity", 1)
+                    .html(`USA, ${stateCode} (${stateName}): ${count} albums`);
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0))
+            .on("click", (event, d) => {
+                const fips = String(d.id || "").padStart(2, "0");
+                const stateCode = US_STATE_FIPS_TO_CODE[fips];
+                if (!stateCode || !usStateCounts[stateCode]) return;
+
+                if (typeof showPage === "function") showPage("library");
+                const el = document.getElementById("fCountry");
+                if (el) el.value = `USA, ${stateCode}`;
+                if (typeof runFilter === "function") runFilter();
+            });
+
         // Legend (simple)
         const legendWidth = 180;
         const legend = svg.append("g").attr("transform", `translate(${width - legendWidth - 12}, ${12})`);
         legend.append("rect").attr("width", legendWidth).attr("height", 36).attr("fill", "rgba(0,0,0,0.25)").attr("rx", 6);
-        legend.append("text").attr("x", 8).attr("y", 14).attr("fill", "#ccc").attr("font-size", 12).text("Albums per country");
+        legend.append("text").attr("x", 8).attr("y", 14).attr("fill", "#ccc").attr("font-size", 12).text("Albums per country/state");
         legend.append("text").attr("x", 8).attr("y", 30).attr("fill", "#ccc").attr("font-size", 11).text(`Max: ${maxCount}`);
 
         // If no data, show message
