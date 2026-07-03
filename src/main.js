@@ -348,7 +348,7 @@ async function renderWorldMap() {
         .scaleExtent([1, 8])
         .filter((event) => {
             if (event.type === "wheel") return true;
-            if (event.type === "mousedown") return event.button === 2;
+            if (event.type === "mousedown") return event.button === 0;
             if (event.type === "touchstart") return true;
             return false;
         })
@@ -396,6 +396,7 @@ async function renderWorldMap() {
                 return c > 0 ? color(c) : "#2a2a2a";
             })
             .attr("stroke", "#111")
+            .style("pointer-events", "all")
             .on("mousemove", (event, d) => {
                 const code = resolveCountryCode(d);
                 const count = countryCounts[code] || 0;
@@ -427,10 +428,11 @@ async function renderWorldMap() {
                 const fips = String(d.id || "").padStart(2, "0");
                 const stateCode = US_STATE_FIPS_TO_CODE[fips];
                 const count = stateCode ? (usStateCounts[stateCode] || 0) : 0;
-                return count > 0 ? color(count) : "none";
+                return count > 0 ? color(count) : "rgba(42,42,42,0.01)";
             })
             .attr("stroke", "#1b1b1b")
             .attr("stroke-width", 0.8)
+            .style("pointer-events", "all")
             .on("mousemove", (event, d) => {
                 const fips = String(d.id || "").padStart(2, "0");
                 const stateCode = US_STATE_FIPS_TO_CODE[fips];
