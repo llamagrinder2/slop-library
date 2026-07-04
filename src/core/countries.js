@@ -150,6 +150,8 @@ export const COUNTRY_ALPHA3_TO_ALPHA2 = {
     SYC: "sc",
     MDG: "mg",
     BLR: "by"
+    ,MDA: "md"
+    ,AND: "ad"
 };
 
 export const COUNTRY_NAME_TO_CODE = {
@@ -196,6 +198,8 @@ export const COUNTRY_NAME_TO_CODE = {
     "georgia": "GEO", "georgian": "GEO",
     "armenia": "ARM", "armenian": "ARM",
     "belarus": "BLR", "belarusian": "BLR",
+    "moldova": "MDA", "moldovan": "MDA",
+    "andorra": "AND", "andorran": "AND",
     // Americas
     "argentina": "ARG", "argentine": "ARG",
     "mexico": "MEX", "mexican": "MEX",

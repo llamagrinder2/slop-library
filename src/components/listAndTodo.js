@@ -460,8 +460,9 @@ export function registerListAndTodoComponents({
         });
         const sortedTodos = [...prioritizedTodos, ...regularTodos];
 
+        container.className = "todo-card-grid";
         container.innerHTML = "";
-        sortedTodos.forEach(({ t, idx }, i) => {
+        sortedTodos.forEach(({ t, idx }) => {
             const rawLink = String(t.albumLink || "");
             const normalizedLink = rawLink.trim().toLowerCase();
             const isTorrentTag = normalizedLink === "torrent";
@@ -517,37 +518,66 @@ export function registerListAndTodoComponents({
                     : `<p style="margin-top:6px;"><a href="${t.albumLink}" target="_blank" rel="noopener noreferrer" onclick="window.setLatestTodo(${idx})" style="display:inline-flex; align-items:center; gap:8px; font-size:0.86em; letter-spacing:0.4px; text-transform:uppercase; color:${platformStyle.border}; border:1px solid ${platformStyle.border}; border-radius:999px; padding:4px 11px; text-decoration:none; font-weight:600; transition:filter 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'">${platformStyle.icon} ${platformStyle.label}</a></p>`
                 : "";
 
+            if (t.isPrioritized) {
+                container.innerHTML += `
+                    <div class="album-card${prioritizedClass}" style="${cardAccentStyle}">
+                        <div class="row-number">${idx + 1}</div>
+                        <div class="album-art-container">
+                            <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
+                            <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art">
+                        </div>
+                        <div class="album-info">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div style="display:flex; align-items:center; gap:8px;">
+                                        <h3 class="artist-name todo-artist">${t.artist}</h3>
+                                        ${getCountryFlag(t.country)}
+                                    </div>
+                                    <p class="todo-album"><strong>${t.album} ( ${t.length || '-'} )</strong></p>
+                                    <small>${t.genre || ''}</small>
+                                    ${linkHtml}
+                                </div>
+                                ${getRecommenderHTML(t.recommender)}
+                            </div>
+                            <div style="margin-top:10px; display:flex; gap:10px;">
+                                <button class="btn-check" onclick="moveToRating(${idx})">✓</button>
+                                <button class="btn-check todo-priority-btn ${t.isPrioritized ? "active" : ""}" title="Prioritás" onclick="window.toggleTodoPriority(${idx})">★</button>
+                                <button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${idx})">✎</button>
+                            </div>
+                            <button class="btn-del" onclick="deleteAlbum(${idx}, 'todo')">✖</button>
+                        </div>
+                    </div>`;
+                return;
+            }
+
             container.innerHTML += `
-                <div class="album-card${prioritizedClass}" style="${cardAccentStyle}">
+                <div class="album-card todo-compact-card" style="${cardAccentStyle}">
                     <div class="row-number">${idx + 1}</div>
                     <div class="album-art-container">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art">
                     </div>
                     <div class="album-info">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <div>
-                                <div style="display:flex; align-items:center; gap:8px;">
-                                    <h3 class="artist-name todo-artist">${t.artist}</h3>
-                                    ${getCountryFlag(t.country)}
-                                </div>
-                                <p class="todo-album"><strong>${t.album} ( ${t.length || '-'} )</strong></p>
-                                <small>${t.genre || ''}</small>
-                                ${linkHtml}
-                            </div>
-                            ${getRecommenderHTML(t.recommender)}
+                        <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+                            <h3 class="artist-name todo-artist">${t.artist}</h3>
+                            ${getCountryFlag(t.country)}
                         </div>
-                        <div style="margin-top:10px; display:flex; gap:10px;">
+                        <p class="todo-album"><strong>${t.album}</strong></p>
+                        <small>${t.genre || ''}</small>
+                        <small style="color:#9fa4aa;">(${t.length || '-'})</small>
+                        <div class="todo-compact-actions">
                             <button class="btn-check" onclick="moveToRating(${idx})">✓</button>
                             <button class="btn-check todo-priority-btn ${t.isPrioritized ? "active" : ""}" title="Prioritás" onclick="window.toggleTodoPriority(${idx})">★</button>
                             <button class="btn-check" style="border-color:#888;color:#888;" onclick="editTodo(${idx})">✎</button>
                         </div>
+                        <div class="todo-compact-link">${linkHtml}</div>
                         <button class="btn-del" onclick="deleteAlbum(${idx}, 'todo')">✖</button>
                     </div>
                 </div>`;
         });
 
         if (sortedTodos.length === 0) {
+            container.className = "";
             container.innerHTML = '<div class="module-box" style="text-align:center; color:#aaa;">Nincs talalat ehhez a szurohoz.</div>';
         }
     };

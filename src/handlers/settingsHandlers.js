@@ -103,27 +103,60 @@ export function registerSettingsHandlers({
         const btn = document.getElementById("btnResizeCovers640");
         if (!btn) return;
 
+        let migratedLegacy640 = 0;
+        const toProcess = albums.filter((album) => {
+            if (!album || !album.coverUrl) return false;
+            const coverUrl = String(album.coverUrl || "").trim();
+            const existing640 = String(album.cover640Url || "").trim();
+            if (!existing640 && coverUrl.includes("/covers_640/")) {
+                album.cover640Url = coverUrl;
+                migratedLegacy640++;
+                return false;
+            }
+            return !existing640;
+        });
+        const total = toProcess.length;
+
         const originalText = btn.innerText;
         btn.disabled = true;
 
+        if (total === 0) {
+            if (migratedLegacy640 > 0) {
+                btn.innerText = "Legacy 640 mezok mentese...";
+                try {
+                    await saveToFirebase();
+                    btn.innerText = `Kesz! Legacy 640 migralva: ${migratedLegacy640}`;
+                } catch (err) {
+                    console.error("[Resize640] Legacy migration save failed:", err);
+                    btn.innerText = "Legacy 640 mentesi hiba";
+                }
+            } else {
+                btn.innerText = "Nincs uj kep 640-re";
+            }
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 2500);
+            return;
+        }
+
         let processed = 0;
         let resized = 0;
+        let markedAsReady = 0;
         let skipped = 0;
         let failed = 0;
 
         try {
-            for (const album of albums) {
-                if (!album || !album.coverUrl) {
-                    skipped++;
-                    continue;
-                }
+            for (const album of toProcess) {
 
                 processed++;
-                btn.innerText = `Feldolgozas: ${processed}/${albums.length}`;
+                btn.innerText = `Feldolgozas: ${processed}/${total}`;
 
                 try {
                     const resizedCanvasData = await loadImageToResizedCanvasFromUrl(album.coverUrl, { maxSide: 640 });
                     if (!resizedCanvasData.changed) {
+                        album.cover640Url = album.coverUrl;
+                        markedAsReady++;
                         skipped++;
                         console.log("[Resize640] Skipped (already <= 640):", album.artist, album.album);
                         continue;
@@ -141,12 +174,12 @@ export function registerSettingsHandlers({
                 }
             }
 
-            if (resized > 0) {
+            if (resized > 0 || markedAsReady > 0 || migratedLegacy640 > 0) {
                 btn.innerText = "Mentes a felhobe...";
                 await saveToFirebase();
             }
 
-            btn.innerText = `Kesz! Frissitve: ${resized}, kihagyva: ${skipped}, hiba: ${failed}`;
+            btn.innerText = `Kesz! Frissitve: ${resized}, jelolve: ${markedAsReady}, legacy: ${migratedLegacy640}, kihagyva: ${skipped}, hiba: ${failed}`;
         } catch (err) {
             console.error("[Resize640] Batch failed:", err);
             btn.innerText = "Hiba a batch kozben";
@@ -163,8 +196,42 @@ export function registerSettingsHandlers({
         const btn = document.getElementById("btnGenerateThumbnails");
         if (!btn) return;
 
+        let migratedLegacyThumb = 0;
+        const toProcess = albums.filter((album) => {
+            if (!album || !album.coverUrl) return false;
+            const coverUrl = String(album.coverUrl || "").trim();
+            const existingThumb = String(album.thumbnailUrl || "").trim();
+            if (!existingThumb && coverUrl.includes("/thumbnails/")) {
+                album.thumbnailUrl = coverUrl;
+                migratedLegacyThumb++;
+                return false;
+            }
+            return !existingThumb;
+        });
+        const total = toProcess.length;
+
         const originalText = btn.innerText;
         btn.disabled = true;
+
+        if (total === 0) {
+            if (migratedLegacyThumb > 0) {
+                btn.innerText = "Legacy thumbnail mezok mentese...";
+                try {
+                    await saveToFirebase();
+                    btn.innerText = `Kesz! Legacy thumb migralva: ${migratedLegacyThumb}`;
+                } catch (err) {
+                    console.error("[Thumbnails] Legacy migration save failed:", err);
+                    btn.innerText = "Legacy thumb mentesi hiba";
+                }
+            } else {
+                btn.innerText = "Nincs uj kep thumbhoz";
+            }
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 2500);
+            return;
+        }
 
         let processed = 0;
         let generated = 0;
@@ -172,14 +239,10 @@ export function registerSettingsHandlers({
         let failed = 0;
 
         try {
-            for (const album of albums) {
-                if (!album || !album.coverUrl) {
-                    skipped++;
-                    continue;
-                }
+            for (const album of toProcess) {
 
                 processed++;
-                btn.innerText = `Feldolgozas: ${processed}/${albums.length}`;
+                btn.innerText = `Feldolgozas: ${processed}/${total}`;
 
                 try {
                     const thumbCanvasData = await loadImageToResizedCanvasFromUrl(album.coverUrl, { maxSide: 150 });
@@ -197,12 +260,12 @@ export function registerSettingsHandlers({
                 }
             }
 
-            if (generated > 0) {
+            if (generated > 0 || migratedLegacyThumb > 0) {
                 btn.innerText = "Mentes a felhobe...";
                 await saveToFirebase();
             }
 
-            btn.innerText = `Kesz! Uj thumb: ${generated}, kihagyva: ${skipped}, hiba: ${failed}`;
+            btn.innerText = `Kesz! Uj thumb: ${generated}, legacy: ${migratedLegacyThumb}, kihagyva: ${skipped}, hiba: ${failed}`;
         } catch (err) {
             console.error("[Thumbnails] Batch failed:", err);
             btn.innerText = "Hiba a batch kozben";
