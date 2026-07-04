@@ -25,6 +25,305 @@ export function registerStatsHandlers({
     let genreSortBy = "name";
     let genreSortAsc = true;
 
+    const parseAlbumLengthSeconds = (lengthStr) => {
+        if (!lengthStr || typeof lengthStr !== "string") return 0;
+        const parts = lengthStr.trim().split(":").map((p) => parseInt(p, 10));
+        if (parts.some((p) => !Number.isFinite(p) || p < 0)) return 0;
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        return 0;
+    };
+
+    const formatDurationClock = (seconds) => {
+        const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+        if (!safe) return "0:00";
+        const hrs = Math.floor(safe / 3600);
+        const mins = Math.floor((safe % 3600) / 60);
+        const secs = safe % 60;
+        if (hrs > 0) {
+            return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+        }
+        return `${mins}:${String(secs).padStart(2, "0")}`;
+    };
+
+    const formatDurationLong = (seconds) => {
+        const safe = Math.max(0, Math.floor(Number(seconds) || 0));
+        if (!safe) return "0p";
+        const hrs = Math.floor(safe / 3600);
+        const mins = Math.floor((safe % 3600) / 60);
+        const parts = [];
+        if (hrs > 0) parts.push(`${hrs} óra`);
+        if (mins > 0) parts.push(`${mins} perc`);
+        if (!parts.length) parts.push("0 perc");
+        return parts.join(" ");
+    };
+
+    const getStatsExportYearMonth = () => {
+        const current = new Date();
+        const year = parseInt(String(document.getElementById("statsExportYear")?.value || current.getFullYear()), 10);
+        const month = parseInt(String(document.getElementById("statsExportMonth")?.value || current.getMonth() + 1), 10);
+        return {
+            year: Number.isFinite(year) ? year : current.getFullYear(),
+            month: Number.isFinite(month) && month >= 1 && month <= 12 ? month : (current.getMonth() + 1)
+        };
+    };
+
+    const populateStatsExportYearMonthOptions = (albumList) => {
+        const yearEl = document.getElementById("statsExportYear");
+        const monthEl = document.getElementById("statsExportMonth");
+        if (!yearEl || !monthEl) return;
+
+        const previousYear = String(yearEl.value || "").trim();
+        const previousMonth = String(monthEl.value || "").trim();
+        const now = new Date();
+
+        let latestDate = null;
+        const years = new Set();
+        albumList.forEach((album) => {
+            const raw = String(album.addedDate || "").trim();
+            if (!raw || raw.toLowerCase() === "osidokben" || raw.toLowerCase() === "ősidőkben") return;
+            const d = new Date(raw);
+            if (Number.isNaN(d.getTime())) return;
+            years.add(d.getFullYear());
+            if (!latestDate || d.getTime() > latestDate.getTime()) latestDate = d;
+        });
+
+        if (!years.size) years.add(now.getFullYear());
+        const sortedYears = [...years].sort((a, b) => b - a);
+        yearEl.innerHTML = sortedYears.map((year) => `<option value="${year}">${year}</option>`).join("");
+
+        const monthOptions = Array.from({ length: 12 }, (_, idx) => {
+            const month = idx + 1;
+            return `<option value="${month}">${String(month).padStart(2, "0")}</option>`;
+        });
+        monthEl.innerHTML = monthOptions.join("");
+
+        const fallbackYear = latestDate ? latestDate.getFullYear() : now.getFullYear();
+        const fallbackMonth = latestDate ? latestDate.getMonth() + 1 : now.getMonth() + 1;
+        const targetYear = sortedYears.includes(parseInt(previousYear, 10)) ? parseInt(previousYear, 10) : fallbackYear;
+        const targetMonth = (() => {
+            const parsedPrev = parseInt(previousMonth, 10);
+            if (Number.isFinite(parsedPrev) && parsedPrev >= 1 && parsedPrev <= 12) return parsedPrev;
+            return fallbackMonth;
+        })();
+
+        yearEl.value = String(targetYear);
+        monthEl.value = String(targetMonth);
+    };
+
+    const getStatsExportRangeLabel = () => {
+        const selected = getStatsExportYearMonth();
+        return `${selected.year}.${String(selected.month).padStart(2, "0")}`;
+    };
+
+    const filterAlbumsForStatsExport = (albumList) => {
+        const selected = getStatsExportYearMonth();
+
+        return albumList.filter((album) => {
+            const raw = String(album.addedDate || "").trim();
+            if (!raw || raw.toLowerCase() === "osidokben" || raw.toLowerCase() === "ősidőkben") return false;
+            const d = new Date(raw);
+            if (Number.isNaN(d.getTime())) return false;
+            return d.getFullYear() === selected.year && (d.getMonth() + 1) === selected.month;
+        });
+    };
+
+    const loadImageSafe = (src) => new Promise((resolve) => {
+        const safeSrc = String(src || "").trim();
+        if (!safeSrc) {
+            resolve(null);
+            return;
+        }
+
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = safeSrc;
+    });
+
+    const drawRoundedRect = (ctx, x, y, w, h, r) => {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+    };
+
+    const drawCoverFallback = (ctx, x, y, size) => {
+        ctx.fillStyle = "#1e1e1e";
+        drawRoundedRect(ctx, x, y, size, size, 14);
+        ctx.fill();
+        ctx.strokeStyle = "#343434";
+        ctx.lineWidth = 2;
+        drawRoundedRect(ctx, x, y, size, size, 14);
+        ctx.stroke();
+        ctx.fillStyle = "#7a7a7a";
+        ctx.font = "600 24px Segoe UI, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("NO", x + size / 2, y + size / 2 - 14);
+        ctx.fillText("COVER", x + size / 2, y + size / 2 + 16);
+    };
+
+    const drawTextClamp = (ctx, text, x, y, maxWidth, lineHeight, maxLines) => {
+        const words = String(text || "").split(/\s+/).filter(Boolean);
+        if (!words.length) return;
+
+        let line = "";
+        let lineCount = 0;
+        for (let i = 0; i < words.length; i++) {
+            const test = line ? `${line} ${words[i]}` : words[i];
+            if (ctx.measureText(test).width <= maxWidth) {
+                line = test;
+                continue;
+            }
+
+            if (lineCount < maxLines) {
+                ctx.fillText(line, x, y + lineCount * lineHeight);
+            }
+            lineCount += 1;
+            line = words[i];
+            if (lineCount >= maxLines) return;
+        }
+
+        if (line && lineCount < maxLines) {
+            ctx.fillText(line, x, y + lineCount * lineHeight);
+        }
+    };
+
+    const drawRatedAlbumCard = async (ctx, options) => {
+        const {
+            x,
+            y,
+            width,
+            height,
+            title,
+            titleColor,
+            album,
+            fallbackText
+        } = options;
+
+        ctx.save();
+        ctx.fillStyle = "#181818";
+        drawRoundedRect(ctx, x, y, width, height, 18);
+        ctx.fill();
+        ctx.strokeStyle = "#2d2d2d";
+        ctx.lineWidth = 2;
+        drawRoundedRect(ctx, x, y, width, height, 18);
+        ctx.stroke();
+
+        ctx.fillStyle = titleColor;
+        ctx.font = "700 34px Segoe UI, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillText(title, x + 24, y + 20);
+
+        if (!album) {
+            ctx.fillStyle = "#909090";
+            ctx.font = "600 24px Segoe UI, sans-serif";
+            ctx.fillText(fallbackText, x + 24, y + 78);
+            ctx.restore();
+            return;
+        }
+
+        const coverWidth = width - 48;
+        const coverHeight = 300;
+        const coverX = x + 24;
+        const coverY = y + 88;
+        const coverSrc = String(album.thumbnailUrl || album.cover640Url || album.coverUrl || "").trim();
+        const coverImg = await loadImageSafe(coverSrc);
+
+        const drawImageCoverFill = (img, dx, dy, dw, dh) => {
+            const srcW = img.naturalWidth || img.width || dw;
+            const srcH = img.naturalHeight || img.height || dh;
+            const srcRatio = srcW / srcH;
+            const dstRatio = dw / dh;
+
+            let sx = 0;
+            let sy = 0;
+            let sw = srcW;
+            let sh = srcH;
+
+            if (srcRatio > dstRatio) {
+                sw = srcH * dstRatio;
+                sx = (srcW - sw) / 2;
+            } else {
+                sh = srcW / dstRatio;
+                sy = (srcH - sh) / 2;
+            }
+
+            ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+        };
+
+        if (coverImg) {
+            ctx.save();
+            drawRoundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 14);
+            ctx.clip();
+            drawImageCoverFill(coverImg, coverX, coverY, coverWidth, coverHeight);
+            ctx.restore();
+            ctx.strokeStyle = "#393939";
+            ctx.lineWidth = 2;
+            drawRoundedRect(ctx, coverX, coverY, coverWidth, coverHeight, 14);
+            ctx.stroke();
+        } else {
+            drawCoverFallback(ctx, coverX, coverY, Math.min(coverWidth, coverHeight));
+        }
+
+        const textX = x + 24;
+        const textMaxW = width - 48;
+        const titleY = coverY + coverHeight + 18;
+
+        const wrapText = (text, maxWidth) => {
+            const words = String(text || "").split(/\s+/).filter(Boolean);
+            if (!words.length) return [""];
+            const lines = [];
+            let current = words[0];
+            for (let i = 1; i < words.length; i++) {
+                const next = `${current} ${words[i]}`;
+                if (ctx.measureText(next).width <= maxWidth) current = next;
+                else {
+                    lines.push(current);
+                    current = words[i];
+                }
+            }
+            lines.push(current);
+            return lines;
+        };
+
+        const titleText = `${album.artist || "Ismeretlen előadó"} - ${album.album || "Ismeretlen album"}`;
+        let titleSize = 34;
+        let titleLines = [];
+        while (titleSize >= 21) {
+            ctx.font = `800 ${titleSize}px Segoe UI, sans-serif`;
+            titleLines = wrapText(titleText, textMaxW);
+            if (titleLines.length <= 3) break;
+            titleSize -= 1;
+        }
+
+        ctx.fillStyle = "#f3f3f3";
+        ctx.font = `800 ${titleSize}px Segoe UI, sans-serif`;
+        drawTextClamp(ctx, titleText, textX, titleY, textMaxW, Math.round(titleSize * 1.16), 3);
+
+        const titleBlockHeight = Math.round(Math.max(1, Math.min(3, titleLines.length)) * titleSize * 1.16);
+        const scoreY = titleY + titleBlockHeight + 12;
+
+        const score = parseFloat(album.myScore) || 0;
+        const scoreColor = score > 0 ? `hsl(${(Math.max(1, score) - 1) * 13},70%,45%)` : "#676767";
+        ctx.fillStyle = scoreColor;
+        ctx.font = "800 34px Segoe UI, sans-serif";
+        ctx.fillText(`${score > 0 ? score.toFixed(1) : "?"}/10`, textX, scoreY);
+
+        const lengthLabel = formatDurationClock(parseAlbumLengthSeconds(album.length));
+        ctx.fillStyle = "#bcbcbc";
+        ctx.font = "700 34px Segoe UI, sans-serif";
+        ctx.fillText(`Hossz: ${lengthLabel}`, textX, scoreY + 76);
+        ctx.restore();
+    };
+
     const escapeHtml = (value) =>
         String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -99,6 +398,205 @@ export function registerStatsHandlers({
         }
     });
 
+    window.exportStatsSummaryImage = async function(eventArg) {
+        const clickEvent = eventArg || window.event;
+        const button = clickEvent && clickEvent.target ? clickEvent.target : null;
+        const msg = document.getElementById("statsExportMsg");
+
+        const setMsg = (text, isError = false) => {
+            if (!msg) return;
+            msg.style.display = "block";
+            msg.style.color = isError ? "#ff9999" : "#7df97d";
+            msg.innerText = text;
+        };
+
+        const originalBtnText = button ? button.innerText : "";
+        if (button) {
+            button.disabled = true;
+            button.innerText = "STAT EXPORT...";
+        }
+
+        try {
+            const filteredAlbums = filterAlbumsForStatsExport([...getAlbums()]);
+            if (!filteredAlbums.length) {
+                setMsg("Nincs adat a kiválasztott év/hónap szűrésben.", true);
+                return;
+            }
+
+            let totalDurationSeconds = 0;
+            const genreDurationMap = {};
+            filteredAlbums.forEach((album) => {
+                const seconds = parseAlbumLengthSeconds(album.length);
+                if (seconds <= 0) return;
+
+                totalDurationSeconds += seconds;
+                const tags = String(album.genre || "")
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean);
+                const normalizedTags = tags.length ? tags : ["Besorolatlan"];
+                const share = seconds / normalizedTags.length;
+                normalizedTags.forEach((tag) => {
+                    genreDurationMap[tag] = (genreDurationMap[tag] || 0) + share;
+                });
+            });
+
+            const genreRows = Object.entries(genreDurationMap)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 15);
+
+            const scoredAlbums = filteredAlbums
+                .filter((album) => {
+                    const score = parseFloat(album.myScore);
+                    return Number.isFinite(score) && score > 0;
+                })
+                .sort((a, b) => {
+                    const scoreDiff = (parseFloat(b.myScore) || 0) - (parseFloat(a.myScore) || 0);
+                    if (scoreDiff !== 0) return scoreDiff;
+                    return getAlbumAddedTimestamp(b) - getAlbumAddedTimestamp(a);
+                });
+
+            const averageScore = scoredAlbums.length
+                ? scoredAlbums.reduce((sum, album) => sum + (parseFloat(album.myScore) || 0), 0) / scoredAlbums.length
+                : 0;
+
+            const bestAlbum = scoredAlbums[0] || null;
+            const worstAlbum = scoredAlbums.length ? scoredAlbums[scoredAlbums.length - 1] : null;
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 1600;
+            canvas.height = 1600;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) throw new Error("Canvas context not available");
+
+            const bgGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            bgGradient.addColorStop(0, "#0f0f0f");
+            bgGradient.addColorStop(1, "#171717");
+            ctx.fillStyle = bgGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "#c8c8c8";
+            ctx.font = "700 40px Segoe UI, sans-serif";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            ctx.fillText(`Időkeret: ${getStatsExportRangeLabel()}`, 80, 58);
+
+            ctx.fillStyle = "#141414";
+            drawRoundedRect(ctx, 80, 120, 1440, 132, 20);
+            ctx.fill();
+            ctx.strokeStyle = "#2b2b2b";
+            ctx.lineWidth = 2;
+            drawRoundedRect(ctx, 80, 120, 1440, 132, 20);
+            ctx.stroke();
+
+            ctx.fillStyle = "#f6f6f6";
+            ctx.font = "800 48px Segoe UI, sans-serif";
+            const sumLabel = "sum tima:";
+            ctx.fillText(sumLabel, 120, 158);
+
+            ctx.fillStyle = "#ffcc00";
+            ctx.font = "900 54px Segoe UI, sans-serif";
+            const labelWidth = ctx.measureText(sumLabel).width;
+            ctx.fillText(formatDurationLong(totalDurationSeconds), 120 + labelWidth + 22, 158);
+
+            const avgLabel = "avg. score:";
+            ctx.fillStyle = "#f6f6f6";
+            ctx.font = "800 48px Segoe UI, sans-serif";
+            const avgValue = averageScore > 0 ? averageScore.toFixed(2) : "-";
+            const avgValueWidth = ctx.measureText(avgValue).width;
+            const avgLabelWidth = ctx.measureText(avgLabel).width;
+            const avgValueX = 80 + 1440 - 44 - avgValueWidth;
+            const avgLabelX = avgValueX - 18 - avgLabelWidth;
+            ctx.fillText(avgLabel, avgLabelX, 158);
+
+            ctx.fillStyle = "#ffcc00";
+            ctx.font = "900 54px Segoe UI, sans-serif";
+            ctx.fillText(avgValue, avgValueX, 158);
+
+            const panelX = 80;
+            const panelY = 278;
+            const panelW = 900;
+            const panelH = 1242;
+            ctx.fillStyle = "#151515";
+            drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 20);
+            ctx.fill();
+            ctx.strokeStyle = "#2a2a2a";
+            ctx.lineWidth = 2;
+            drawRoundedRect(ctx, panelX, panelY, panelW, panelH, 20);
+            ctx.stroke();
+
+            ctx.fillStyle = "#ffcc00";
+            ctx.font = "800 40px Segoe UI, sans-serif";
+            ctx.fillText("Műfajokra lebontva", panelX + 32, panelY + 26);
+
+            const rowStartY = panelY + 98;
+            const rowHeight = 56;
+            if (!genreRows.length) {
+                ctx.fillStyle = "#aaaaaa";
+                ctx.font = "600 30px Segoe UI, sans-serif";
+                ctx.fillText("Nincs hossz adat a kiválasztott időkeretben.", panelX + 34, rowStartY);
+            } else {
+                genreRows.forEach(([genre, seconds], idx) => {
+                    const y = rowStartY + idx * rowHeight;
+                    const rank = String(idx + 1).padStart(2, "0");
+
+                    ctx.fillStyle = "#777";
+                    ctx.font = "700 24px Segoe UI, sans-serif";
+                    ctx.fillText(`${rank}.`, panelX + 34, y);
+
+                    ctx.fillStyle = "#efefef";
+                    ctx.font = "700 28px Segoe UI, sans-serif";
+                    drawTextClamp(ctx, genre, panelX + 84, y, 520, 32, 1);
+
+                    ctx.fillStyle = "#ffcc00";
+                    ctx.font = "700 28px Segoe UI, sans-serif";
+                    ctx.textAlign = "right";
+                    ctx.fillText(formatDurationClock(seconds), panelX + panelW - 36, y);
+                    ctx.textAlign = "left";
+                });
+            }
+
+            await drawRatedAlbumCard(ctx, {
+                x: 1020,
+                y: 278,
+                width: 500,
+                height: 600,
+                title: "Legjobb lemez:",
+                titleColor: "#6dff8e",
+                album: bestAlbum,
+                fallbackText: "Nincs értékelhető album"
+            });
+
+            await drawRatedAlbumCard(ctx, {
+                x: 1020,
+                y: 920,
+                width: 500,
+                height: 600,
+                title: "Legrosszabb lemez:",
+                titleColor: "#ff8d8d",
+                album: worstAlbum,
+                fallbackText: "Nincs értékelhető album"
+            });
+
+            const link = document.createElement("a");
+            link.download = "slop_library_stats_export_1x1.png";
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            setMsg("Stat export kép mentve (1:1).", false);
+        } catch (err) {
+            console.error("Stats export error:", err);
+            setMsg("Hiba történt a stat export közben.", true);
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerText = originalBtnText;
+            }
+            setTimeout(() => {
+                if (msg) msg.style.display = "none";
+            }, 4500);
+        }
+    };
+
     window.openDiscographyPage = function() {
         window.location.href = "./discography.html";
     };
@@ -114,6 +612,8 @@ export function registerStatsHandlers({
         const catHeavy = getCatHeavy();
         const catEtc = getCatEtc();
         const catNonMetal = getCatNonMetal();
+
+        populateStatsExportYearMonthOptions(albums);
 
         if (!albums.length) return;
 
@@ -275,40 +775,16 @@ export function registerStatsHandlers({
         document.getElementById("stat-avg-score").innerText = validAlbumCount > 0 ? (totalScore / validAlbumCount).toFixed(2) : "0.00";
         document.getElementById("stat-total-yap").innerText = totalWords + " szo";
 
-        // Calculate total album length
-        const parseLength = (lengthStr) => {
-            if (!lengthStr || typeof lengthStr !== "string") return 0;
-            const parts = lengthStr.trim().split(":").map((p) => parseInt(p, 10));
-            if (parts.length === 2) {
-                return parts[0] * 60 + parts[1]; // mm:ss
-            } else if (parts.length === 3) {
-                return parts[0] * 3600 + parts[1] * 60 + parts[2]; // hh:mm:ss
-            }
-            return 0;
-        };
-
-        const formatDuration = (seconds) => {
-            if (seconds === 0) return "-";
-            const hrs = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
-            if (hrs > 0) {
-                return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-            } else {
-                return `${mins}:${String(secs).padStart(2, "0")}`;
-            }
-        };
-
         let totalDurationSeconds = 0;
         albums.forEach((a) => {
             if (a.length) {
-                totalDurationSeconds += parseLength(a.length);
+                totalDurationSeconds += parseAlbumLengthSeconds(a.length);
             }
         });
 
         const statTotalLengthEl = document.getElementById("stat-total-length");
         if (statTotalLengthEl) {
-            statTotalLengthEl.innerText = formatDuration(totalDurationSeconds);
+            statTotalLengthEl.innerText = totalDurationSeconds > 0 ? formatDurationClock(totalDurationSeconds) : "-";
         }
 
         let incompleteCount = 0;

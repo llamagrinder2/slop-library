@@ -384,6 +384,150 @@ export function registerGalleryComponents({
         return w / h;
     };
 
+    const getExportRangeLabel = () => {
+        const mode = String(document.getElementById("galleryExportDateMode")?.value || "all");
+        if (mode !== "range") return "All time";
+
+        const fromRaw = String(document.getElementById("galleryExportFrom")?.value || "").trim();
+        const toRaw = String(document.getElementById("galleryExportTo")?.value || "").trim();
+        if (!fromRaw && !toRaw) return "All time";
+        const fromLabel = fromRaw || "?";
+        const toLabel = toRaw || "?";
+        return `${fromLabel} - ${toLabel}`;
+    };
+
+    const isExportWatermarkEnabled = () => {
+        const el = document.getElementById("galleryExportWatermark");
+        return !el || Boolean(el.checked);
+    };
+
+    const drawWatermarkInEmptyCells = (ctx, options) => {
+        const {
+            emptyCells,
+            thumbSize,
+            rangeLabel,
+            accentColor
+        } = options;
+
+        if (!emptyCells || emptyCells.length === 0) return;
+
+        const sortedByBottom = [...emptyCells].sort((a, b) => b.y - a.y || b.x - a.x);
+        const anchor = sortedByBottom[0];
+
+        // Always anchor the watermark panel to the lowest two blocks.
+        const panelX = anchor.x;
+        const panelY = Math.max(0, anchor.y - thumbSize);
+        const panelW = thumbSize;
+        const panelH = thumbSize * 2;
+
+        const padX = Math.round(thumbSize * 0.1);
+        const textMaxWidth = panelW - padX * 2;
+        const slopLetterSpacing = Math.max(2, Math.round(thumbSize * 0.04));
+
+        const measureSpacedText = (text, spacing) => {
+            if (!text) return 0;
+            let total = 0;
+            for (let i = 0; i < text.length; i++) {
+                total += ctx.measureText(text[i]).width;
+                if (i < text.length - 1) total += spacing;
+            }
+            return total;
+        };
+
+        const drawSpacedText = (text, x, y, spacing) => {
+            let cursorX = x;
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                ctx.fillText(ch, cursorX, y);
+                cursorX += ctx.measureText(ch).width + (i < text.length - 1 ? spacing : 0);
+            }
+        };
+
+        const fitFont = ({ text, minSize, maxSize, weight = 700, family, spacing = 0 }) => {
+            let size = maxSize;
+            while (size > minSize) {
+                ctx.font = `italic ${weight} ${Math.round(size)}px ${family}`;
+                const width = spacing > 0 ? measureSpacedText(text, spacing) : ctx.measureText(text).width;
+                if (width <= textMaxWidth) break;
+                size -= 1;
+            }
+            return Math.max(minSize, size);
+        };
+
+        const slopText = "Slop";
+        const libraryText = "Library";
+        const rawDateText = String(rangeLabel || "All time").trim();
+
+        const normalizeDateToken = (value) => {
+            const text = String(value || "").trim();
+            return text.replace(/(\d{4})[-.](\d{2})[-.](\d{2})/g, "$1.$2.$3");
+        };
+
+        const buildDateLines = () => {
+            if (!rawDateText || /^all\s*time$/i.test(rawDateText)) return ["All time", ""];
+
+            const rangeParts = rawDateText.split(/\s+-\s+/);
+            if (rangeParts.length >= 2) {
+                const from = normalizeDateToken(rangeParts[0]);
+                const to = normalizeDateToken(rangeParts.slice(1).join(" - "));
+                return [`${from}-`, to || "?"];
+            }
+
+            return [normalizeDateToken(rawDateText), ""];
+        };
+
+        const [dateLine1, dateLine2] = buildDateLines();
+
+        ctx.save();
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        ctx.fillStyle = accentColor;
+
+        const slopSize = fitFont({
+            text: slopText,
+            minSize: thumbSize * 0.17,
+            maxSize: thumbSize * 0.34,
+            weight: 700,
+            family: "gooeyFont, Segoe UI, sans-serif",
+            spacing: slopLetterSpacing
+        });
+
+        const librarySize = fitFont({
+            text: libraryText,
+            minSize: thumbSize * 0.14,
+            maxSize: thumbSize * 0.26,
+            weight: 700,
+            family: "Segoe UI, sans-serif"
+        });
+
+        const dateSize = fitFont({
+            text: dateLine2 ? (ctx.measureText(dateLine1).width >= ctx.measureText(dateLine2).width ? dateLine1 : dateLine2) : dateLine1,
+            minSize: thumbSize * 0.09,
+            maxSize: thumbSize * 0.18,
+            weight: 600,
+            family: "Segoe UI, sans-serif"
+        });
+
+        const slopY = panelY + Math.round(panelH * 0.14);
+        const libraryY = panelY + Math.round(panelH * 0.4);
+        const dateY = panelY + Math.round(panelH * 0.62);
+        const dateLineGap = Math.round(dateSize * 1.2);
+
+        ctx.font = `italic 700 ${Math.round(slopSize)}px gooeyFont, Segoe UI, sans-serif`;
+        drawSpacedText(slopText, panelX + padX, slopY, slopLetterSpacing);
+
+        ctx.font = `italic 700 ${Math.round(librarySize)}px Segoe UI, sans-serif`;
+        ctx.fillText(libraryText, panelX + padX, libraryY);
+
+        ctx.font = `italic 600 ${Math.round(dateSize)}px Segoe UI, sans-serif`;
+        ctx.fillText(dateLine1, panelX + padX, dateY);
+        if (dateLine2) {
+            ctx.fillText(dateLine2, panelX + padX, dateY + dateLineGap);
+        }
+
+        ctx.restore();
+    };
+
     window.toggleGalleryExportDateInputs = function() {
         const mode = String(document.getElementById("galleryExportDateMode")?.value || "all");
         const isRange = mode === "range";
@@ -520,21 +664,42 @@ export function registerGalleryComponents({
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         try {
-            const loadAndDraw = (imgSrc, x, y) =>
+            const loadImageForCollage = (imgSrc) =>
                 new Promise((resolve) => {
                     const img = new Image();
                     img.crossOrigin = "Anonymous";
-                    img.onload = () => {
-                        ctx.drawImage(img, x, y, thumbSize, thumbSize);
-                        resolve();
-                    };
-                    img.onerror = () => {
-                        ctx.fillStyle = "#222";
-                        ctx.fillRect(x, y, thumbSize, thumbSize);
-                        resolve();
-                    };
+                    img.onload = () => resolve({ ok: true, img });
+                    img.onerror = () => resolve({ ok: false, img: null });
                     img.src = imgSrc;
                 });
+
+            const preloadImagesParallel = async (sources, limit, onProgress) => {
+                const total = sources.length;
+                const results = new Array(total);
+                let nextIndex = 0;
+                let done = 0;
+
+                const worker = async () => {
+                    while (true) {
+                        const idx = nextIndex;
+                        nextIndex += 1;
+                        if (idx >= total) return;
+
+                        results[idx] = await loadImageForCollage(sources[idx]);
+                        done += 1;
+                        if (typeof onProgress === "function") onProgress(done, total);
+                    }
+                };
+
+                const workerCount = Math.max(1, Math.min(limit, total));
+                await Promise.all(Array.from({ length: workerCount }, () => worker()));
+                return results;
+            };
+
+            btn.innerText = `Elotoltes: 0 / ${count}`;
+            const preloadedImages = await preloadImagesParallel(imageSources, 8, (done, total) => {
+                btn.innerText = `Elotoltes: ${done} / ${total}`;
+            });
 
             // --- RAJZOLÁS OSZLOPONKÉNT FENTRŐL LEFELÉ ---
             for (let i = 0; i < count; i++) {
@@ -546,8 +711,34 @@ export function registerGalleryComponents({
                 const x = colIndex * thumbSize;
                 const y = rowIndex * thumbSize;
 
-                await loadAndDraw(imageSources[i], x, y);
-                btn.innerText = `Rajzolas: ${i + 1} / ${count}`;
+                const loaded = preloadedImages[i];
+                if (loaded && loaded.ok && loaded.img) {
+                    ctx.drawImage(loaded.img, x, y, thumbSize, thumbSize);
+                } else {
+                    ctx.fillStyle = "#222";
+                    ctx.fillRect(x, y, thumbSize, thumbSize);
+                }
+
+                if (i === count - 1 || (i + 1) % 12 === 0) {
+                    btn.innerText = `Rajzolas: ${i + 1} / ${count}`;
+                }
+            }
+
+            if (isExportWatermarkEnabled()) {
+                const totalSlots = rows * cols;
+                const emptyCells = [];
+                for (let i = count; i < totalSlots; i++) {
+                    const colIndex = Math.floor(i / rows);
+                    const rowIndex = i % rows;
+                    emptyCells.push({ x: colIndex * thumbSize, y: rowIndex * thumbSize });
+                }
+
+                drawWatermarkInEmptyCells(ctx, {
+                    emptyCells,
+                    thumbSize,
+                    rangeLabel: getExportRangeLabel(),
+                    accentColor: "#ffcc00"
+                });
             }
 
             const dataUrl = canvas.toDataURL("image/jpeg", 0.9);

@@ -1821,6 +1821,10 @@ td[contenteditable="true"]:empty::before {
 				<option value="3:4">KOLLÁZS ARÁNY: 3:4</option>
 				<option value="9:16">KOLLÁZS ARÁNY: 9:16</option>
 			</select>
+			<label style="display:inline-flex; align-items:center; gap:6px; color:#ddd; font-size:0.85em; background:#1b1b1b; border:1px solid #333; border-radius:6px; padding:8px 10px;">
+				<input type="checkbox" id="galleryExportWatermark" checked>
+				WATERMARK
+			</label>
 		</div>
 		<button onclick="downloadGalleryAsImage()" class="ctrl-btn" style="background: #555; color: #fff; margin-top: 20px;">
 		    GALÉRIA MENTÉSE KÉPKÉNT
@@ -2077,6 +2081,14 @@ td[contenteditable="true"]:empty::before {
 						STATISZTIKA MÁSOLÁSA VÁGÓLAPRA
 					</button>
 					<p id="snapshotMsg" style="color: var(--success); display: none; margin-top: 10px;">Kép a vágólapra másolva!</p>
+					<div style="margin: 22px auto 8px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 760px;">
+						<select id="statsExportYear" title="Év" style="max-width: 170px;"></select>
+						<select id="statsExportMonth" title="Hónap" style="max-width: 170px;"></select>
+					</div>
+					<button onclick="window.exportStatsSummaryImage(event)" class="ctrl-btn" style="background: linear-gradient(90deg, #ffcc00, #f4a800); color: #000; max-width: 420px; margin-top: 8px;">
+						STAT EXPORT MENTÉSE (1:1)
+					</button>
+					<p id="statsExportMsg" style="color: var(--success); display: none; margin-top: 10px;">Stat export kep mentve.</p>
 				</div>
 		</div>
 
