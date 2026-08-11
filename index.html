@@ -1642,7 +1642,11 @@ td[contenteditable="true"]:empty::before {
 				</div>
 			</div>
 			<div id="ratingFields">
-				<div class="form-row">
+				<div class="form-row" style="align-items: end; gap: 10px; flex-wrap: wrap;">
+					<div style="flex: 1; min-width: 220px;">
+						<label style="display:block; margin-bottom:6px; font-size:0.8em; color:var(--accent);">CHUNK</label>
+						<select id="inChunk" style="width:100%; padding:10px; background:#2d2d2d; color:#fff; border:1px solid #444; border-radius:6px;"></select>
+					</div>
 					<input type="number" id="inYear" placeholder="Év">
 					<input type="text" id="inCountry" placeholder="Ország (pl. HUN, USA, SWE)" maxlength="20" onblur="normalizeCountryInput(this)">
 					<input type="text" id="inGenre" placeholder="Műfajok">

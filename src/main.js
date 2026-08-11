@@ -45,7 +45,11 @@ let currentGenreLevel = state.currentGenreLevel;
 let isGalleryDetailsMode = false;
 const LIBRARY_CACHE_KEY = "slopLibraryCacheV1";
 const SPOTIFY_PENDING_ACTION_KEY = "spotify_pending_action";
+const LIBRARY_CHUNK_ROOT_ID = "library";
+const MAX_ITEMS_PER_CHUNK = 500;
 let libraryRealtimeUnsub = null;
+let latestLibraryChunkId = LIBRARY_CHUNK_ROOT_ID;
+let loadedLibraryChunkIds = [LIBRARY_CHUNK_ROOT_ID];
 
 const isMissing = (val) => {
     if (!val) return true;
@@ -492,6 +496,158 @@ setTimeout(() => {
     });
 }, 500);
 
+function sortLibraryChunkIds(chunkIds = []) {
+    return Array.from(new Set((chunkIds || []).filter(Boolean))).sort((a, b) => {
+        if (a === LIBRARY_CHUNK_ROOT_ID) return -1;
+        if (b === LIBRARY_CHUNK_ROOT_ID) return 1;
+        const aMatch = String(a).match(/^library_(\d+)$/);
+        const bMatch = String(b).match(/^library_(\d+)$/);
+        if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+        return String(a).localeCompare(String(b));
+    });
+}
+
+function getNextLibraryChunkId(baseChunkId = latestLibraryChunkId) {
+    if (baseChunkId === LIBRARY_CHUNK_ROOT_ID) return "library_2";
+    const match = String(baseChunkId).match(/^library_(\d+)$/);
+    if (match) return `library_${Number(match[1]) + 1}`;
+    return "library_2";
+}
+
+function resolveChunkTarget(explicitChunkId, fallbackChunkId, chunkBuckets) {
+    const requestedChunkId = explicitChunkId && String(explicitChunkId).trim()
+        ? String(explicitChunkId).trim()
+        : fallbackChunkId;
+
+    let candidateChunkId = requestedChunkId;
+    let attempts = 0;
+    while (attempts < 20) {
+        const bucket = chunkBuckets.get(candidateChunkId);
+        if (!bucket || bucket.length < MAX_ITEMS_PER_CHUNK) return candidateChunkId;
+        candidateChunkId = getNextLibraryChunkId(candidateChunkId);
+        attempts += 1;
+    }
+    return candidateChunkId;
+}
+
+function buildChunkedLibraryPayload(payload) {
+    const items = Array.isArray(payload.albums) ? payload.albums : [];
+    const chunkBuckets = new Map();
+    const ensureChunk = (chunkId) => {
+        if (!chunkBuckets.has(chunkId)) chunkBuckets.set(chunkId, []);
+        return chunkBuckets.get(chunkId);
+    };
+
+    let currentChunkId = latestLibraryChunkId || LIBRARY_CHUNK_ROOT_ID;
+    items.forEach((item) => {
+        if (!item || typeof item !== "object") return;
+
+        const targetChunkId = resolveChunkTarget(item._chunkId, currentChunkId, chunkBuckets);
+        const targetBucket = ensureChunk(targetChunkId);
+        targetBucket.push(item);
+        item._chunkId = targetChunkId;
+        currentChunkId = targetChunkId;
+    });
+
+    const orderedChunkIds = sortLibraryChunkIds([LIBRARY_CHUNK_ROOT_ID, ...Array.from(chunkBuckets.keys()).filter((chunkId) => chunkId !== LIBRARY_CHUNK_ROOT_ID)]);
+    const chunkPayloads = orderedChunkIds.map((chunkId) => {
+        const chunkItems = (chunkBuckets.get(chunkId) || []).map((item) => {
+            const sanitized = { ...item };
+            delete sanitized._chunkId;
+            return sanitized;
+        });
+        return {
+            chunkId,
+            data: {
+                albums: chunkItems,
+                updatedAt: Date.now()
+            }
+        };
+    });
+
+    const rootChunkId = LIBRARY_CHUNK_ROOT_ID;
+    const rootPayload = {
+        schemaVersion: 2,
+        updatedAt: Date.now(),
+        chunkIds: orderedChunkIds,
+        albums: (chunkBuckets.get(rootChunkId) || []).map((item) => {
+            const sanitized = { ...item };
+            delete sanitized._chunkId;
+            return sanitized;
+        }),
+        todos: Array.isArray(payload.todos) ? payload.todos : [],
+        artistTotals: payload.artistTotals || {},
+        latestTodo: payload.latestTodo || null,
+        slopG: Array.isArray(payload.slopG) ? payload.slopG : [],
+        catDeath: Array.isArray(payload.catDeath) ? payload.catDeath : [],
+        catBlack: Array.isArray(payload.catBlack) ? payload.catBlack : [],
+        catCore: Array.isArray(payload.catCore) ? payload.catCore : [],
+        catHeavy: Array.isArray(payload.catHeavy) ? payload.catHeavy : [],
+        catEtc: Array.isArray(payload.catEtc) ? payload.catEtc : [],
+        catNonMetal: Array.isArray(payload.catNonMetal) ? payload.catNonMetal : []
+    };
+
+    latestLibraryChunkId = orderedChunkIds[orderedChunkIds.length - 1] || LIBRARY_CHUNK_ROOT_ID;
+    loadedLibraryChunkIds = orderedChunkIds;
+    return { rootPayload, chunkPayloads };
+}
+
+async function loadChunkedLibraryDataFromFirestore(rootData = {}) {
+    const loadedAlbums = [];
+    const seenChunkIds = new Set([LIBRARY_CHUNK_ROOT_ID]);
+
+    const pushAlbum = (album, chunkId) => {
+        if (!album || typeof album !== "object") return;
+        const copy = { ...album };
+        copy._chunkId = chunkId;
+        loadedAlbums.push(copy);
+    };
+
+    const rootAlbums = Array.isArray(rootData.albums) ? rootData.albums : [];
+    rootAlbums.forEach((album) => pushAlbum(album, LIBRARY_CHUNK_ROOT_ID));
+
+    const rootChunkIds = Array.isArray(rootData.chunkIds) ? rootData.chunkIds : [];
+    rootChunkIds.forEach((chunkId) => {
+        const normalized = String(chunkId || "").trim();
+        if (normalized) seenChunkIds.add(normalized);
+    });
+
+    let counter = 2;
+    while (true) {
+        const chunkId = `library_${counter}`;
+        try {
+            const snap = await getDoc(doc(db, "data", chunkId));
+            if (!snap || !snap.exists()) break;
+            const chunkData = snap.data() || {};
+            const chunkAlbums = Array.isArray(chunkData.albums) ? chunkData.albums : [];
+            chunkAlbums.forEach((album) => pushAlbum(album, chunkId));
+            seenChunkIds.add(chunkId);
+            counter += 1;
+        } catch (err) {
+            console.warn("Chunk load failed:", err);
+            break;
+        }
+    }
+
+    const orderedChunkIds = sortLibraryChunkIds([LIBRARY_CHUNK_ROOT_ID, ...Array.from(seenChunkIds).filter((chunkId) => chunkId !== LIBRARY_CHUNK_ROOT_ID)]);
+    latestLibraryChunkId = orderedChunkIds[orderedChunkIds.length - 1] || LIBRARY_CHUNK_ROOT_ID;
+    loadedLibraryChunkIds = orderedChunkIds;
+
+    return {
+        albums: loadedAlbums,
+        todos: Array.isArray(rootData.todos) ? rootData.todos : [],
+        artistTotals: rootData.artistTotals || {},
+        latestTodo: rootData.latestTodo || null,
+        slopG: Array.isArray(rootData.slopG) ? rootData.slopG : [],
+        catDeath: Array.isArray(rootData.catDeath) ? rootData.catDeath : [],
+        catBlack: Array.isArray(rootData.catBlack) ? rootData.catBlack : [],
+        catCore: Array.isArray(rootData.catCore) ? rootData.catCore : [],
+        catHeavy: Array.isArray(rootData.catHeavy) ? rootData.catHeavy : [],
+        catEtc: Array.isArray(rootData.catEtc) ? rootData.catEtc : [],
+        catNonMetal: Array.isArray(rootData.catNonMetal) ? rootData.catNonMetal : []
+    };
+}
+
 async function loadFromFirebase() {
     const applyLibraryData = (data) => {
         albums = data.albums || [];
@@ -546,19 +702,23 @@ async function loadFromFirebase() {
         if (libraryRealtimeUnsub) return;
 
         const docRef = doc(db, "data", "library");
-        libraryRealtimeUnsub = onSnapshot(docRef, (snap) => {
+        libraryRealtimeUnsub = onSnapshot(docRef, async (snap) => {
             if (!snap.exists()) return;
 
-            const data = snap.data() || {};
-            applyLibraryData(data);
-
             try {
-                localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
-            } catch (cacheWriteErr) {
-                console.warn("Realtime cache irasi hiba:", cacheWriteErr);
-            }
+                const data = await loadChunkedLibraryDataFromFirestore(snap.data() || {});
+                applyLibraryData(data);
 
-            applyRealtimeUiRefresh();
+                try {
+                    localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
+                } catch (cacheWriteErr) {
+                    console.warn("Realtime cache irasi hiba:", cacheWriteErr);
+                }
+
+                applyRealtimeUiRefresh();
+            } catch (err) {
+                console.warn("Realtime library sync hiba:", err);
+            }
         }, (err) => {
             console.warn("Realtime library sync hiba:", err);
         });
@@ -589,7 +749,7 @@ async function loadFromFirebase() {
         }
 
         if (docSnap && docSnap.exists()) {
-            const data = docSnap.data();
+            const data = await loadChunkedLibraryDataFromFirestore(docSnap.data() || {});
             applyLibraryData(data);
 
             try {
@@ -605,9 +765,10 @@ async function loadFromFirebase() {
                 const resp = await fetch(url);
                 if (resp.ok) {
                     const data = await resp.json();
-                    applyLibraryData(data);
+                    const rehydrated = await loadChunkedLibraryDataFromFirestore(data);
+                    applyLibraryData(rehydrated);
                     try {
-                        localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data }));
+                        localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: rehydrated }));
                     } catch (cacheWriteErr) {
                         console.warn("Cache irasi hiba:", cacheWriteErr);
                     }
@@ -661,13 +822,24 @@ async function saveToFirebase() {
             catEtc,
             catNonMetal
         };
+        const { rootPayload, chunkPayloads } = buildChunkedLibraryPayload(payload);
 
-        await setDoc(doc(db, "data", "library"), payload);
+        await setDoc(doc(db, "data", "library"), rootPayload);
+
+        await Promise.all(chunkPayloads.map(({ chunkId, data }) => setDoc(doc(db, "data", chunkId), data)));
 
         // Also update a public JSON mirror in Cloud Storage so unauthenticated users can read latest data.
         try {
+            const publicPayload = {
+                ...payload,
+                albums: (payload.albums || []).map((item) => {
+                    const sanitized = { ...item };
+                    delete sanitized._chunkId;
+                    return sanitized;
+                })
+            };
             const publicRef = ref(storage, "public/library.json");
-            const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+            const blob = new Blob([JSON.stringify(publicPayload)], { type: "application/json" });
             await uploadBytes(publicRef, blob);
             // attempt to warm/get URL (may fail for non-public rules)
             try {
@@ -960,6 +1132,9 @@ registerLibraryCrudHandlers({
     getAlbums: () => albums,
     getTodos: () => todos,
     getEditIdx: () => editIdx,
+    getLibraryChunkIds: () => loadedLibraryChunkIds,
+    getLatestLibraryChunkId: () => latestLibraryChunkId,
+    getNextLibraryChunkId: (baseChunkId) => getNextLibraryChunkId(baseChunkId),
     setEditIdx: (next) => {
         editIdx = next;
         state.editIdx = next;

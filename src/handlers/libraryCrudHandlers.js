@@ -45,6 +45,9 @@ export function registerLibraryCrudHandlers({
     setEditIdx,
     getTodoEditIdx,
     setTodoEditIdx,
+    getLibraryChunkIds,
+    getLatestLibraryChunkId,
+    getNextLibraryChunkId,
     getSpotifyToken,
     storage,
     ref,
@@ -208,6 +211,57 @@ export function registerLibraryCrudHandlers({
 
     window.__showCloudSaveToast = showCloudToast;
 
+    const buildChunkOptions = () => {
+        const existingChunkIds = Array.from(new Set([...(getLibraryChunkIds() || []).filter(Boolean), getLatestLibraryChunkId() || "library"]))
+            .filter((chunkId) => Boolean(chunkId) && chunkId !== "new-chunk")
+            .sort((a, b) => {
+                if (a === "library") return -1;
+                if (b === "library") return 1;
+                const aMatch = String(a).match(/^library_(\d+)$/);
+                const bMatch = String(b).match(/^library_(\d+)$/);
+                if (aMatch && bMatch) return Number(aMatch[1]) - Number(bMatch[1]);
+                return String(a).localeCompare(String(b));
+            });
+
+        const options = existingChunkIds.map((chunkId) => ({
+            value: chunkId,
+            label: chunkId === "library" ? "library (alap)" : chunkId
+        }));
+
+        options.push({ value: "new-chunk", label: "Új chunk" });
+        return options;
+    };
+
+    const populateChunkSelector = (existingChunkId = null) => {
+        const select = document.getElementById("inChunk");
+        if (!select) return;
+
+        const options = buildChunkOptions();
+        select.innerHTML = "";
+        options.forEach(({ value, label }) => {
+            const option = document.createElement("option");
+            option.value = value;
+            option.textContent = label;
+            select.appendChild(option);
+        });
+
+        const existingOptions = options.filter((option) => option.value !== "new-chunk");
+        const preferredValue = existingChunkId && existingOptions.some((option) => option.value === existingChunkId)
+            ? existingChunkId
+            : existingOptions[existingOptions.length - 1]?.value || "library";
+        select.value = preferredValue;
+    };
+
+    const resolveSelectedChunkId = (existingChunkId = null) => {
+        const select = document.getElementById("inChunk");
+        const rawValue = select ? select.value : "";
+        if (rawValue === "new-chunk") {
+            return getNextLibraryChunkId(getLatestLibraryChunkId() || "library");
+        }
+        if (rawValue) return rawValue;
+        return existingChunkId || getLatestLibraryChunkId() || "library";
+    };
+
     const getErrorCodeAndMessage = (error) => {
         const code = error && error.code ? error.code : "unknown";
         const message = error && error.message ? error.message : String(error);
@@ -279,6 +333,9 @@ export function registerLibraryCrudHandlers({
             vibe: document.getElementById("t_vibe").value
         };
 
+        populateChunkSelector(isEditing ? (albums[editIdx]?._chunkId || null) : null);
+        const targetChunkId = resolveSelectedChunkId(isEditing ? (albums[editIdx]?._chunkId || null) : null);
+
         const maxId = albums.length > 0 ? Math.max(...albums.map((a) => a.id || 0)) : 0;
         const countryInput = document.getElementById("inCountry");
         let countryValue = "";
@@ -313,7 +370,8 @@ export function registerLibraryCrudHandlers({
             favSong: document.getElementById("inFavSong").value.trim(),
             songUrl: document.getElementById("inSongUrl").value.trim(),
             traits,
-            addedDate: dateInput || "Osidokben"
+            addedDate: dateInput || "Osidokben",
+            _chunkId: targetChunkId
         };
 
         if (isEditing) {
@@ -342,6 +400,8 @@ export function registerLibraryCrudHandlers({
             document.getElementById("inSongUrl").value = "";
             document.getElementById("inLength").value = "";
             document.getElementById("inDate").value = "";
+            document.getElementById("inChunk").value = "";
+            populateChunkSelector(null);
             document.getElementById("t_riff").value = "Meh";
             document.getElementById("t_vox").value = "Meh";
             document.getElementById("t_dob").value = "Meh";
@@ -723,6 +783,7 @@ export function registerLibraryCrudHandlers({
         document.getElementById("inSongUrl").value = a.songUrl || "";
         document.getElementById("inDate").value = a.addedDate && a.addedDate !== "Osidokben" ? a.addedDate : "";
         document.getElementById("inRec").value = a.recommender || "";
+        populateChunkSelector(a._chunkId || null);
 
         const t = a.traits || { riff: "Meh", vox: "Meh", dob: "Meh", mix: "Meh", szoveg: "Meh", vibe: "Meh" };
         document.getElementById("t_riff").value = t.riff;
