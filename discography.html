@@ -618,33 +618,93 @@
 
         async function loadData() {
             clearError();
-            let data = null;
             try {
-                const snap = await getDoc(doc(db, "data", "library"));
-                if (snap.exists()) data = snap.data();
+                const rootSnap = await getDoc(doc(db, "data", "library"));
+                const todoSnap = await getDoc(doc(db, "data", "todos"));
+                const discographySnap = await getDoc(doc(db, "data", "discography"));
+
+                const rootData = rootSnap && rootSnap.exists() ? (rootSnap.data() || {}) : {};
+                const todoData = todoSnap && todoSnap.exists() ? (todoSnap.data() || {}) : {};
+                const discographyData = discographySnap && discographySnap.exists() ? (discographySnap.data() || {}) : {};
+
+                const albumList = [];
+                const seenChunkIds = new Set(["library"]);
+
+                if (Array.isArray(rootData.albums)) {
+                    rootData.albums.forEach((album) => albumList.push(album));
+                }
+
+                const chunkIds = Array.isArray(rootData.chunkIds) ? rootData.chunkIds : [];
+                for (const chunkId of chunkIds) {
+                    const normalized = String(chunkId || "").trim();
+                    if (normalized) {
+                        seenChunkIds.add(normalized);
+                        try {
+                            const chunkSnap = await getDoc(doc(db, "data", normalized));
+                            if (chunkSnap && chunkSnap.exists()) {
+                                const chunkData = chunkSnap.data() || {};
+                                if (Array.isArray(chunkData.albums)) {
+                                    chunkData.albums.forEach((album) => albumList.push(album));
+                                }
+                            }
+                        } catch (chunkErr) {
+                            console.warn("Library chunk read failed:", chunkErr);
+                        }
+                    }
+                }
+
+                let counter = 2;
+                while (true) {
+                    const chunkId = `library_${counter}`;
+                    try {
+                        const chunkSnap = await getDoc(doc(db, "data", chunkId));
+                        if (!chunkSnap || !chunkSnap.exists()) break;
+                        const chunkData = chunkSnap.data() || {};
+                        if (Array.isArray(chunkData.albums)) {
+                            chunkData.albums.forEach((album) => albumList.push(album));
+                        }
+                        seenChunkIds.add(chunkId);
+                        counter += 1;
+                    } catch (chunkErr) {
+                        console.warn("Library chunk read failed:", chunkErr);
+                        break;
+                    }
+                }
+
+                state.albums = albumList;
+                state.todos = Array.isArray(todoData.todos) ? todoData.todos : [];
+                state.artistTotals = discographyData.artistTotals && typeof discographyData.artistTotals === "object"
+                    ? discographyData.artistTotals
+                    : (rootData.artistTotals && typeof rootData.artistTotals === "object" ? rootData.artistTotals : {});
+                buildGrouped();
+                render();
+                return;
             } catch (e) {
                 console.warn("Firestore read failed:", e);
             }
 
-            if (!data) {
-                try {
-                    const publicRef = ref(storage, "public/library.json");
-                    const url = await getDownloadURL(publicRef);
-                    const resp = await fetch(url);
-                    if (!resp.ok) throw new Error("Public JSON not reachable");
-                    data = await resp.json();
-                } catch (e) {
-                    console.error(e);
-                    showError("Could not load discography data from Firestore or public mirror.");
-                    return;
-                }
+            try {
+                const publicRef = ref(storage, "public/library.json");
+                const url = await getDownloadURL(publicRef);
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error("Public JSON not reachable");
+                const data = await resp.json();
+                state.albums = Array.isArray(data.albums) ? data.albums : [];
+                const todoResp = await fetch(await getDownloadURL(ref(storage, "public/todos.json")));
+                const todoData = todoResp.ok ? await todoResp.json() : {};
+                const discographyResp = await fetch(await getDownloadURL(ref(storage, "public/discography.json")));
+                const discographyData = discographyResp.ok ? await discographyResp.json() : {};
+                state.todos = Array.isArray(todoData.todos) ? todoData.todos : [];
+                state.artistTotals = discographyData.artistTotals && typeof discographyData.artistTotals === "object"
+                    ? discographyData.artistTotals
+                    : (data.artistTotals && typeof data.artistTotals === "object" ? data.artistTotals : {});
+                buildGrouped();
+                render();
+                return;
+            } catch (e) {
+                console.error(e);
+                showError("Could not load discography data from Firestore or public mirror.");
             }
-
-            state.albums = Array.isArray(data.albums) ? data.albums : [];
-            state.todos = Array.isArray(data.todos) ? data.todos : [];
-            state.artistTotals = data.artistTotals && typeof data.artistTotals === "object" ? data.artistTotals : {};
-            buildGrouped();
-            render();
         }
 
         function buildGrouped() {
@@ -760,12 +820,11 @@
                 };
 
                 const payload = {
-                    albums: state.albums,
-                    todos: state.todos,
-                    artistTotals: state.artistTotals
+                    artistTotals: state.artistTotals,
+                    updatedAt: Date.now()
                 };
 
-                setDoc(doc(db, "data", "library"), payload, { merge: true }).catch((err) => {
+                setDoc(doc(db, "data", "discography"), payload, { merge: true }).catch((err) => {
                     console.error("Could not auto-expand discography totals:", err);
                 });
             }
@@ -825,12 +884,10 @@
             nextTotals[artist] = n;
 
             try {
-                const payload = {
-                    albums: state.albums,
-                    todos: state.todos,
-                    artistTotals: nextTotals
-                };
-                await setDoc(doc(db, "data", "library"), payload, { merge: true });
+                await setDoc(doc(db, "data", "discography"), {
+                    artistTotals: nextTotals,
+                    updatedAt: Date.now()
+                }, { merge: true });
                 state.artistTotals = nextTotals;
                 buildGrouped();
                 render();

@@ -46,6 +46,10 @@ let isGalleryDetailsMode = false;
 const LIBRARY_CACHE_KEY = "slopLibraryCacheV1";
 const SPOTIFY_PENDING_ACTION_KEY = "spotify_pending_action";
 const LIBRARY_CHUNK_ROOT_ID = "library";
+const LIBRARY_DOC_ID = "library";
+const TODOS_DOC_ID = "todos";
+const SETTINGS_DOC_ID = "settings";
+const DISCOGRAPHY_DOC_ID = "discography";
 const MAX_ITEMS_PER_CHUNK = 500;
 let libraryRealtimeUnsub = null;
 let latestLibraryChunkId = LIBRARY_CHUNK_ROOT_ID;
@@ -574,17 +578,7 @@ function buildChunkedLibraryPayload(payload) {
             const sanitized = { ...item };
             delete sanitized._chunkId;
             return sanitized;
-        }),
-        todos: Array.isArray(payload.todos) ? payload.todos : [],
-        artistTotals: payload.artistTotals || {},
-        latestTodo: payload.latestTodo || null,
-        slopG: Array.isArray(payload.slopG) ? payload.slopG : [],
-        catDeath: Array.isArray(payload.catDeath) ? payload.catDeath : [],
-        catBlack: Array.isArray(payload.catBlack) ? payload.catBlack : [],
-        catCore: Array.isArray(payload.catCore) ? payload.catCore : [],
-        catHeavy: Array.isArray(payload.catHeavy) ? payload.catHeavy : [],
-        catEtc: Array.isArray(payload.catEtc) ? payload.catEtc : [],
-        catNonMetal: Array.isArray(payload.catNonMetal) ? payload.catNonMetal : []
+        })
     };
 
     latestLibraryChunkId = orderedChunkIds[orderedChunkIds.length - 1] || LIBRARY_CHUNK_ROOT_ID;
@@ -634,33 +628,33 @@ async function loadChunkedLibraryDataFromFirestore(rootData = {}) {
     loadedLibraryChunkIds = orderedChunkIds;
 
     return {
-        albums: loadedAlbums,
-        todos: Array.isArray(rootData.todos) ? rootData.todos : [],
-        artistTotals: rootData.artistTotals || {},
-        latestTodo: rootData.latestTodo || null,
-        slopG: Array.isArray(rootData.slopG) ? rootData.slopG : [],
-        catDeath: Array.isArray(rootData.catDeath) ? rootData.catDeath : [],
-        catBlack: Array.isArray(rootData.catBlack) ? rootData.catBlack : [],
-        catCore: Array.isArray(rootData.catCore) ? rootData.catCore : [],
-        catHeavy: Array.isArray(rootData.catHeavy) ? rootData.catHeavy : [],
-        catEtc: Array.isArray(rootData.catEtc) ? rootData.catEtc : [],
-        catNonMetal: Array.isArray(rootData.catNonMetal) ? rootData.catNonMetal : []
+        albums: loadedAlbums
     };
 }
 
 async function loadFromFirebase() {
     const applyLibraryData = (data) => {
         albums = data.albums || [];
-        todos = (data.todos || []).map(normalizeTodoItem);
-        artistTotals = data.artistTotals || {};
-        latestTodo = data.latestTodo || null;
-        if (data.slopG !== undefined) slopG = data.slopG;
-        catDeath = data.catDeath || [];
-        catBlack = data.catBlack || [];
-        catCore = data.catCore || [];
-        catHeavy = data.catHeavy || [];
-        catEtc = data.catEtc || [];
-        catNonMetal = data.catNonMetal || [];
+        artistTotals = data.artistTotals || artistTotals;
+        latestTodo = data.latestTodo || latestTodo;
+
+        const nextTodos = Array.isArray(data.todos) ? data.todos.map(normalizeTodoItem) : todos;
+        const nextSlopG = Array.isArray(data.slopG) ? data.slopG : slopG;
+        const nextCatDeath = Array.isArray(data.catDeath) ? data.catDeath : catDeath;
+        const nextCatBlack = Array.isArray(data.catBlack) ? data.catBlack : catBlack;
+        const nextCatCore = Array.isArray(data.catCore) ? data.catCore : catCore;
+        const nextCatHeavy = Array.isArray(data.catHeavy) ? data.catHeavy : catHeavy;
+        const nextCatEtc = Array.isArray(data.catEtc) ? data.catEtc : catEtc;
+        const nextCatNonMetal = Array.isArray(data.catNonMetal) ? data.catNonMetal : catNonMetal;
+
+        if (Object.prototype.hasOwnProperty.call(data, "todos") && Array.isArray(data.todos)) todos = nextTodos;
+        if (Object.prototype.hasOwnProperty.call(data, "slopG") && data.slopG !== undefined) slopG = nextSlopG;
+        if (Object.prototype.hasOwnProperty.call(data, "catDeath") && data.catDeath !== undefined) catDeath = nextCatDeath;
+        if (Object.prototype.hasOwnProperty.call(data, "catBlack") && data.catBlack !== undefined) catBlack = nextCatBlack;
+        if (Object.prototype.hasOwnProperty.call(data, "catCore") && data.catCore !== undefined) catCore = nextCatCore;
+        if (Object.prototype.hasOwnProperty.call(data, "catHeavy") && data.catHeavy !== undefined) catHeavy = nextCatHeavy;
+        if (Object.prototype.hasOwnProperty.call(data, "catEtc") && data.catEtc !== undefined) catEtc = nextCatEtc;
+        if (Object.prototype.hasOwnProperty.call(data, "catNonMetal") && data.catNonMetal !== undefined) catNonMetal = nextCatNonMetal;
 
         state.albums = albums;
         state.todos = todos;
@@ -740,7 +734,42 @@ async function loadFromFirebase() {
             console.warn("Cache olvasasi hiba:", cacheReadErr);
         }
 
-        const docRef = doc(db, "data", "library");
+        const todoDocSnap = await getDoc(doc(db, "data", TODOS_DOC_ID));
+        if (todoDocSnap && todoDocSnap.exists()) {
+            const todoData = todoDocSnap.data() || {};
+            todos = Array.isArray(todoData.todos) ? todoData.todos.map(normalizeTodoItem) : todos;
+            latestTodo = todoData.latestTodo || latestTodo;
+        } else {
+            const cachedTodo = JSON.parse(localStorage.getItem("slopTodo") || "null");
+            if (Array.isArray(cachedTodo)) {
+                todos = cachedTodo.map(normalizeTodoItem);
+            }
+        }
+
+        const settingsDocSnap = await getDoc(doc(db, "data", SETTINGS_DOC_ID));
+        if (settingsDocSnap && settingsDocSnap.exists()) {
+            const settingsData = settingsDocSnap.data() || {};
+            slopG = Array.isArray(settingsData.slopG) ? settingsData.slopG : slopG;
+            catDeath = Array.isArray(settingsData.catDeath) ? settingsData.catDeath : catDeath;
+            catBlack = Array.isArray(settingsData.catBlack) ? settingsData.catBlack : catBlack;
+            catCore = Array.isArray(settingsData.catCore) ? settingsData.catCore : catCore;
+            catHeavy = Array.isArray(settingsData.catHeavy) ? settingsData.catHeavy : catHeavy;
+            catEtc = Array.isArray(settingsData.catEtc) ? settingsData.catEtc : catEtc;
+            catNonMetal = Array.isArray(settingsData.catNonMetal) ? settingsData.catNonMetal : catNonMetal;
+        } else {
+            const cachedSettings = JSON.parse(localStorage.getItem("slopSettings") || "null");
+            if (Array.isArray(cachedSettings)) {
+                slopG = cachedSettings;
+            }
+        }
+
+        const discographyDocSnap = await getDoc(doc(db, "data", DISCOGRAPHY_DOC_ID));
+        if (discographyDocSnap && discographyDocSnap.exists()) {
+            const discographyData = discographyDocSnap.data() || {};
+            artistTotals = discographyData.artistTotals || artistTotals;
+        }
+
+        const docRef = doc(db, "data", LIBRARY_DOC_ID);
         let docSnap;
         try {
             docSnap = await getDoc(docRef);
@@ -773,7 +802,6 @@ async function loadFromFirebase() {
                         console.warn("Cache irasi hiba:", cacheWriteErr);
                     }
                 } else {
-                    // fallback to local cached settings/todos
                     todos = (JSON.parse(localStorage.getItem("slopTodo")) || []).map(normalizeTodoItem);
                     slopG = JSON.parse(localStorage.getItem("slopSettings")) || [];
 
@@ -789,6 +817,16 @@ async function loadFromFirebase() {
                 state.slopG = slopG;
             }
         }
+
+        state.todos = todos;
+        state.artistTotals = artistTotals;
+        state.slopG = slopG;
+        state.catDeath = catDeath;
+        state.catBlack = catBlack;
+        state.catCore = catCore;
+        state.catHeavy = catHeavy;
+        state.catEtc = catEtc;
+        state.catNonMetal = catNonMetal;
 
         window.showPage("library");
         if (typeof window.renderSettings === "function") window.renderSettings();
@@ -811,27 +849,37 @@ async function saveToFirebase() {
     try {
         const payload = {
             albums,
+            latestTodo: latestTodo || null
+        };
+        const { rootPayload, chunkPayloads } = buildChunkedLibraryPayload(payload);
+
+        await setDoc(doc(db, "data", LIBRARY_DOC_ID), rootPayload);
+        await Promise.all(chunkPayloads.map(({ chunkId, data }) => setDoc(doc(db, "data", chunkId), data)));
+
+        await setDoc(doc(db, "data", TODOS_DOC_ID), {
             todos,
-            artistTotals,
             latestTodo: latestTodo || null,
+            updatedAt: Date.now()
+        });
+
+        await setDoc(doc(db, "data", SETTINGS_DOC_ID), {
             slopG,
             catDeath,
             catBlack,
             catCore,
             catHeavy,
             catEtc,
-            catNonMetal
-        };
-        const { rootPayload, chunkPayloads } = buildChunkedLibraryPayload(payload);
+            catNonMetal,
+            updatedAt: Date.now()
+        });
 
-        await setDoc(doc(db, "data", "library"), rootPayload);
+        await setDoc(doc(db, "data", DISCOGRAPHY_DOC_ID), {
+            artistTotals,
+            updatedAt: Date.now()
+        });
 
-        await Promise.all(chunkPayloads.map(({ chunkId, data }) => setDoc(doc(db, "data", chunkId), data)));
-
-        // Also update a public JSON mirror in Cloud Storage so unauthenticated users can read latest data.
         try {
             const publicPayload = {
-                ...payload,
                 albums: (payload.albums || []).map((item) => {
                     const sanitized = { ...item };
                     delete sanitized._chunkId;
@@ -841,19 +889,40 @@ async function saveToFirebase() {
             const publicRef = ref(storage, "public/library.json");
             const blob = new Blob([JSON.stringify(publicPayload)], { type: "application/json" });
             await uploadBytes(publicRef, blob);
-            // attempt to warm/get URL (may fail for non-public rules)
             try {
-                const url = await getDownloadURL(publicRef);
-                console.log("Public library mirror updated:", url);
+                await getDownloadURL(publicRef);
             } catch (urlErr) {
-                console.warn("Could not obtain public mirror URL:", urlErr);
+                console.warn("Could not obtain public library mirror URL:", urlErr);
             }
         } catch (mirrorErr) {
-            console.warn("Updating public mirror failed:", mirrorErr);
+            console.warn("Updating public library mirror failed:", mirrorErr);
+        }
+
+        try {
+            const publicTodosRef = ref(storage, "public/todos.json");
+            await uploadBytes(publicTodosRef, new Blob([JSON.stringify({ todos, latestTodo: latestTodo || null })], { type: "application/json" }));
+        } catch (mirrorErr) {
+            console.warn("Updating public todos mirror failed:", mirrorErr);
+        }
+
+        try {
+            const publicSettingsRef = ref(storage, "public/settings.json");
+            await uploadBytes(publicSettingsRef, new Blob([JSON.stringify({ slopG, catDeath, catBlack, catCore, catHeavy, catEtc, catNonMetal })], { type: "application/json" }));
+        } catch (mirrorErr) {
+            console.warn("Updating public settings mirror failed:", mirrorErr);
+        }
+
+        try {
+            const publicDiscographyRef = ref(storage, "public/discography.json");
+            await uploadBytes(publicDiscographyRef, new Blob([JSON.stringify({ artistTotals })], { type: "application/json" }));
+        } catch (mirrorErr) {
+            console.warn("Updating public discography mirror failed:", mirrorErr);
         }
 
         try {
             localStorage.setItem(LIBRARY_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: payload }));
+            localStorage.setItem("slopTodo", JSON.stringify(todos));
+            localStorage.setItem("slopSettings", JSON.stringify({ slopG, catDeath, catBlack, catCore, catHeavy, catEtc, catNonMetal }));
         } catch (cacheWriteErr) {
             console.warn("Cache irasi hiba:", cacheWriteErr);
         }
