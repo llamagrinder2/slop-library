@@ -7,6 +7,81 @@ export function initSpotifyService({
     const clientId = "ed9b786710994376bba52f4ea5ebae64";
     const redirectUri = "https://www.sloplibrary.hu";
     const AUTH_INTENT_KEY = "spotify_auth_intent";
+    const REDIRECT_PAGE_KEY = "spotify_redirect_page_state";
+
+    const captureCurrentAppState = () => {
+        try {
+            const activePage = document.querySelector(".page.active")?.id || "library";
+            const addTodoPanel = document.getElementById("mod-addTodo");
+            const artistInput = document.getElementById("todoArtist");
+            const todoQueryInput = document.getElementById("todoQuery");
+            const librarySearchInput = document.getElementById("gSearch");
+            const libraryArtistInput = document.getElementById("fArtist");
+
+            return {
+                page: activePage,
+                openAddTodo: Boolean(addTodoPanel && addTodoPanel.style.display === "block"),
+                artist: artistInput ? artistInput.value : "",
+                todoQuery: todoQueryInput ? todoQueryInput.value : "",
+                libraryQuery: librarySearchInput ? librarySearchInput.value : "",
+                libraryArtist: libraryArtistInput ? libraryArtistInput.value : ""
+            };
+        } catch (err) {
+            return { page: "library" };
+        }
+    };
+
+    const persistCurrentPageState = () => {
+        try {
+            window.localStorage.setItem(REDIRECT_PAGE_KEY, JSON.stringify(captureCurrentAppState()));
+        } catch (e) {
+            console.warn("Spotify redirect state save failed:", e);
+        }
+    };
+
+    const restoreCurrentPageState = () => {
+        try {
+            const raw = window.localStorage.getItem(REDIRECT_PAGE_KEY);
+            if (!raw) return;
+            const state = JSON.parse(raw);
+            window.localStorage.removeItem(REDIRECT_PAGE_KEY);
+
+            if (!state || !state.page) return;
+
+            if (typeof window.showPage === "function") {
+                window.showPage(state.page);
+            }
+
+            if (state.page === "todo") {
+                if (state.openAddTodo) {
+                    const panel = document.getElementById("mod-addTodo");
+                    if (panel && panel.style.display !== "block" && typeof window.toggleMod === "function") {
+                        window.toggleMod("addTodo");
+                    }
+                }
+                const artistInput = document.getElementById("todoArtist");
+                if (artistInput && state.artist) {
+                    artistInput.value = state.artist;
+                    artistInput.focus();
+                }
+            }
+
+            if (state.page === "library") {
+                const searchInput = document.getElementById("gSearch");
+                const artistSelect = document.getElementById("fArtist");
+                if (searchInput && state.libraryQuery) searchInput.value = state.libraryQuery;
+                if (artistSelect && state.libraryArtist) artistSelect.value = state.libraryArtist;
+                if (typeof window.runFilter === "function") {
+                    window.runFilter(true);
+                }
+            }
+        } catch (err) {
+            console.warn("Spotify redirect state restore failed:", err);
+            try {
+                window.localStorage.removeItem(REDIRECT_PAGE_KEY);
+            } catch {}
+        }
+    };
 
     const setAuthIntent = (intent) => {
         try {
@@ -49,6 +124,7 @@ export function initSpotifyService({
 
     window.authSpotify = async function(intent = "library-import") {
         setAuthIntent(intent);
+        persistCurrentPageState();
 
         const codeVerifier = generateRandomString(64);
         const hashed = await sha256(codeVerifier);
@@ -192,6 +268,7 @@ export function initSpotifyService({
                 }
 
                 window.history.replaceState({}, document.title, window.location.pathname);
+                restoreCurrentPageState();
                 if (shouldOpenImportModal(intent)) {
                     const addPanel = document.getElementById("mod-add");
                     const modal = document.getElementById("spotifyModal");
@@ -225,6 +302,7 @@ export function initSpotifyService({
             }
 
             window.location.hash = "";
+            restoreCurrentPageState();
             if (shouldOpenImportModal(intent)) {
                 const modal = document.getElementById("spotifyModal");
                 if (modal) modal.style.display = "flex";
