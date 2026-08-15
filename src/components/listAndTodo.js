@@ -1,4 +1,5 @@
 import { getCountryFlag, normalizeCountryCode } from "../core/countries.js";
+import { recommenders } from "../core/constants.js";
 
 export function registerListAndTodoComponents({
     getAlbums,
@@ -417,6 +418,15 @@ export function registerListAndTodoComponents({
                 : '<div class="module-box" style="display:block; text-align:center; color:#aaa;">Nincs To-Do adat.</div>';
     };
 
+    const getTodoRecommenderBadgeHtml = (recKey) => {
+        const recInfo = recKey && recommenders[recKey] ? recommenders[recKey] : null;
+        if (!recInfo) {
+            return '<div class="todo-recommender-badge empty" title="Nem ajánlotta senki"></div>';
+        }
+
+        return `<div class="todo-recommender-badge" title="Ajánlotta: ${recInfo.name1}" style="background:${recInfo.color}; border-color:${recInfo.color};"></div>`;
+    };
+
     window.renderTodo = function() {
         const todos = getTodos();
         const container = document.getElementById("todoContainer");
@@ -522,6 +532,7 @@ export function registerListAndTodoComponents({
                 container.innerHTML += `
                     <div class="album-card${prioritizedClass}" style="${cardAccentStyle}">
                         <div class="row-number">${idx + 1}</div>
+                        ${getTodoRecommenderBadgeHtml(t.recommender)}
                         <div class="album-art-container">
                             <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
                             <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art">
@@ -553,6 +564,7 @@ export function registerListAndTodoComponents({
             container.innerHTML += `
                 <div class="album-card todo-compact-card" style="${cardAccentStyle}">
                     <div class="row-number">${idx + 1}</div>
+                    ${getTodoRecommenderBadgeHtml(t.recommender)}
                     <div class="album-art-container">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art-blur">
                         <img src="${t.coverUrl || "https://via.placeholder.com/120"}" class="album-art">

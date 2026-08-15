@@ -300,7 +300,7 @@
             font-size: 0.8rem;
             user-select: none;
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             background-size: cover;
             background-position: center;
             transition: all 0.3s ease;
@@ -330,6 +330,12 @@
             border-width: 3px;
             border-style: solid;
             border-color: #1DB954 #2f2f2f #2f2f2f #1DB954;
+        }
+        .block.completed[data-type="compilation"] {
+            border-width: 2px;
+            border-style: solid;
+            border-color: #1DB954;
+            box-shadow: inset 0 0 0 2px rgba(29, 185, 84, 0.62);
         }
         .block.todo {
             background-color: #1c2538;
@@ -402,10 +408,39 @@
             z-index: 2;
             transition: all 0.3s ease;
         }
+        .block-score {
+            position: absolute;
+            right: 4px;
+            bottom: 3px;
+            min-width: 18px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 4px;
+            font-size: 0.52rem;
+            line-height: 1;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: inherit;
+            background: rgba(0, 0, 0, 0.52);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            z-index: 2;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2);
+        }
         .block-symbol {
             position: relative;
             z-index: 2;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+        }
+        .artist-average-score {
+            color: inherit;
+            font-weight: 800;
+            background: none;
+            border: none;
+            padding: 0;
+            margin: 0;
+            display: inline-block;
         }
         .legend {
             display: flex;
@@ -423,15 +458,35 @@
             vertical-align: middle;
             margin-right: 5px;
             border: 1px solid #444;
+            box-sizing: border-box;
         }
-        .lg-lib { background: #2a2a2a; }
-        .lg-todo { background: repeating-linear-gradient(135deg, rgba(122, 168, 255, 0.26) 0 4px, rgba(60, 80, 130, 0.12) 4px 8px); }
-        .lg-miss { background: rgba(90, 90, 90, 0.2); }
-        .lg-ep { background: #1f2226; border-style: dashed; border-color: #7f8a95; }
-        .lg-demo { background: #26190f; border-color: #d97a3a; }
-        .lg-split {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.00) 0 48%, rgba(0, 0, 0, 0.58) 52% 100%), #2a2a2a;
-            border-color: #575757;
+        .legend i.lg-lib {
+            background: #1f1f1f;
+            border: 3px solid #1DB954;
+            box-shadow: inset 0 0 0 1px rgba(29, 185, 84, 0.22);
+        }
+        .legend i.lg-todo { background: repeating-linear-gradient(135deg, rgba(122, 168, 255, 0.26) 0 4px, rgba(60, 80, 130, 0.12) 4px 8px); }
+        .legend i.lg-miss { background: rgba(90, 90, 90, 0.2); }
+        .legend i.lg-ep {
+            background: #1f2226;
+            border: 3px dashed #1DB954;
+            box-shadow: inset 0 0 0 1px rgba(29, 185, 84, 0.16);
+        }
+        .legend i.lg-demo {
+            background: #26190f;
+            border: 2px solid #d97a3a;
+            box-shadow: inset 0 0 0 1px rgba(217, 122, 58, 0.18);
+        }
+        .legend i.lg-compilation {
+            background: rgba(29, 185, 84, 0.18);
+            border: 2px solid #1DB954;
+            box-shadow: inset 0 0 0 2px rgba(29, 185, 84, 0.6);
+        }
+        .legend i.lg-split {
+            background: repeating-linear-gradient(135deg, rgba(255,255,255,0.00) 0 5px, rgba(0,0,0,0.50) 5px 10px), #1f1f1f;
+            border: 3px solid #1DB954;
+            border-color: #1DB954 #2b2b2b #2b2b2b #1DB954;
+            box-shadow: inset 0 0 0 1px rgba(29, 185, 84, 0.18);
         }
         .muted { color: var(--muted); }
         .ok { color: var(--ok); }
@@ -515,6 +570,7 @@
                 <button class="btn" id="btnSortTotal">Sort total: Desc</button>
                 <button class="btn" id="btnSortAlpha">Sort alpha: A-Z</button>
                 <button class="btn" id="btnSortDuration">Sort time: Desc</button>
+                <button class="btn" id="btnSortAvg">Sort avg: Desc</button>
                 <button class="btn icon-btn" id="btnPhyllo" title="Frog tracker" aria-label="Frog tracker">
                     <img src="./froggg.svg" alt="">
                 </button>
@@ -526,6 +582,7 @@
             <span><i class="lg-miss"></i>Missing (?)</span>
             <span><i class="lg-ep"></i>EP</span>
             <span><i class="lg-demo"></i>Demo</span>
+            <span><i class="lg-compilation"></i>Compilation</span>
             <span><i class="lg-split"></i>Split</span>
         </div>
 
@@ -555,6 +612,7 @@
             sortTotalsAsc: false,
             sortAlphaAsc: true,
             sortDurationAsc: false,
+            sortAvgAsc: false,
             sortMode: "total"
         };
 
@@ -733,7 +791,8 @@
                     album: String(a.album || ""),
                     year: numericYear(a.year),
                     coverUrl: String(a.thumbnailUrl || a.coverUrl || ""),
-                    length: String(a.length || "")
+                    length: String(a.length || ""),
+                    myScore: Number.isFinite(parseFloat(a.myScore)) ? parseFloat(a.myScore) : 0
                 });
             });
 
@@ -743,7 +802,8 @@
                     album: String(t.album || ""),
                     year: numericYear(t.year),
                     coverUrl: String(t.thumbnailUrl || t.coverUrl || ""),
-                    length: String(t.length || "")
+                    length: String(t.length || ""),
+                    myScore: 0
                 });
             });
 
@@ -775,6 +835,10 @@
                 });
 
                 const known = [...dedupe.values()].sort((a, b) => a.year - b.year);
+                const libraryScored = known.filter((x) => x.source === "library" && Number.isFinite(x.myScore) && x.myScore > 0);
+                const averageScore = libraryScored.length > 0
+                    ? libraryScored.reduce((sum, x) => sum + x.myScore, 0) / libraryScored.length
+                    : 0;
                 const libCount = known.filter((x) => x.source === "library").length;
                 const todoCount = known.filter((x) => x.source === "todo").length;
                 const knownDurationSeconds = known.reduce((sum, item) => {
@@ -805,7 +869,8 @@
                     missingCount,
                     isIncomplete,
                     knownDurationSeconds,
-                    listenedDurationSeconds
+                    listenedDurationSeconds,
+                    averageScore
                 });
             });
 
@@ -836,8 +901,20 @@
             return `${idx + 1}. Missing album`;
         }
 
+        function getScoreColor(score) {
+            const safeScore = Number.isFinite(parseFloat(score)) ? parseFloat(score) : 0;
+            if (safeScore <= 0) return "#7b7b7b";
+            return `hsl(${(Math.max(1, safeScore) - 1) * 13},70%,40%)`;
+        }
+
+        function formatScoreDisplay(score) {
+            const numeric = Number.isFinite(parseFloat(score)) ? parseFloat(score) : 0;
+            return numeric > 0 ? numeric.toFixed(1) : "-";
+        }
+
         function getReleaseKind(albumTitle) {
             const title = String(albumTitle || "").trim();
+            if (/\(\s*compilation\s*\)\s*$/i.test(title)) return "compilation";
             if (/\(\s*ep\s*\)\s*$/i.test(title)) return "ep";
             if (/\(\s*demo\s*\)\s*$/i.test(title)) return "demo";
             if (/\(\s*split\s*\)\s*$/i.test(title)) return "split";
@@ -846,7 +923,7 @@
 
         function cleanReleaseTitle(albumTitle) {
             return String(albumTitle || "")
-                .replace(/\s*\(\s*(ep|demo|split)\s*\)\s*$/i, "")
+                .replace(/\s*\(\s*(compilation|ep|demo|split)\s*\)\s*$/i, "")
                 .trim();
         }
 
@@ -930,6 +1007,15 @@
                         : b.knownDurationSeconds - a.knownDurationSeconds;
                 }
 
+                if (state.sortMode === "avg") {
+                    const aAvg = Number.isFinite(a.averageScore) ? a.averageScore : 0;
+                    const bAvg = Number.isFinite(b.averageScore) ? b.averageScore : 0;
+                    if (aAvg === bAvg) {
+                        return a.artist.localeCompare(b.artist, "hu");
+                    }
+                    return state.sortAvgAsc ? aAvg - bAvg : bAvg - aAvg;
+                }
+
                 if (a.totalAlbumsCount === b.totalAlbumsCount) {
                     return a.artist.localeCompare(b.artist, "hu");
                 }
@@ -969,6 +1055,12 @@
                     durationBtn.innerText = `Sort time: ${state.sortDurationAsc ? "Asc" : "Desc"}`;
                     durationBtn.classList.toggle("active", state.sortMode === "duration");
                 }
+
+                const avgBtn = document.getElementById("btnSortAvg");
+                if (avgBtn) {
+                    avgBtn.innerText = `Sort avg: ${state.sortAvgAsc ? "Asc" : "Desc"}`;
+                    avgBtn.classList.toggle("active", state.sortMode === "avg");
+                }
             }
 
             if (!rows.length) {
@@ -982,26 +1074,31 @@
                     g.known.forEach((k, i) => {
                         const cls = k.source === "library" ? "library" : "todo";
                         const releaseKind = getReleaseKind(k.album);
-                        const releaseClass = k.source === "library" && releaseKind !== "lp" ? ` ${releaseKind}` : "";
+                            const releaseClass = k.source === "library" && releaseKind !== "lp" ? ` ${releaseKind}` : "";
                         const completedClass = k.source === "library" ? " completed" : "";
                         const cleanedTitle = cleanReleaseTitle(k.album);
                         const coverStyle = k.coverUrl
                             ? `style="background-image: linear-gradient(rgba(0,0,0,0.28), rgba(0,0,0,0.28)), url('${k.coverUrl.replace(/'/g, "%27")}');"`
                             : "";
-                        blocks.push(`<div class="block ${cls}${releaseClass}${completedClass} clickable" data-type="${releaseKind}" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle({ ...k, album: cleanedTitle }, i)}" ${coverStyle}><span class="block-index">${i + 1}</span></div>`);
+                        const scoreHtml = k.source === "library"
+                            ? `<span class="block-score" style="color:${getScoreColor(k.myScore)}; background: rgba(0, 0, 0, 0.52); border-color: rgba(255,255,255,0.12);">${formatScoreDisplay(k.myScore)}</span>`
+                            : "";
+                        blocks.push(`<div class="block ${cls}${releaseClass}${completedClass} clickable" data-type="${releaseKind}" data-source="${k.source}" data-artist="${encodeURIComponent(g.artist)}" data-album="${encodeURIComponent(k.album || "")}" title="${blockTitle({ ...k, album: cleanedTitle }, i)}" ${coverStyle}><span class="block-index">${i + 1}</span>${scoreHtml}</div>`);
                     });
                     for (let i = 0; i < g.missingCount; i++) {
                         const idx = g.known.length + i;
                         blocks.push(`<div class="block missing" data-artist="${encodeURIComponent(g.artist)}" title="${blockTitle({ source: "missing" }, idx)}"><span class="block-index">${idx + 1}</span><span class="block-symbol">?</span></div>`);
                     }
 
+                    const avgText = g.averageScore > 0 ? g.averageScore.toFixed(1) : "-";
+                    const avgStyle = g.averageScore > 0 ? `style="color:${getScoreColor(g.averageScore)}; font-weight: 700; background: transparent; border: none;"` : "";
                     return `
                     <div class="row ${g.isIncomplete ? "" : "complete"}">
                         <div class="row-head">
                             <div>
                                 <div class="artist">${g.artist} (${g.totalAlbumsCount} releases)</div>
                                 <div class="artist-meta">Time (listened / known): <strong>${formatDuration(g.listenedDurationSeconds)} / ${formatDuration(g.knownDurationSeconds)}</strong></div>
-                                <div class="artist-meta">Library: ${g.libCount} | ToDo: ${g.todoCount} | Missing: ${g.missingCount} | Status: ${g.isIncomplete ? '<span class="danger">Incomplete</span>' : '<span class="ok">Complete</span>'}</div>
+                                <div class="artist-meta">Library: ${g.libCount} | ToDo: ${g.todoCount} | Missing: ${g.missingCount} | Status: ${g.isIncomplete ? '<span class="danger">Incomplete</span>' : '<span class="ok">Complete</span>'} | <span class="artist-average-score" ${avgStyle}>${avgText}</span></div>
                             </div>
                             <div class="totals-edit">
                                 <span>Total albums:</span>
@@ -1088,6 +1185,12 @@
         document.getElementById("btnSortDuration").addEventListener("click", () => {
             state.sortMode = "duration";
             state.sortDurationAsc = !state.sortDurationAsc;
+            render();
+        });
+
+        document.getElementById("btnSortAvg").addEventListener("click", () => {
+            state.sortMode = "avg";
+            state.sortAvgAsc = !state.sortAvgAsc;
             render();
         });
 

@@ -244,6 +244,20 @@
 			border-bottom-right-radius: 9px;
 			z-index: 4;
 		}
+		#todoContainer.todo-card-grid .todo-recommender-badge {
+			position: absolute;
+			top: 0;
+			right: 0;
+			width: 26px;
+			height: 26px;
+			border-bottom-left-radius: 9px;
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
+			z-index: 4;
+		}
+		#todoContainer.todo-card-grid .todo-recommender-badge.empty {
+			display: none;
+		}
 		#todoContainer.todo-card-grid .todo-compact-card .album-art-container {
 			width: 100%;
 			min-width: 0;
@@ -318,6 +332,30 @@
 		@media (max-width: 620px) {
 			#todoContainer.todo-card-grid {
 				grid-template-columns: 1fr;
+			}
+			#todoContainer.todo-card-grid .todo-recommender-badge {
+				width: 22px;
+				height: 22px;
+			}
+			#todoContainer.todo-card-grid .todo-compact-card .todo-compact-link {
+				padding-right: 26px;
+			}
+			#todoContainer.todo-card-grid .todo-compact-card .btn-del {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				position: absolute;
+				right: 8px;
+				bottom: 8px;
+				width: 22px;
+				height: 22px;
+				padding: 0;
+				border-radius: 50%;
+				font-size: 0.85em;
+				background: rgba(18, 18, 18, 0.7);
+				border: 1px solid rgba(255,255,255,0.15);
+				color: #f2f2f2;
+				box-shadow: 0 0 0 1px rgba(0,0,0,0.18);
 			}
 		}
 
