@@ -190,6 +190,52 @@
 			box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 		}
 
+		.link-view {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+			width: min(1100px, 100%);
+		}
+
+		.link-list {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.link-item {
+			display: grid;
+			grid-template-columns: minmax(180px, 1.2fr) minmax(260px, 2.2fr);
+			gap: 12px;
+			align-items: center;
+			padding: 10px 12px;
+			background: #181818;
+			border: 1px solid #343434;
+			border-radius: 10px;
+		}
+
+		.link-label {
+			font-weight: 700;
+			color: #f3f3f3;
+			line-height: 1.35;
+		}
+
+		.link-input {
+			width: 100%;
+			height: 38px;
+			padding: 8px 10px;
+			border-radius: 8px;
+			border: 1px solid #3d3d3d;
+			background: #202020;
+			color: var(--text-color);
+			font: inherit;
+		}
+
+		.link-input:focus {
+			outline: 2px solid var(--accent);
+			outline-offset: 0;
+		}
+
 		.sheet-table-wrap {
 			flex: 1;
 			min-width: 0;
@@ -513,6 +559,26 @@
 			padding: 10px 10px;
 		}
 
+		.toplist-link,
+		.toplist-link:visited,
+		.tartozas-album-link,
+		.tartozas-album-link:visited {
+			color: inherit;
+			text-decoration: none;
+			cursor: pointer;
+		}
+
+		.toplist-link:hover,
+		.tartozas-album-link:hover {
+			text-decoration: underline;
+		}
+
+		.toplist-link.is-disabled,
+		.tartozas-album-link.is-disabled {
+			cursor: default;
+			pointer-events: none;
+		}
+
 		.slammer-bar {
 			display: flex;
 			gap: 14px;
@@ -673,6 +739,8 @@
 		.sheet-table th.member-col > span.member-mammvth { color: #8D6E63; }
 		.sheet-table th.member-col > span.member-christian { color: #FF9800; }
 		.sheet-table th.member-col > span.member-max { color: #E8E8E8; }
+		.sheet-table th.member-col > span.member-boti { color: #A63B5A; }
+		.sheet-table th.member-col > span.member-dori { color: #7AE2B3; }
 		.sheet-table th.member-col > span.member-kolos { color: #8b1e3f; }
 
 		.sheet-table td {
@@ -954,6 +1022,7 @@
 			<button type="button" id="viewRatingBtn" class="view-btn is-active">Rate.</button>
 			<button type="button" id="viewTopBtn" class="view-btn">Top.</button>
 			<button type="button" id="viewTartozasokBtn" class="view-btn">Tart.</button>
+			<button type="button" id="viewLinksBtn" class="view-btn">Linkek.</button>
 		</div>
 	</nav>
 	<div id="pageHeaderHoverZone" class="page-header-hover-zone" aria-hidden="true"></div>
@@ -983,6 +1052,8 @@
 							<th class="member-col"><span class="member-mammvth">Bence</span></th>
 							<th class="member-col"><span class="member-christian">Sári</span></th>
 							<th class="member-col"><span class="member-max">Max</span></th>
+							<th class="member-col"><span class="member-boti">Boti</span></th>
+							<th class="member-col"><span class="member-dori">Dóri</span></th>
 							<th class="member-col"><span class="member-kolos">Kolos</span></th>
 							<th class="col-delete"></th>
 						</tr>
@@ -1001,6 +1072,8 @@
 									<option value="Bence">Bence</option>
 									<option value="Sári">Sári</option>
 									<option value="Max">Max</option>
+									<option value="Boti">Boti</option>
+									<option value="Dóri">Dóri</option>
 									<option value="Kolos">Kolos</option>
 								</select>
 							</td>
@@ -1099,6 +1172,10 @@
 		<section id="tartozasokView" class="sheet-shell page-view" hidden>
 			<div id="tartozasokGrid" class="tartozasok-grid"></div>
 		</section>
+		<section id="linksView" class="sheet-shell page-view link-view" hidden>
+			<h2 class="toplist-title">Linkek</h2>
+			<div id="albumLinksList" class="link-list"></div>
+		</section>
 	</main>
 
 	<button type="button" id="addRowBtn" class="sheet-btn" onclick="window.addKerekasztalRow()">+ Új sor</button>
@@ -1106,7 +1183,7 @@
 	<script type="module">
 		import { db, storage, doc, getDoc, setDoc, collection, getDocs, onSnapshot, writeBatch, ref, uploadBytes, getDownloadURL } from "./src/core/firebase.js";
 
-		const MEMBER_NAMES = ["Bálint", "Szabber", "Ivanics", "Rásó", "Bakos", "Gaben", "Bence", "Sári", "Max", "Kolos"];
+		const MEMBER_NAMES = ["Bálint", "Szabber", "Ivanics", "Rásó", "Bakos", "Gaben", "Bence", "Sári", "Max", "Boti", "Dóri", "Kolos"];
 		const MEMBER_COLORS = {
 			"Bálint": "#FFEB3B",
 			"Szabber": "#1E88E5",
@@ -1117,6 +1194,8 @@
 			"Bence": "#8D6E63",
 			"Sári": "#FF9800",
 			"Max": "#E8E8E8",
+			"Boti": "#A63B5A",
+			"Dóri": "#7AE2B3",
 			"Kolos": "#8B1E3F"
 		};
 		const KEREK_DOC = doc(db, "data", "kerekasztal");
@@ -1131,9 +1210,11 @@
 		const ratingView = document.getElementById("ratingView");
 		const topView = document.getElementById("topView");
 		const tartozasokView = document.getElementById("tartozasokView");
+		const linksView = document.getElementById("linksView");
 		const viewRatingBtn = document.getElementById("viewRatingBtn");
 		const viewTopBtn = document.getElementById("viewTopBtn");
 		const viewTartozasokBtn = document.getElementById("viewTartozasokBtn");
+		const viewLinksBtn = document.getElementById("viewLinksBtn");
 		const topListBody = document.getElementById("toplistBody");
 		const divisiveListBody = document.getElementById("divisiveListBody");
 		const addRowBtn = document.getElementById("addRowBtn");
@@ -1166,17 +1247,21 @@
 		function setActiveView(viewName) {
 			const showTop = viewName === "top";
 			const showTartozasok = viewName === "tartozasok";
-			const showRating = !showTop && !showTartozasok;
+			const showLinks = viewName === "links";
+			const showRating = !showTop && !showTartozasok && !showLinks;
 			document.body.classList.toggle("top-mobile-view", showTop);
 			if (ratingView) ratingView.hidden = !showRating;
 			if (topView) topView.hidden = !showTop;
 			if (tartozasokView) tartozasokView.hidden = !showTartozasok;
+			if (linksView) linksView.hidden = !showLinks;
 			if (viewRatingBtn) viewRatingBtn.classList.toggle("is-active", showRating);
 			if (viewTopBtn) viewTopBtn.classList.toggle("is-active", showTop);
 			if (viewTartozasokBtn) viewTartozasokBtn.classList.toggle("is-active", showTartozasok);
+			if (viewLinksBtn) viewLinksBtn.classList.toggle("is-active", showLinks);
 			if (addRowBtn) addRowBtn.hidden = !showRating;
 			if (showTop) renderTopList();
 			if (showTartozasok) renderTartozasok();
+			if (showLinks) renderLinksView();
 		}
 
 		function bindViewButtons() {
@@ -1198,6 +1283,13 @@
 				viewTartozasokBtn.dataset.boundView = "1";
 				viewTartozasokBtn.addEventListener("click", function() {
 					setActiveView("tartozasok");
+				});
+			}
+
+			if (viewLinksBtn && viewLinksBtn.dataset.boundView !== "1") {
+				viewLinksBtn.dataset.boundView = "1";
+				viewLinksBtn.addEventListener("click", function() {
+					setActiveView("links");
 				});
 			}
 		}
@@ -1651,7 +1743,8 @@
 				band: "",
 				album: "",
 				artUrl: "",
-				ratings: Array(10).fill("")
+				link: "",
+				ratings: Array(MEMBER_NAMES.length).fill("")
 			};
 		}
 
@@ -1795,6 +1888,30 @@
 			return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 1)`;
 		}
 
+		function normalizeLinkUrl(raw) {
+			const value = String(raw || "").trim();
+			if (!value) return "";
+			if (/^https?:\/\//i.test(value)) return value;
+			if (/^www\./i.test(value)) return `https://${value}`;
+			return value;
+		}
+
+		function bindAlbumLink(anchor, rawUrl) {
+			const normalized = normalizeLinkUrl(rawUrl);
+			if (!normalized) {
+				anchor.classList.add("is-disabled");
+				anchor.removeAttribute("href");
+				anchor.setAttribute("aria-disabled", "true");
+				anchor.addEventListener("click", (event) => event.preventDefault(), { once: true });
+				return;
+			}
+			anchor.href = normalized;
+			anchor.target = "_blank";
+			anchor.rel = "noopener noreferrer";
+			anchor.classList.remove("is-disabled");
+			anchor.setAttribute("aria-disabled", "false");
+		}
+
 		function getDateKey(value) {
 			const parts = String(value || "")
 				.trim()
@@ -1873,12 +1990,73 @@
 			set("easyHi", e.hi);
 		}
 
+		function renderLinksView(rowsData = serializeRows()) {
+			const list = document.getElementById("albumLinksList");
+			if (!list) return;
+			list.innerHTML = "";
+
+			const sourceRows = Array.isArray(rowsData) ? rowsData : [];
+			const entries = sourceRows
+				.filter((row) => String(row.band || "").trim() || String(row.album || "").trim())
+				.map((row) => ({
+					id: `${row.band || "unknown"}-${row.album || "unknown"}-${row.date || ""}`,
+					label: `${String(row.band || "").trim() || "Ismeretlen banda"} — ${String(row.album || "").trim() || "Ismeretlen album"}`,
+					value: String(row.link || "")
+				}));
+
+			if (!entries.length) {
+				const empty = document.createElement("div");
+				empty.className = "tartozas-empty";
+				empty.textContent = "Még nincs egy album sem.";
+				list.appendChild(empty);
+				return;
+			}
+
+			entries.forEach((entry) => {
+				const row = document.createElement("div");
+				row.className = "link-item";
+
+				const label = document.createElement("div");
+				label.className = "link-label";
+				label.textContent = entry.label;
+
+				const input = document.createElement("input");
+				input.type = "url";
+				input.className = "link-input";
+				input.placeholder = "https://...";
+				input.value = entry.value;
+				input.setAttribute("aria-label", `Album link: ${entry.label}`);
+				input.addEventListener("input", function() {
+					const allRows = serializeRows();
+					const match = allRows.find((rowData) => {
+						const key = `${rowData.band || "unknown"}-${rowData.album || "unknown"}-${rowData.date || ""}`;
+						return key === entry.id;
+					});
+					if (!match) return;
+					match.link = input.value.trim();
+					const rows = Array.from(body.querySelectorAll("tr"));
+					const rowEl = rows.find((item) => {
+						const cells = item.querySelectorAll("td");
+						const rowBand = (cells[2]?.innerText || "").trim();
+						const rowAlbum = (cells[3]?.innerText || "").trim();
+						const rowDate = (cells[0]?.innerText || "").trim();
+						return `${rowBand || "unknown"}-${rowAlbum || "unknown"}-${rowDate || ""}` === entry.id;
+					});
+					if (rowEl) rowEl.dataset.link = input.value.trim();
+					scheduleSave();
+				});
+				row.appendChild(label);
+				row.appendChild(input);
+				list.appendChild(row);
+			});
+		}
+
 		function renderTartozasok(rowsData = serializeRows()) {
 			const grid = document.getElementById("tartozasokGrid");
 			if (!grid) return;
 			grid.innerHTML = "";
 			const sourceRows = Array.isArray(rowsData) ? rowsData : [];
-			const membersToShow = MEMBER_NAMES.slice(0, 9); // exclude Kolos
+			const membersToShow = MEMBER_NAMES;
 			membersToShow.forEach((memberName, memberIdx) => {
 				const missing = sourceRows.filter((row) => {
 					const rating = String((Array.isArray(row.ratings) ? row.ratings[memberIdx] : "") || "").trim();
@@ -1902,6 +2080,10 @@
 					missing.forEach((row) => {
 						const item = document.createElement("div");
 						item.className = "tartozas-album-item";
+						const linkWrap = document.createElement("a");
+						linkWrap.className = "tartozas-album-link";
+						linkWrap.setAttribute("aria-label", `${row.band || "?"} — ${row.album || "?"}`);
+						bindAlbumLink(linkWrap, row.link);
 						const thumb = document.createElement("img");
 						thumb.className = "tartozas-album-thumb";
 						thumb.alt = "";
@@ -1909,9 +2091,15 @@
 						thumb.style.visibility = row.artUrl ? "visible" : "hidden";
 						const text = document.createElement("div");
 						text.className = "tartozas-album-text";
-						text.innerHTML = `<strong>${row.band || "?"}</strong><span>${row.album || "?"}</span>`;
-						item.appendChild(thumb);
-						item.appendChild(text);
+						const band = document.createElement("strong");
+						band.textContent = row.band || "?";
+						const album = document.createElement("span");
+						album.textContent = row.album || "?";
+						text.appendChild(band);
+						text.appendChild(album);
+						linkWrap.appendChild(thumb);
+						linkWrap.appendChild(text);
+						item.appendChild(linkWrap);
 						list.appendChild(item);
 					});
 				}
@@ -1942,6 +2130,7 @@
 						artist: String(row.band || "").trim(),
 						album: String(row.album || "").trim(),
 						artUrl: String(row.artUrl || "").trim(),
+						link: normalizeLinkUrl(row.link),
 						soros: String(row.soros || "").trim(),
 						avg,
 						divisiveness,
@@ -1969,10 +2158,22 @@
 
 				const artistCell = tr.querySelector(".band-cell");
 				const albumCell = tr.querySelector(".album-cell");
-				if (artistCell) artistCell.textContent = item.artist;
-				if (albumCell) albumCell.textContent = item.album;
 				if (artistCell) {
+					const artistLink = document.createElement("a");
+					artistLink.className = "toplist-link";
+					artistLink.textContent = item.artist || "—";
+					bindAlbumLink(artistLink, item.link);
+					artistCell.innerHTML = "";
+					artistCell.appendChild(artistLink);
 					artistCell.style.setProperty("--pick-hue", getPickerHueRgba(item.soros));
+				}
+				if (albumCell) {
+					const albumLink = document.createElement("a");
+					albumLink.className = "toplist-link";
+					albumLink.textContent = item.album || "—";
+					bindAlbumLink(albumLink, item.link);
+					albumCell.innerHTML = "";
+					albumCell.appendChild(albumLink);
 				}
 
 				topListBody.appendChild(tr);
@@ -1992,10 +2193,22 @@
 
 				const artistCell = tr.querySelector(".band-cell");
 				const albumCell = tr.querySelector(".album-cell");
-				if (artistCell) artistCell.textContent = item.artist;
-				if (albumCell) albumCell.textContent = item.album;
 				if (artistCell) {
+					const artistLink = document.createElement("a");
+					artistLink.className = "toplist-link";
+					artistLink.textContent = item.artist || "—";
+					bindAlbumLink(artistLink, item.link);
+					artistCell.innerHTML = "";
+					artistCell.appendChild(artistLink);
 					artistCell.style.setProperty("--pick-hue", getPickerHueRgba(item.soros));
+				}
+				if (albumCell) {
+					const albumLink = document.createElement("a");
+					albumLink.className = "toplist-link";
+					albumLink.textContent = item.album || "—";
+					bindAlbumLink(albumLink, item.link);
+					albumCell.innerHTML = "";
+					albumCell.appendChild(albumLink);
 				}
 
 				divisiveListBody.appendChild(tr);
@@ -2141,16 +2354,7 @@
 				<td contenteditable="true" class="band-cell art-cell" data-placeholder="Banda"></td>
 				<td contenteditable="true" class="album-cell art-cell" data-placeholder="Album"></td>
 				<td class="avg-cell">-</td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
-				<td contenteditable="true" class="member-cell" data-placeholder="-"></td>
+				${Array.from({ length: MEMBER_NAMES.length }, () => '<td contenteditable="true" class="member-cell" data-placeholder="-"></td>').join("")}
 				<td class="delete-cell"><button type="button" class="row-delete-btn" aria-label="Sor torlese">x</button></td>
 			`;
 
@@ -2159,6 +2363,7 @@
 			cells[2].innerText = rowData.band || "";
 			cells[3].innerText = rowData.album || "";
 			row.dataset.artUrl = rowData.artUrl || "";
+			row.dataset.link = rowData.link || "";
 
 			const ratings = Array.isArray(rowData.ratings) ? rowData.ratings : [];
 			const memberCells = row.querySelectorAll(".member-cell");
@@ -2181,6 +2386,7 @@
 					band: cells[2]?.innerText.trim() || "",
 					album: cells[3]?.innerText.trim() || "",
 					artUrl: row.dataset.artUrl || "",
+					link: row.dataset.link || "",
 					ratings: Array.from(row.querySelectorAll(".member-cell")).map((c) => c.innerText.trim())
 				};
 			});
@@ -2193,6 +2399,7 @@
 			safeRows.forEach((rowData) => body.appendChild(createRowElement(rowData)));
 			updateBangHighlights(body);
 			renderTopList(safeRows);
+			renderLinksView(safeRows);
 			observeRowHeightsForTracker();
 			queueSessionTrackerSync();
 		}
@@ -2209,6 +2416,30 @@
 			}
 		}
 
+		function syncRowLinkFieldFromData() {
+			if (!body) return;
+			const rows = Array.from(body.querySelectorAll("tr"));
+			rows.forEach((row) => {
+				const band = (row.querySelector(".band-cell")?.innerText || "").trim();
+				const album = (row.querySelector(".album-cell")?.innerText || "").trim();
+				const date = (row.querySelector("td")?.innerText || "").trim();
+				const currentLink = row.dataset.link || "";
+				if (currentLink) {
+					row.dataset.link = currentLink;
+				}
+				if (!row.dataset.link && band && album) {
+					const list = document.getElementById("albumLinksList");
+					if (list) {
+						const match = Array.from(list.querySelectorAll(".link-input")).find((input) => {
+							const label = input.getAttribute("aria-label") || "";
+							return label.includes(`${band} — ${album}`) || label.includes(`${band} — ${album} —`);
+						});
+						if (match) row.dataset.link = match.value.trim();
+					}
+				}
+			});
+		}
+
 		function scheduleSave() {
 			if (saveTimer) clearTimeout(saveTimer);
 			saveTimer = setTimeout(saveRowsToFirebase, 450);
@@ -2216,6 +2447,23 @@
 
 		function setupAutosave() {
 			if (!body) return;
+
+			document.addEventListener("input", function(event) {
+				const target = event.target;
+				if (!(target instanceof HTMLElement) || !target.classList.contains("link-input")) return;
+				const rows = Array.from(body.querySelectorAll("tr"));
+				const row = rows.find((item) => {
+					const cells = item.querySelectorAll("td");
+					const rowBand = (cells[2]?.innerText || "").trim();
+					const rowAlbum = (cells[3]?.innerText || "").trim();
+					const label = `${rowBand || "unknown"} — ${rowAlbum || "unknown"}`;
+					return target.getAttribute("aria-label")?.includes(label);
+				});
+				if (row) {
+					row.dataset.link = target.value.trim();
+				}
+				scheduleSave();
+			});
 
 			body.addEventListener("input", function(event) {
 				const target = event.target;
@@ -2293,6 +2541,21 @@
 			queueSessionTrackerSync();
 		});
 
+		function syncLinksFromRows() {
+			const rows = Array.from((body || document).querySelectorAll("tr"));
+			const inputs = Array.from(document.querySelectorAll(".link-input"));
+			inputs.forEach((input) => {
+				const label = input.getAttribute("aria-label") || "";
+				const row = rows.find((item) => {
+					const cells = item.querySelectorAll("td");
+					const rowBand = (cells[2]?.innerText || "").trim();
+					const rowAlbum = (cells[3]?.innerText || "").trim();
+					return label.includes(`${rowBand || "unknown"} — ${rowAlbum || "unknown"}`);
+				});
+				if (row) input.value = (row.dataset.link || "").trim();
+			});
+		}
+
 		window.addEventListener("scroll", updatePageHeaderVisibility, { passive: true });
 
 		async function loadRowsFromFirebase() {
@@ -2320,6 +2583,7 @@
 		bindPageHeaderHoverReveal();
 		updatePageHeaderVisibility();
 		loadRowsFromFirebase().then(() => {
+			syncLinksFromRows();
 			subscribeSessionBlocksRealtime();
 		});
 	</script>
