@@ -896,6 +896,8 @@
 
 			.nav-actions {
 				gap: 6px;
+				flex-wrap: wrap;
+				justify-content: flex-end;
 			}
 
 			.nav-actions .view-btn {
@@ -904,6 +906,7 @@
 				letter-spacing: 0.03em;
 				border-radius: 6px;
 				white-space: nowrap;
+				min-height: 36px;
 			}
 
 			.brand-main {
@@ -927,8 +930,21 @@
 			}
 
 			.sheet-btn {
-				left: 14px;
-				bottom: 14px;
+				display: none;
+			}
+
+			.link-view {
+				width: 100%;
+			}
+
+			.link-item {
+				grid-template-columns: 1fr;
+				padding: 10px;
+			}
+
+			.link-input {
+				height: 42px;
+				font-size: 0.94rem;
 			}
 
 			.toplist-panel {
@@ -938,6 +954,306 @@
 
 			.toplist-workspace {
 				flex-direction: column;
+			}
+
+			.toplist-table td,
+			.toplist-table th {
+				font-size: 0.72rem;
+			}
+
+			.toplist-table td {
+				min-height: 42px;
+				height: auto;
+				padding: 8px 6px;
+				vertical-align: middle;
+			}
+
+			.toplist-link,
+			.tartozas-album-link {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				max-width: 100%;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.tartozas-album-item {
+				width: 100%;
+			}
+
+			.tartozas-album-link {
+				display: flex;
+				align-items: center;
+				width: 100%;
+				gap: 8px;
+				padding: 4px 0;
+			}
+
+			.tartozas-album-text {
+				min-width: 0;
+				overflow: hidden;
+			}
+
+			.tartozas-album-text strong,
+			.tartozas-album-text span {
+				display: block;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.tartozas-album-thumb {
+				width: 38px;
+				height: 38px;
+			}
+
+			#ratingView .sheet-layout {
+				display: block;
+			}
+
+			#ratingView .session-tracker {
+				display: none;
+			}
+
+			#ratingView .sheet-table-wrap {
+				overflow: visible;
+				border-radius: 10px;
+			}
+
+			#ratingView .sheet-table {
+				display: block;
+				width: max-content;
+				min-width: 100%;
+				border-spacing: 0;
+				table-layout: auto;
+			}
+
+			#ratingView .sheet-table thead {
+				display: none;
+			}
+
+			#ratingView .sheet-table tbody {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+
+			#ratingView .sheet-table tbody tr {
+				display: flex;
+				align-items: stretch;
+				min-width: 100%;
+				background: #1a1a1a;
+				border: 1px solid #303030;
+				border-radius: 12px;
+				overflow: hidden;
+			}
+
+			#ratingView .sheet-table tbody tr td {
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: stretch;
+				min-height: 84px;
+				height: auto;
+				padding: 8px 6px;
+				border: none;
+				border-right: 1px solid #2d2d2d;
+				background: transparent;
+				font-size: 0.76rem;
+				line-height: 1.25;
+				color: #ededed;
+			}
+
+			#ratingView .sheet-table tbody tr td[contenteditable="true"] {
+				pointer-events: none;
+				user-select: none;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(1) {
+				width: 92px;
+				min-width: 92px;
+				padding-top: 10px;
+				padding-bottom: 10px;
+				text-align: center;
+				border-right: 1px solid #2d2d2d;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(1).mobile-date-merged {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(1).mobile-date-merged::after {
+				content: attr(data-mobile-member);
+				display: block;
+				width: 100%;
+				font-size: 0.68rem;
+				font-weight: 800;
+				color: #d8d8d8;
+				white-space: normal;
+				word-break: break-word;
+				line-height: 1.2;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(2) {
+				width: 76px;
+				min-width: 76px;
+				padding-top: 10px;
+				padding-bottom: 10px;
+				text-align: center;
+				border-right: 1px solid #2d2d2d;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(3) {
+				width: 140px;
+				min-width: 140px;
+				padding: 10px 8px;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(4) {
+				display: none;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(5) {
+				width: 54px;
+				min-width: 54px;
+				padding: 10px 8px;
+				background: #262626 !important;
+				color: var(--accent);
+				font-weight: 900;
+				text-align: center;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(n + 6):not(.delete-cell) {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: space-between;
+				width: 36px;
+				min-width: 36px;
+				padding: 8px 2px 18px;
+				text-align: center;
+				font-size: 0.92rem;
+				font-weight: 800;
+				background: rgba(255,255,255,0.02);
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(n + 6):not(.delete-cell)::before {
+				content: attr(data-label);
+				writing-mode: vertical-rl;
+				transform: rotate(180deg);
+				font-size: 0.7rem;
+				line-height: 1.1;
+				letter-spacing: 0.03em;
+				text-transform: uppercase;
+				color: #c8c8c8;
+				white-space: nowrap;
+				background: rgba(0, 0, 0, 0.35);
+				padding: 5px 3px;
+				border-radius: 5px;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(6)::before { color: #FFEB3B !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(7)::before { color: #1E88E5 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(8)::before { color: #BBBBBB !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(9)::before { color: #14B8A6 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(10)::before { color: #4CAF50 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(11)::before { color: #AB47BC !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(12)::before { color: #8D6E63 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(13)::before { color: #FF9800 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(14)::before { color: #E8E8E8 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(15)::before { color: #A63B5A !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(16)::before { color: #7AE2B3 !important; }
+			#ratingView .sheet-table tbody tr td:nth-child(17)::before { color: #8B1E3F !important; }
+
+			#ratingView .sheet-table tbody tr td.band-cell,
+			#ratingView .sheet-table tbody tr td.album-cell {
+				position: relative;
+				overflow: hidden;
+				font-weight: 700;
+				text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+			}
+
+			#ratingView .sheet-table tbody tr td.band-cell {
+				justify-content: flex-end;
+				padding: 8px 8px 10px;
+				color: #fff;
+				border-radius: 8px;
+				background-size: cover;
+				background-position: center;
+				background-repeat: no-repeat;
+				box-shadow: inset 0 0 0 9999px rgba(10, 10, 10, 0.34);
+			}
+
+			#ratingView .sheet-table tbody tr td.band-cell.mobile-cover-merged {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				justify-content: flex-end;
+				gap: 4px;
+				aspect-ratio: 1 / 1;
+				width: 140px;
+				min-width: 140px;
+				padding: 10px 8px;
+				background-image: var(--art-overlay, linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.65))), var(--art-image, none);
+				background-size: cover, cover;
+				background-position: center, center;
+				background-repeat: no-repeat, no-repeat;
+				font-size: 0.72rem;
+				font-weight: 800;
+				line-height: 1.2;
+				white-space: normal;
+				word-break: break-word;
+			}
+
+			#ratingView .sheet-table tbody tr td.band-cell.mobile-cover-merged::after {
+				content: attr(data-mobile-album);
+				display: block;
+				width: 100%;
+				max-width: 100%;
+				white-space: normal;
+				word-break: break-word;
+				line-height: 1.2;
+				font-size: 0.64rem;
+				font-weight: 700;
+				opacity: 0.98;
+			}
+
+			#ratingView .sheet-table tbody tr td.album-cell {
+				display: none;
+			}
+
+			#ratingView .sheet-table tbody tr td.delete-cell {
+				display: none;
+			}
+
+			#ratingView .sheet-table tbody tr td.avg-cell {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: 900;
+				color: var(--accent);
+				background: #262626 !important;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(1) .soros-select,
+			#ratingView .sheet-table tbody tr td:nth-child(2) .soros-select {
+				height: 28px;
+				font-size: 0.62rem;
+				padding: 2px 5px;
+			}
+
+			#ratingView .sheet-table tbody tr td:nth-child(1),
+			#ratingView .sheet-table tbody tr td:nth-child(2),
+			#ratingView .sheet-table tbody tr td:nth-child(3),
+			#ratingView .sheet-table tbody tr td:nth-child(4),
+			#ratingView .sheet-table tbody tr td:nth-child(5) {
+				box-sizing: border-box;
 			}
 
 			body.top-mobile-view #topView {
@@ -989,7 +1305,7 @@
 
 			body.top-mobile-view #topView .toplist-table td {
 				min-height: 36px;
-				height: 36px;
+				height: auto;
 				padding: 6px 5px;
 				font-size: 0.72rem;
 			}
@@ -2291,6 +2607,46 @@
 			scope.querySelectorAll("td").forEach((cell) => updateBangHighlightForCell(cell));
 		}
 
+		function syncMobileCoverText(row) {
+			if (!row) return;
+			const bandCell = row.querySelector(".band-cell");
+			const albumCell = row.querySelector(".album-cell");
+			if (!bandCell || !albumCell) return;
+			const isMobile = window.matchMedia("(max-width: 640px)").matches;
+
+			if (!isMobile) {
+				bandCell.classList.remove("mobile-cover-merged");
+				delete bandCell.dataset.mobileAlbum;
+				albumCell.style.display = "";
+				return;
+			}
+
+			const album = (albumCell.innerText || "").trim();
+			bandCell.classList.add("mobile-cover-merged");
+			albumCell.style.display = "none";
+			bandCell.dataset.mobileAlbum = album || "Ismeretlen album";
+		}
+
+		function syncMobileDateName(row) {
+			if (!row) return;
+			const dateCell = row.querySelector("td:first-child");
+			const nameCell = dateCell ? dateCell.nextElementSibling : null;
+			if (!dateCell || !nameCell) return;
+			const isMobile = window.matchMedia("(max-width: 640px)").matches;
+
+			if (!isMobile) {
+				dateCell.classList.remove("mobile-date-merged");
+				delete dateCell.dataset.mobileMember;
+				nameCell.style.display = "";
+				return;
+			}
+
+			const select = nameCell.querySelector(".soros-select");
+			dateCell.classList.add("mobile-date-merged");
+			nameCell.style.display = "none";
+			dateCell.dataset.mobileMember = select ? select.value : "";
+		}
+
 		function wireRow(row) {
 			if (!row) return;
 			disableNativeSpellcheck(row);
@@ -2300,6 +2656,7 @@
 				select.addEventListener("change", function() {
 					applySorosRowTint(row);
 					if (row.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+					syncMobileDateName(row);
 					scheduleSave();
 				});
 			}
@@ -2343,6 +2700,8 @@
 			if (row.dataset.artUrl) {
 				applyRowArtwork(row, row.dataset.artUrl);
 			}
+			syncMobileCoverText(row);
+			syncMobileDateName(row);
 			renderTopList();
 		}
 
@@ -2360,8 +2719,12 @@
 
 			const cells = row.querySelectorAll("td");
 			cells[0].innerText = rowData.date || "";
+			cells[0].dataset.label = "Dátum";
+			cells[1].dataset.label = "Ajánló";
 			cells[2].innerText = rowData.band || "";
+			cells[2].dataset.label = "Előadó";
 			cells[3].innerText = rowData.album || "";
+			cells[3].dataset.label = "Album";
 			row.dataset.artUrl = rowData.artUrl || "";
 			row.dataset.link = rowData.link || "";
 
@@ -2369,6 +2732,7 @@
 			const memberCells = row.querySelectorAll(".member-cell");
 			memberCells.forEach((cell, idx) => {
 				cell.innerText = ratings[idx] || "";
+				cell.dataset.label = MEMBER_NAMES[idx] || `#${idx + 1}`;
 			});
 
 			wireRow(row);
@@ -2397,6 +2761,10 @@
 			body.innerHTML = "";
 			const safeRows = Array.isArray(rows) && rows.length ? rows : [getEmptyRowData()];
 			safeRows.forEach((rowData) => body.appendChild(createRowElement(rowData)));
+			Array.from(body.querySelectorAll("tr")).forEach((row) => {
+				syncMobileCoverText(row);
+				syncMobileDateName(row);
+			});
 			updateBangHighlights(body);
 			renderTopList(safeRows);
 			renderLinksView(safeRows);
@@ -2489,6 +2857,7 @@
 					const row = target.closest("tr");
 					applySorosRowTint(row);
 					if (row?.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+					syncMobileDateName(row);
 				}
 				scheduleSave();
 			});
@@ -2537,6 +2906,8 @@
 			updateStickyHeaderOffset();
 			Array.from(body.querySelectorAll("tr")).forEach((row) => {
 				if (row.dataset.artUrl) applyRowArtwork(row, row.dataset.artUrl);
+				syncMobileCoverText(row);
+				syncMobileDateName(row);
 			});
 			queueSessionTrackerSync();
 		});
